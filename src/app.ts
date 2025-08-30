@@ -15,6 +15,7 @@ import chatRouter from './routes/chat';
 import http from 'http';
 import { ChatSocketServer } from './socket/chatSocket';
 import userRoutes from './routes/user';
+import { verificationRouter } from './routes/verification';
 
 dotenv.config();
 
@@ -65,6 +66,7 @@ app.use('/api/transactions', authMiddleware, transactionRouter);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/chat', chatRouter);
 app.use('/api/users', userRoutes);
+app.use('/api/verification', verificationRouter);
 
 // Health check
 app.get('/health', (req, res) => {
