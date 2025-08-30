@@ -7,7 +7,6 @@ interface ChatConversationAttributes {
   user1Id: number;
   user2Id: number;
   lastMessageAt?: Date;
-  lastMessageId?: number;
   status: string;
   isArchived: boolean;
   createdAt?: Date;
@@ -15,7 +14,7 @@ interface ChatConversationAttributes {
 }
 
 interface ChatConversationCreationAttributes extends Optional<ChatConversationAttributes, 
-  'id' | 'status' | 'isArchived' | 'lastMessageId'> {}
+  'id' | 'status' | 'isArchived'> {}
 
 class ChatConversation extends Model<ChatConversationAttributes, ChatConversationCreationAttributes> 
   implements ChatConversationAttributes {
@@ -75,14 +74,7 @@ ChatConversation.init({
     type: DataTypes.STRING,
     defaultValue: 'active',
   },
-   lastMessageId: {  // AJOUTÉ
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    references: {
-      model: 'chat_messages',
-      key: 'id',
-    },
-  },
+   
   isArchived: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

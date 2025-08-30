@@ -230,10 +230,8 @@ export class ChatSocketServer {
         senderId: socket.userId,
         content: content?.trim() || '',
         messageType,
-        attachmentUrl,
-        attachmentType,
-        replyToId,
-        status: ChatMessageStatus.SENT
+        attachmentUrl
+        
       });
 
       // Charger le message complet avec les relations
@@ -273,7 +271,7 @@ export class ChatSocketServer {
 
       // Marquer comme livré
       setTimeout(async () => {
-        await message.update({ status: ChatMessageStatus.DELIVERED });
+        //await message.update({ status: ChatMessageStatus.DELIVERED });
         this.io.to(`conversation_${conversationId}`).emit('message_delivered', {
           messageId: message.id,
           conversationId

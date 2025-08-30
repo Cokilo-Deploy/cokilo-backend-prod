@@ -9,19 +9,14 @@ interface ChatMessageAttributes {
   content: string;
   messageType: string;
   attachmentUrl?: string;
-  attachmentType?: string;  // AJOUTÉ
-  attachmentSize?: number;  // AJOUTÉ
-  status?: string;          // AJOUTÉ
   isRead: boolean;
   readAt?: Date;
-  editedAt?: Date;          // AJOUTÉ
-  replyToId?: number;       // AJOUTÉ
   createdAt?: Date;
   updatedAt?: Date;
 }
 
 interface ChatMessageCreationAttributes extends Optional<ChatMessageAttributes, 
-  'id' | 'messageType' | 'isRead' | 'attachmentType' | 'attachmentSize' | 'status' | 'editedAt' | 'replyToId'> {}
+  'id' | 'messageType' | 'isRead' > {}
 
 
 class ChatMessage extends Model<ChatMessageAttributes, ChatMessageCreationAttributes> 
@@ -81,19 +76,7 @@ ChatMessage.init({
     type: DataTypes.STRING,
     allowNull: true,
   },
-  attachmentType: {  // AJOUTÉ
-    type: DataTypes.STRING,
-    allowNull: true,
-  },
-  attachmentSize: {  // AJOUTÉ
-    type: DataTypes.INTEGER,
-    allowNull: true,
-  },
-  status: {          // AJOUTÉ
-    type: DataTypes.STRING,
-    allowNull: true,
-    defaultValue: 'sent',
-  },
+  
   isRead: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,
@@ -102,18 +85,7 @@ ChatMessage.init({
     type: DataTypes.DATE,
     allowNull: true,
   },
-  editedAt: {        // AJOUTÉ
-    type: DataTypes.DATE,
-    allowNull: true,
-  },
-  replyToId: {       // AJOUTÉ
-    type: DataTypes.INTEGER,
-    allowNull: true,
-    references: {
-      model: 'chat_messages',
-      key: 'id',
-    },
-  },
+  
 }, {
   sequelize,
   modelName: 'ChatMessage',
