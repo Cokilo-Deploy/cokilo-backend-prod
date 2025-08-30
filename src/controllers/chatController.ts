@@ -93,7 +93,7 @@ export class ChatController {
               lastName: otherUser.lastName,
               avatar: otherUser.avatar,
               verificationStatus: otherUser.verificationStatus,
-              isOnline: null,
+              isOnline: false,
               lastSeen: null,
             },
             lastMessage: conv.lastMessage ? {

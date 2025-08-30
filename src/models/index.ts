@@ -5,7 +5,7 @@ import { Transaction } from './Transaction';
 import { ChatConversation } from './ChatConversation';
 import { ChatMessage } from './ChatMessage';
 import { Review } from './Review';
-import { UserPresence } from './UserPresence';
+
 
 // ======= RELATIONS EXISTANTES =======
 
@@ -126,15 +126,7 @@ Review.belongsTo(User, {
   foreignKey: 'revieweeId',
   as: 'reviewee'
 });
-// User -> UserPresence
-User.hasMany(UserPresence, { 
-  foreignKey: 'userId', 
-  as: 'presences' 
-});
-UserPresence.belongsTo(User, { 
-  foreignKey: 'userId', 
-  as: 'user' 
-});
+
 
 
 // ======= SYNCHRONISATION DES MODÈLES =======
@@ -143,31 +135,9 @@ export const syncModels = async () => {
   try {
     console.log('Modèles chat importés:', ChatConversation.name, ChatMessage.name);
     
-    if (process.env.NODE_ENV === 'development') {
-      // Synchroniser les modèles existants
-      await User.sync({ alter: true });
-      await Trip.sync({ alter: true });
-      await Transaction.sync({ alter: true });
-      
-      // Synchroniser les nouveaux modèles chat
-      await ChatConversation.sync({ alter: true });
-      await ChatMessage.sync({ alter: true });
-      await UserPresence.sync({ alter: true }); // AJOUTEZ CETTE LIGNE
-
-      //Synchroniser les modeles Review
-      await Review.sync({ alter: true });
-      
-      console.log('✅ Modèles synchronisés (incluant le chat)');
-    } else {
-      // En production
-      await User.sync();
-      await Trip.sync();
-      await Transaction.sync();
-      await ChatConversation.sync();
-      await ChatMessage.sync();
-      
-      console.log('✅ Modèles synchronisés (production, incluant le chat)');
-    }
+    // Désactiver complètement la synchronisation - les tables existent déjà
+    console.log('✅ Mode production - utilisation des tables existantes sans synchronisation');
+    
   } catch (error) {
     console.error('❌ Erreur synchronisation modèles:', error);
     throw error;
@@ -182,5 +152,4 @@ export {
   Transaction,
   ChatConversation,
   ChatMessage,
-  UserPresence
-};
+ };
