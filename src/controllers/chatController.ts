@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
-import { ChatConversation, ChatMessage, UserPresence } from '../models';
+import { ChatConversation, ChatMessage} from '../models';
 import { User } from '../models/User';
 import { Transaction } from '../models/Transaction';
 
@@ -82,9 +82,7 @@ export class ChatController {
             }
           });
 
-          const presence = await UserPresence.findOne({
-            where: { userId: otherUser.id, isOnline: true }
-          });
+          
 
           return {
             id: conv.id,
@@ -95,8 +93,8 @@ export class ChatController {
               lastName: otherUser.lastName,
               avatar: otherUser.avatar,
               verificationStatus: otherUser.verificationStatus,
-              isOnline: !!presence,
-              lastSeen: presence?.lastSeen
+              isOnline: null,
+              lastSeen: null,
             },
             lastMessage: conv.lastMessage ? {
               id: conv.lastMessage.id,
@@ -313,24 +311,6 @@ export class ChatController {
   }
 
   // GET /api/chat/online-users
-  async getOnlineUsers(req: Request, res: Response) {
-    try {
-      const onlineUsers = await UserPresence.findAll({
-        where: { isOnline: true },
-        include: [{
-          model: User,
-          as: 'user',
-          attributes: ['id', 'firstName', 'lastName', 'avatar', 'verificationStatus']
-        }],
-        attributes: ['userId', 'lastSeen']
-      });
-
-      res.json({ onlineUsers });
-    } catch (error) {
-      console.error('❌ Erreur récupération utilisateurs en ligne:', error);
-      res.status(500).json({ error: 'Erreur serveur' });
-    }
-  }
 
   // PATCH /api/chat/conversations/:id/archive
   async archiveConversation(req: Request, res: Response) {
