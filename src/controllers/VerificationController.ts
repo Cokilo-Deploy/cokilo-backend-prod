@@ -368,39 +368,64 @@ export class VerificationController {
 
   // Webhook Stripe
   static async stripeWebhook(req: Request, res: Response) {
-    try {
-      const sig = req.headers['stripe-signature'];
-      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  try {
+    const sig = req.headers['stripe-signature'];
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-      if (!sig || !webhookSecret) {
-        return res.status(400).send('Webhook signature missing');
-      }
-
-      const event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-
-      console.log('🔔 Webhook Stripe reçu:', event.type);
-
-      if (event.type === 'identity.verification_session.verified') {
-        const session = event.data.object as any;
-        const userId = session.metadata?.userId;
-
-        if (userId) {
-          const user = await User.findByPk(userId);
-          if (user) {
-            await user.update({
-              verificationStatus: UserVerificationStatus.VERIFIED,
-              identityVerifiedAt: new Date(),
-            });
-            console.log('✅ Utilisateur', userId, 'marqué comme vérifié');
-          }
-        }
-      }
-
-      res.json({ received: true });
-
-    } catch (error: any) {
-      console.error('❌ Erreur webhook:', error);
-      res.status(400).send(`Webhook Error: ${error.message}`);
+    if (!sig || !webhookSecret) {
+      return res.status(400).send('Webhook signature missing');
     }
+
+    const event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+
+    console.log('🔔 Webhook Stripe reçu:', event.type);
+
+    // Gérer tous les événements de vérification
+    if (event.type.startsWith('identity.verification_session.')) {
+      const session = event.data.object as any;
+      const userId = session.metadata?.userId;
+
+      console.log('👤 UserId du webhook:', userId);
+      console.log('📊 Statut session:', session.status);
+
+      if (userId) {
+        const user = await User.findByPk(userId);
+        if (user) {
+          let newStatus = UserVerificationStatus.UNVERIFIED;
+          
+          switch (session.status) {
+            case 'verified':
+              newStatus = UserVerificationStatus.VERIFIED;
+              break;
+            case 'requires_input':
+              newStatus = UserVerificationStatus.VERIFICATION_FAILED;
+              break;
+            case 'processing':
+              newStatus = UserVerificationStatus.PENDING_VERIFICATION;
+              break;
+          }
+          
+          await user.update({
+            verificationStatus: newStatus,
+            ...(newStatus === UserVerificationStatus.VERIFIED && { 
+              identityVerifiedAt: new Date() 
+            }),
+          });
+          
+          console.log('✅ Utilisateur', userId, 'statut mis à jour vers:', newStatus);
+        } else {
+          console.log('❌ Utilisateur non trouvé:', userId);
+        }
+      } else {
+        console.log('❌ Pas de userId dans les metadata');
+      }
+    }
+
+    res.json({ received: true });
+
+  } catch (error: any) {
+    console.error('❌ Erreur webhook:', error);
+    res.status(400).send(`Webhook Error: ${error.message}`);
   }
+}
 }
