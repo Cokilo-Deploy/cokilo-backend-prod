@@ -16,7 +16,7 @@ export const db = new Pool({
   connectionTimeoutMillis: 60000, // Augmenté à 60s
 });
 
-// Sequelize simplifié
+
 const sequelize = new Sequelize({
   dialect: 'postgres',
   host: process.env.DB_HOST || 'localhost',
@@ -25,6 +25,12 @@ const sequelize = new Sequelize({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME || 'baggage_sharing',
   logging: false,
+  dialectOptions: {
+    ssl: {
+      require: true,
+      rejectUnauthorized: false
+    }
+  },
   pool: {
     max: 3,
     min: 0,
