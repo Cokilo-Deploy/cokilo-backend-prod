@@ -16,19 +16,50 @@ export class VerificationController {
       
       console.log('🔄 Démarrage vérification pour utilisateur:', user.id);
 
+      // Détection du pays de l'utilisateur
+      let userCountry = 'FR'; // Valeur par défaut (France)
+      
+      // Méthode 1: Si vous avez un champ country dans votre table users
+      if (user.country) {
+        userCountry = user.country.toUpperCase();
+      }
+      // Méthode 2: Détecter depuis les headers Cloudflare
+      else if (req.headers['cf-ipcountry']) {
+        userCountry = (req.headers['cf-ipcountry'] as string).toUpperCase();
+      }
+      // Méthode 3: Depuis les headers de géolocalisation personnalisés
+      else if (req.headers['x-country']) {
+        userCountry = (req.headers['x-country'] as string).toUpperCase();
+      }
+      
+      console.log('🌍 Pays détecté pour l\'utilisateur:', userCountry);
+
+      // Configuration de base pour tous les pays
+      const sessionOptions: any = {
+        document: {
+          require_live_capture: true,
+          require_matching_selfie: true,
+        }
+      };
+
+      // Ajout de la vérification SSN UNIQUEMENT pour les États-Unis
+      if (userCountry === 'US') {
+        sessionOptions.document.require_id_number = true;
+        console.log('🇺🇸 Utilisateur US - Vérification SSN activée');
+      } else {
+        console.log('🌍 Utilisateur non-US - Vérification SSN désactivée');
+        // Pour les non-américains, ne pas exiger le numéro d'identification
+        sessionOptions.document.require_id_number = false;
+      }
+
       // Créer une session de vérification Stripe Identity
       const verificationSession = await stripe.identity.verificationSessions.create({
         type: 'document',
         metadata: {
           userId: user.id.toString(),
+          country: userCountry,
         },
-        options: {
-          document: {
-            require_id_number: true,
-            require_live_capture: true,
-            require_matching_selfie: true,
-          },
-        },
+        options: sessionOptions,
         return_url: `http://192.168.1.106:3000/verification/complete?user_id=${user.id}`,
       });
 
@@ -37,7 +68,7 @@ export class VerificationController {
       // Sauvegarder l'ID de session sur l'utilisateur
       await user.update({
         stripeIdentitySessionId: verificationSession.id,
-        verificationStatus: UserVerificationStatus.PENDING_VERIFICATION, // ← Corrigé
+        verificationStatus: UserVerificationStatus.PENDING_VERIFICATION,
       });
 
       res.json({
@@ -49,6 +80,7 @@ export class VerificationController {
           url: verificationSession.url,
         },
         message: 'Session de vérification créée',
+        country: userCountry, // Retourner le pays détecté pour debug
       });
 
     } catch (error: any) {
@@ -61,215 +93,211 @@ export class VerificationController {
     }
   }
 
-  // ... vos méthodes existantes ...
+  // Page de completion de vérification
+  static async completeVerification(req: Request, res: Response) {
+    try {
+      const { user_id } = req.query;
+      
+      console.log('🎉 Retour de vérification pour utilisateur:', user_id);
 
-// Page de completion de vérification
-static async completeVerification(req: Request, res: Response) {
-  try {
-    const { user_id } = req.query;
-    
-    console.log('🎉 Retour de vérification pour utilisateur:', user_id);
+      if (!user_id) {
+        return res.status(400).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Erreur - CoKilo</title>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+              .error { color: #FF3B30; }
+            </style>
+          </head>
+          <body>
+            <h1 class="error">❌ Erreur</h1>
+            <p>ID utilisateur manquant</p>
+          </body>
+          </html>
+        `);
+      }
 
-    if (!user_id) {
-      return res.status(400).send(`
+      // Trouver l'utilisateur et vérifier son statut
+      const user = await User.findByPk(user_id as string);
+      
+      if (!user || !user.stripeIdentitySessionId) {
+        return res.status(404).send(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Erreur - CoKilo</title>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+              .error { color: #FF3B30; }
+            </style>
+          </head>
+          <body>
+            <h1 class="error">❌ Utilisateur non trouvé</h1>
+            <p>Session de vérification introuvable</p>
+          </body>
+          </html>
+        `);
+      }
+
+      // Récupérer le statut depuis Stripe
+      const verificationSession = await stripe.identity.verificationSessions.retrieve(
+        user.stripeIdentitySessionId
+      );
+
+      console.log('📊 Statut final Stripe:', verificationSession.status);
+
+      // Mettre à jour le statut selon Stripe
+      let newStatus = UserVerificationStatus.UNVERIFIED;
+      let statusMessage = 'Vérification en cours...';
+      let statusColor = '#FF9500';
+
+      switch (verificationSession.status) {
+        case 'verified':
+          newStatus = UserVerificationStatus.VERIFIED;
+          statusMessage = '✅ Identité vérifiée avec succès !';
+          statusColor = '#34C759';
+          break;
+        case 'requires_input':
+          newStatus = UserVerificationStatus.VERIFICATION_FAILED;
+          statusMessage = '❌ Vérification échouée - Action requise';
+          statusColor = '#FF3B30';
+          break;
+        case 'processing':
+          newStatus = UserVerificationStatus.PENDING_VERIFICATION;
+          statusMessage = '⏳ Vérification en cours de traitement...';
+          statusColor = '#FF9500';
+          break;
+        default:
+          statusMessage = '❓ Statut de vérification inconnu';
+          statusColor = '#8E8E93';
+      }
+
+      // Sauvegarder le nouveau statut
+      await user.update({
+        verificationStatus: newStatus,
+        ...(newStatus === UserVerificationStatus.VERIFIED && { 
+          identityVerifiedAt: new Date() 
+        }),
+      });
+
+      // Page de succès/échec
+      res.send(`
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Erreur - CoKilo</title>
+          <title>Vérification d'identité - CoKilo</title>
           <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
           <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-            .error { color: #FF3B30; }
-          </style>
-        </head>
-        <body>
-          <h1 class="error">❌ Erreur</h1>
-          <p>ID utilisateur manquant</p>
-        </body>
-        </html>
-      `);
-    }
-
-    // Trouver l'utilisateur et vérifier son statut
-    const user = await User.findByPk(user_id as string);
-    
-    if (!user || !user.stripeIdentitySessionId) {
-      return res.status(404).send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Erreur - CoKilo</title>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-            .error { color: #FF3B30; }
-          </style>
-        </head>
-        <body>
-          <h1 class="error">❌ Utilisateur non trouvé</h1>
-          <p>Session de vérification introuvable</p>
-        </body>
-        </html>
-      `);
-    }
-
-    // Récupérer le statut depuis Stripe
-    const verificationSession = await stripe.identity.verificationSessions.retrieve(
-      user.stripeIdentitySessionId
-    );
-
-    console.log('📊 Statut final Stripe:', verificationSession.status);
-
-    // Mettre à jour le statut selon Stripe
-    let newStatus = UserVerificationStatus.UNVERIFIED;
-    let statusMessage = 'Vérification en cours...';
-    let statusColor = '#FF9500';
-
-    switch (verificationSession.status) {
-      case 'verified':
-        newStatus = UserVerificationStatus.VERIFIED;
-        statusMessage = '✅ Identité vérifiée avec succès !';
-        statusColor = '#34C759';
-        break;
-      case 'requires_input':
-        newStatus = UserVerificationStatus.VERIFICATION_FAILED;
-        statusMessage = '❌ Vérification échouée - Action requise';
-        statusColor = '#FF3B30';
-        break;
-      case 'processing':
-        newStatus = UserVerificationStatus.PENDING_VERIFICATION;
-        statusMessage = '⏳ Vérification en cours de traitement...';
-        statusColor = '#FF9500';
-        break;
-      default:
-        statusMessage = '❓ Statut de vérification inconnu';
-        statusColor = '#8E8E93';
-    }
-
-    // Sauvegarder le nouveau statut
-    await user.update({
-      verificationStatus: newStatus,
-      ...(newStatus === UserVerificationStatus.VERIFIED && { 
-        identityVerifiedAt: new Date() 
-      }),
-    });
-
-    // Page de succès/échec
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Vérification d'identité - CoKilo</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            text-align: center;
-            padding: 50px 20px;
-            background: #f8f9fa;
-            margin: 0;
-          }
-          .container {
-            max-width: 500px;
-            margin: 0 auto;
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-          }
-          .logo {
-            font-size: 32px;
-            font-weight: bold;
-            color: #007AFF;
-            margin-bottom: 30px;
-          }
-          .status {
-            font-size: 24px;
-            font-weight: 600;
-            color: ${statusColor};
-            margin-bottom: 20px;
-          }
-          .message {
-            font-size: 16px;
-            color: #666;
-            line-height: 1.5;
-            margin-bottom: 30px;
-          }
-          .button {
-            display: inline-block;
-            background: #007AFF;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            margin: 10px;
-          }
-          .button:hover {
-            background: #0056CC;
-          }
-          .secondary {
-            background: #f0f0f0;
-            color: #333;
-          }
-          .secondary:hover {
-            background: #e0e0e0;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="logo">CoKilo</div>
-          <div class="status">${statusMessage}</div>
-          <div class="message">
-            ${newStatus === UserVerificationStatus.VERIFIED 
-              ? 'Vous pouvez maintenant créer des voyages et réserver des livraisons en toute sécurité.' 
-              : newStatus === UserVerificationStatus.VERIFICATION_FAILED
-              ? 'La vérification a échoué. Vous pouvez réessayer depuis l\'application.' 
-              : 'La vérification est en cours. Vous recevrez une notification une fois terminée.'
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              text-align: center;
+              padding: 50px 20px;
+              background: #f8f9fa;
+              margin: 0;
             }
+            .container {
+              max-width: 500px;
+              margin: 0 auto;
+              background: white;
+              padding: 40px;
+              border-radius: 12px;
+              box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            }
+            .logo {
+              font-size: 32px;
+              font-weight: bold;
+              color: #007AFF;
+              margin-bottom: 30px;
+            }
+            .status {
+              font-size: 24px;
+              font-weight: 600;
+              color: ${statusColor};
+              margin-bottom: 20px;
+            }
+            .message {
+              font-size: 16px;
+              color: #666;
+              line-height: 1.5;
+              margin-bottom: 30px;
+            }
+            .button {
+              display: inline-block;
+              background: #007AFF;
+              color: white;
+              padding: 12px 24px;
+              border-radius: 8px;
+              text-decoration: none;
+              font-weight: 600;
+              margin: 10px;
+            }
+            .button:hover {
+              background: #0056CC;
+            }
+            .secondary {
+              background: #f0f0f0;
+              color: #333;
+            }
+            .secondary:hover {
+              background: #e0e0e0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="logo">CoKilo</div>
+            <div class="status">${statusMessage}</div>
+            <div class="message">
+              ${newStatus === UserVerificationStatus.VERIFIED 
+                ? 'Vous pouvez maintenant créer des voyages et réserver des livraisons en toute sécurité.' 
+                : newStatus === UserVerificationStatus.VERIFICATION_FAILED
+                ? 'La vérification a échoué. Vous pouvez réessayer depuis l\'application.' 
+                : 'La vérification est en cours. Vous recevrez une notification une fois terminée.'
+              }
+            </div>
+            
+            <p style="color: #999; font-size: 14px; margin-top: 40px;">
+              Vous pouvez fermer cette page et retourner dans l'application CoKilo.
+            </p>
           </div>
           
-          <p style="color: #999; font-size: 14px; margin-top: 40px;">
-            Vous pouvez fermer cette page et retourner dans l'application CoKilo.
-          </p>
-        </div>
-        
-        <script>
-          // Essayer de fermer la page automatiquement après 3 secondes
-          setTimeout(() => {
-            window.close();
-          }, 3000);
-        </script>
-      </body>
-      </html>
-    `);
+          <script>
+            // Essayer de fermer la page automatiquement après 3 secondes
+            setTimeout(() => {
+              window.close();
+            }, 3000);
+          </script>
+        </body>
+        </html>
+      `);
 
-  } catch (error: any) {
-    console.error('❌ Erreur completion vérification:', error);
-    res.status(500).send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Erreur - CoKilo</title>
-        <meta charset="utf-8">
-        <style>
-          body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-          .error { color: #FF3B30; }
-        </style>
-      </head>
-      <body>
-        <h1 class="error">❌ Erreur technique</h1>
-        <p>Une erreur est survenue lors de la vérification.</p>
-        <p>Veuillez retourner dans l'application et réessayer.</p>
-      </body>
-      </html>
-    `);
+    } catch (error: any) {
+      console.error('❌ Erreur completion vérification:', error);
+      res.status(500).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Erreur - CoKilo</title>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
+            .error { color: #FF3B30; }
+          </style>
+        </head>
+        <body>
+          <h1 class="error">❌ Erreur technique</h1>
+          <p>Une erreur est survenue lors de la vérification.</p>
+          <p>Veuillez retourner dans l'application et réessayer.</p>
+        </body>
+        </html>
+      `);
+    }
   }
-}
-
-
 
   // Vérifier le statut de la vérification
   static async checkStatus(req: Request, res: Response) {
@@ -302,10 +330,10 @@ static async completeVerification(req: Request, res: Response) {
           newStatus = UserVerificationStatus.VERIFIED;
           break;
         case 'requires_input':
-          newStatus = UserVerificationStatus.VERIFICATION_FAILED; // ← Corrigé
+          newStatus = UserVerificationStatus.VERIFICATION_FAILED;
           break;
         case 'processing':
-          newStatus = UserVerificationStatus.PENDING_VERIFICATION; // ← Corrigé
+          newStatus = UserVerificationStatus.PENDING_VERIFICATION;
           break;
         default:
           newStatus = UserVerificationStatus.UNVERIFIED;
