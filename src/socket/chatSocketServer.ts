@@ -3,7 +3,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { Op } from 'sequelize';
-import { ChatConversation, ChatMessage, UserPresence } from '../models';
+import { ChatConversation, ChatMessage} from '../models';
 import { User } from '../models/User';
 import { SocketChatEvents, ChatMessageType, ChatMessageStatus } from '../types/chat';
 
@@ -105,14 +105,7 @@ export class ChatSocketServer {
       }
       this.connectedUsers.get(userId)!.add(socket.id);
 
-      // Enregistrer en base
-      await UserPresence.create({
-        userId,
-        socketId: socket.id,
-        isOnline: true,
-        lastSeen: new Date(),
-        deviceInfo: socket.handshake.headers['user-agent']?.substring(0, 100)
-      });
+     
 
       // Notifier les autres utilisateurs
       socket.broadcast.emit('user_online', { userId });
@@ -149,11 +142,7 @@ export class ChatSocketServer {
         }
       });
 
-      // Mettre à jour en base
-      await UserPresence.update(
-        { isOnline: false, lastSeen: new Date() },
-        { where: { userId, socketId: socket.id } }
-      );
+      
 
       console.log(`❌ Utilisateur ${socket.userInfo?.firstName} (${userId}) déconnecté (socket ${socket.id})`);
     } catch (error) {
@@ -270,7 +259,6 @@ export class ChatSocketServer {
 
       // Mettre à jour la conversation
       await conversation.update({
-        lastMessageId: message.id,
         lastMessageAt: new Date()
       });
 
