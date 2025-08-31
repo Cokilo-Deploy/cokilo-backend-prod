@@ -16,22 +16,20 @@ export class WalletService {
   static async creditWallet(userId: number, amount: number, transactionId: number, description: string) {
     const wallet = await this.getOrCreateWallet(userId);
     
-    // Transaction atomique avec Sequelize
     const transaction = await sequelize.transaction();
     
     try {
-      // Créditer le wallet
+      // Utiliser les vrais noms de colonnes de la base
       await sequelize.query(
-        'UPDATE wallets SET balance = balance + $1, "updatedAt" = NOW() WHERE "userId" = $2',
+        'UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2',
         {
           bind: [amount, userId],
           transaction
         }
       );
       
-      // Enregistrer le mouvement
       await sequelize.query(
-        `INSERT INTO wallet_transactions ("walletId", "transactionId", type, amount, description, status, "createdAt", "updatedAt")
+        `INSERT INTO wallet_transactions (wallet_id, transaction_id, type, amount, description, status, created_at, updated_at)
          VALUES ($1, $2, 'credit', $3, $4, 'completed', NOW(), NOW())`,
         {
           bind: [wallet.id, transactionId, amount, description],
@@ -50,7 +48,7 @@ export class WalletService {
 
   static async getWalletBalance(userId: number): Promise<number> {
     const result = await sequelize.query(
-      'SELECT balance FROM wallets WHERE "userId" = $1',
+      'SELECT balance FROM wallets WHERE user_id = $1',
       {
         bind: [userId],
         type: QueryTypes.SELECT
@@ -64,10 +62,10 @@ export class WalletService {
     const result = await sequelize.query(
       `SELECT wt.*, t.id as transaction_number
        FROM wallet_transactions wt
-       JOIN wallets w ON wt."walletId" = w.id
-       LEFT JOIN transactions t ON wt."transactionId" = t.id
-       WHERE w."userId" = $1
-       ORDER BY wt."createdAt" DESC`,
+       JOIN wallets w ON wt.wallet_id = w.id
+       LEFT JOIN transactions t ON wt.transaction_id = t.id
+       WHERE w.user_id = $1
+       ORDER BY wt.created_at DESC`,
       {
         bind: [userId],
         type: QueryTypes.SELECT
