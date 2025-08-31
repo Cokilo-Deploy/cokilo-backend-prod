@@ -13,7 +13,7 @@ router.get('/balance', authMiddleware, async (req, res) => {
     
     res.json({
       success: true,
-      data: { balance: parseFloat(balance || 0) }
+      data: { balance: Number((balance || 0).toFixed(2)) }
     });
   } catch (error) {
     console.error('Erreur récupération solde:', error);
