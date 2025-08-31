@@ -94,18 +94,17 @@ export class WithdrawalService {
   }
   
   static async updateWithdrawalStatus(withdrawalId: number, status: string, notes?: string) {
-    const updateQuery = notes 
-      ? 'UPDATE withdrawal_requests SET status = $1, notes = $2, processed_at = NOW(), updated_at = NOW() WHERE id = $3 RETURNING *'
-      : 'UPDATE withdrawal_requests SET status = $1, processed_at = NOW(), updated_at = NOW() WHERE id = $2 RETURNING *';
-    
-    const params = notes ? [status, notes, withdrawalId] : [status, withdrawalId];
-    
-    const result = await sequelize.query(updateQuery, {
-      bind: params,
-      type: QueryTypes.UPDATE,
-      returning: true
-    }) as any;
-    
-    return result[0][0];
-  }
+  const updateQuery = notes 
+    ? 'UPDATE withdrawal_requests SET status = $1, notes = $2, processed_at = NOW(), updated_at = NOW() WHERE id = $3 RETURNING *'
+    : 'UPDATE withdrawal_requests SET status = $1, processed_at = NOW(), updated_at = NOW() WHERE id = $2 RETURNING *';
+  
+  const params = notes ? [status, notes, withdrawalId] : [status, withdrawalId];
+  
+  const result = await sequelize.query(updateQuery, {
+    bind: params,
+    type: QueryTypes.SELECT  // Changez UPDATE en SELECT
+  }) as any[];
+  
+  return result[0];  // Supprimez [0] supplémentaire
+}
 }
