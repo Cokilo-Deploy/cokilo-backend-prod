@@ -149,7 +149,22 @@ try {
       "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
       "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     );
-  `);
+`);
+
+  // Ajoutez cette table dans votre code de création
+  await sequelize.query(`
+  CREATE TABLE IF NOT EXISTS wallet_transactions (
+    id SERIAL PRIMARY KEY,
+    wallet_id INTEGER NOT NULL REFERENCES wallets(id) ON DELETE CASCADE,
+    transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
+    type VARCHAR(255) NOT NULL,
+    amount NUMERIC(10,2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'EUR',
+    description TEXT,
+    status VARCHAR(255) DEFAULT 'completed',
+    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
+  );
+`);  
   
   console.log('✅ Tables créées avec succès');
 
