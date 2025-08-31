@@ -1,5 +1,6 @@
 import { Wallet } from '../models/Wallet';
-import { db } from '../config/database';
+import { sequelize } from '../config/database';
+import { QueryTypes } from 'sequelize';
 
 export class WalletService {
   static async getOrCreateWallet(userId: number) {
@@ -15,52 +16,64 @@ export class WalletService {
   static async creditWallet(userId: number, amount: number, transactionId: number, description: string) {
     const wallet = await this.getOrCreateWallet(userId);
     
-    // Transaction atomique
-    await db.query('BEGIN');
+    // Transaction atomique avec Sequelize
+    const transaction = await sequelize.transaction();
     
     try {
       // Créditer le wallet
-      await db.query(
-        'UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2',
-        [amount, userId]
+      await sequelize.query(
+        'UPDATE wallets SET balance = balance + $1, "updatedAt" = NOW() WHERE "userId" = $2',
+        {
+          bind: [amount, userId],
+          transaction
+        }
       );
       
       // Enregistrer le mouvement
-      await db.query(
-        `INSERT INTO wallet_transactions (wallet_id, transaction_id, type, amount, description, status)
-         VALUES ($1, $2, 'credit', $3, $4, 'completed')`,
-        [wallet.id, transactionId, amount, description]
+      await sequelize.query(
+        `INSERT INTO wallet_transactions ("walletId", "transactionId", type, amount, description, status, "createdAt", "updatedAt")
+         VALUES ($1, $2, 'credit', $3, $4, 'completed', NOW(), NOW())`,
+        {
+          bind: [wallet.id, transactionId, amount, description],
+          transaction
+        }
       );
       
-      await db.query('COMMIT');
+      await transaction.commit();
       
       return await this.getWalletBalance(userId);
     } catch (error) {
-      await db.query('ROLLBACK');
+      await transaction.rollback();
       throw error;
     }
   }
 
-  static async getWalletBalance(userId: number) {
-    const result = await db.query(
-      'SELECT balance FROM wallets WHERE user_id = $1',
-      [userId]
-    );
+  static async getWalletBalance(userId: number): Promise<number> {
+    const result = await sequelize.query(
+      'SELECT balance FROM wallets WHERE "userId" = $1',
+      {
+        bind: [userId],
+        type: QueryTypes.SELECT
+      }
+    ) as any[];
     
-    return result.rows[0]?.balance || 0;
+    return result[0]?.balance || 0;
   }
 
   static async getWalletHistory(userId: number) {
-    const result = await db.query(
+    const result = await sequelize.query(
       `SELECT wt.*, t.id as transaction_number
        FROM wallet_transactions wt
-       JOIN wallets w ON wt.wallet_id = w.id
-       LEFT JOIN transactions t ON wt.transaction_id = t.id
-       WHERE w.user_id = $1
-       ORDER BY wt.created_at DESC`,
-      [userId]
+       JOIN wallets w ON wt."walletId" = w.id
+       LEFT JOIN transactions t ON wt."transactionId" = t.id
+       WHERE w."userId" = $1
+       ORDER BY wt."createdAt" DESC`,
+      {
+        bind: [userId],
+        type: QueryTypes.SELECT
+      }
     );
     
-    return result.rows;
+    return result;
   }
 }
