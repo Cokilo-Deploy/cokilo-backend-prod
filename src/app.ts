@@ -98,14 +98,63 @@ let chatSocketServer: ChatSocketServer;
 const startServer = async () => {
   try {
     await connectDB();
-    try {
+try {
   const tables = await sequelize.query(
-  "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
-  { type: QueryTypes.SELECT }
-);
+    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
+    { type: QueryTypes.SELECT }
+  );
   console.log('📋 Tables trouvées:', tables);
+
+  // Création des tables manquantes
+  console.log('🔧 Création des tables manquantes...');
+  
+  // Table wallets
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS wallets (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      balance NUMERIC(10,2) DEFAULT 0.00,
+      currency VARCHAR(3) DEFAULT 'EUR',
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
+  `);
+  
+  // Table chat_conversations
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS chat_conversations (
+      id SERIAL PRIMARY KEY,
+      "transactionId" INTEGER REFERENCES transactions(id),
+      "user1Id" INTEGER NOT NULL REFERENCES users(id),
+      "user2Id" INTEGER NOT NULL REFERENCES users(id),
+      "lastMessageAt" TIMESTAMP WITH TIME ZONE,
+      status VARCHAR(255) DEFAULT 'active',
+      "isArchived" BOOLEAN DEFAULT false,
+      "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
+  `);
+  
+  // Table chat_messages
+  await sequelize.query(`
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id SERIAL PRIMARY KEY,
+      "conversationId" INTEGER NOT NULL REFERENCES chat_conversations(id),
+      "senderId" INTEGER NOT NULL REFERENCES users(id),
+      content TEXT NOT NULL,
+      "messageType" VARCHAR(255) DEFAULT 'text',
+      "attachmentUrl" VARCHAR(255),
+      "isRead" BOOLEAN DEFAULT false,
+      "readAt" TIMESTAMP WITH TIME ZONE,
+      "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+      "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
+  `);
+  
+  console.log('✅ Tables créées avec succès');
+
 } catch (error) {
-  console.error('❌ Erreur listage tables:', error);
+  console.error('❌ Erreur listage/création tables:', error);
 }
     console.log('✅ Base de données connectée');
 
