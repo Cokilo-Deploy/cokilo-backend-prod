@@ -1,18 +1,22 @@
-import { db } from '../config/database';
+import { sequelize } from '../config/database';
+import { QueryTypes } from 'sequelize';
 
 export class WithdrawalService {
   static async requestWithdrawal(userId: number, amount: number, bankDetails: any) {
     // Vérifier le solde disponible
-    const walletResult = await db.query(
+    const walletResult = await sequelize.query(
       'SELECT id, balance FROM wallets WHERE user_id = $1',
-      [userId]
-    );
+      {
+        bind: [userId],
+        type: QueryTypes.SELECT
+      }
+    ) as any[];
     
-    if (walletResult.rows.length === 0) {
+    if (walletResult.length === 0) {
       throw new Error('Wallet non trouvé');
     }
     
-    const wallet = walletResult.rows[0];
+    const wallet = walletResult[0];
     
     if (parseFloat(wallet.balance) < amount) {
       throw new Error('Solde insuffisant');
@@ -22,68 +26,86 @@ export class WithdrawalService {
       throw new Error('Montant minimum de retrait: 50€');
     }
     
-    // Transaction atomique
-    await db.query('BEGIN');
+    // Transaction atomique avec Sequelize
+    const transaction = await sequelize.transaction();
     
     try {
       // Débiter le wallet
-      await db.query(
+      await sequelize.query(
         'UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE id = $2',
-        [amount, wallet.id]
+        {
+          bind: [amount, wallet.id],
+          transaction
+        }
       );
       
       // Créer la demande de retrait
-      const withdrawalResult = await db.query(
+      const withdrawalResult = await sequelize.query(
         `INSERT INTO withdrawal_requests 
-         (wallet_id, amount, bank_account_name, bank_account_number, bank_name, bank_code, status)
-         VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+         (wallet_id, amount, bank_account_name, bank_account_number, bank_name, bank_code, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW())
          RETURNING *`,
-        [
-          wallet.id,
-          amount,
-          bankDetails.accountName,
-          bankDetails.accountNumber,
-          bankDetails.bankName,
-          bankDetails.bankCode
-        ]
-      );
+        {
+          bind: [
+            wallet.id,
+            amount,
+            bankDetails.accountName,
+            bankDetails.accountNumber,
+            bankDetails.bankName,
+            bankDetails.bankCode
+          ],
+          type: QueryTypes.INSERT,
+          transaction
+        }
+      ) as any;
       
       // Enregistrer le mouvement dans wallet_transactions
-      await db.query(
-        `INSERT INTO wallet_transactions (wallet_id, type, amount, description, status)
-         VALUES ($1, 'debit', $2, $3, 'completed')`,
-        [wallet.id, amount, `Demande de retrait #${withdrawalResult.rows[0].id}`]
+      await sequelize.query(
+        `INSERT INTO wallet_transactions (wallet_id, type, amount, description, status, created_at, updated_at)
+         VALUES ($1, 'debit', $2, $3, 'completed', NOW(), NOW())`,
+        {
+          bind: [wallet.id, amount, `Demande de retrait #${withdrawalResult[0][0].id}`],
+          transaction
+        }
       );
       
-      await db.query('COMMIT');
+      await transaction.commit();
       
-      return withdrawalResult.rows[0];
+      return withdrawalResult[0][0];
     } catch (error) {
-      await db.query('ROLLBACK');
+      await transaction.rollback();
       throw error;
     }
   }
   
   static async getWithdrawalHistory(userId: number) {
-    const result = await db.query(
+    const result = await sequelize.query(
       `SELECT wr.* FROM withdrawal_requests wr
        JOIN wallets w ON wr.wallet_id = w.id
        WHERE w.user_id = $1
-       ORDER BY wr.requested_at DESC`,
-      [userId]
+       ORDER BY wr.created_at DESC`,
+      {
+        bind: [userId],
+        type: QueryTypes.SELECT
+      }
     );
     
-    return result.rows;
+    return result;
   }
   
   static async updateWithdrawalStatus(withdrawalId: number, status: string, notes?: string) {
     const updateQuery = notes 
-      ? 'UPDATE withdrawal_requests SET status = $1, notes = $2, processed_at = NOW() WHERE id = $3 RETURNING *'
-      : 'UPDATE withdrawal_requests SET status = $1, processed_at = NOW() WHERE id = $2 RETURNING *';
+      ? 'UPDATE withdrawal_requests SET status = $1, notes = $2, processed_at = NOW(), updated_at = NOW() WHERE id = $3 RETURNING *'
+      : 'UPDATE withdrawal_requests SET status = $1, processed_at = NOW(), updated_at = NOW() WHERE id = $2 RETURNING *';
     
     const params = notes ? [status, notes, withdrawalId] : [status, withdrawalId];
     
-    const result = await db.query(updateQuery, params);
-    return result.rows[0];
+    const result = await sequelize.query(updateQuery, {
+      bind: params,
+      type: QueryTypes.UPDATE,
+      returning: true
+    }) as any;
+    
+    return result[0][0];
   }
 }
