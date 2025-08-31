@@ -3,7 +3,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
-import { connectDB } from './config/database';
+import { connectDB, sequelize } from './config/database';
 import { syncModels } from './models';
 import transactionRouter from './routes/transactions';
 import { authRouter } from './routes/auth';
@@ -16,6 +16,8 @@ import http from 'http';
 import { ChatSocketServer } from './socket/chatSocket';
 import userRoutes from './routes/user';
 import { verificationRouter } from './routes/verification';
+import { QueryTypes } from 'sequelize';
+
 
 dotenv.config();
 
@@ -96,6 +98,15 @@ let chatSocketServer: ChatSocketServer;
 const startServer = async () => {
   try {
     await connectDB();
+    try {
+  const tables = await sequelize.query(
+  "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'",
+  { type: QueryTypes.SELECT }
+);
+  console.log('📋 Tables trouvées:', tables);
+} catch (error) {
+  console.error('❌ Erreur listage tables:', error);
+}
     console.log('✅ Base de données connectée');
 
     await syncModels();
