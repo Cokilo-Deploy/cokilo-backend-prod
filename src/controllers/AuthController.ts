@@ -8,51 +8,62 @@ export class AuthController {
   
   // Fonction helper pour détecter la devise par IP
   private static async detectCurrencyFromIP(req: Request): Promise<string> {
-    try {
-      // Récupérer l'IP du client
-      const clientIP = req.ip || 
-                      req.connection?.remoteAddress || 
-                      req.socket?.remoteAddress || 
-                      (req.connection as any)?.socket?.remoteAddress ||
-                      req.headers['x-forwarded-for'] as string ||
-                      req.headers['x-real-ip'] as string ||
-                      '127.0.0.1';
+  try {
+    // Priorité aux headers de proxy (DigitalOcean utilise des proxies)
+    const clientIP = req.headers['x-forwarded-for'] as string ||
+                    req.headers['x-real-ip'] as string ||
+                    req.headers['cf-connecting-ip'] as string || // Cloudflare
+                    req.connection?.remoteAddress ||
+                    req.socket?.remoteAddress ||
+                    req.ip ||
+                    '127.0.0.1';
 
-      console.log('IP détectée pour devise:', clientIP);
+    // Prendre seulement la première IP si liste séparée par virgules
+    const realIP = clientIP.split(',')[0].trim();
+    
+    console.log('=== DETECTION IP ===');
+    console.log('Header x-forwarded-for:', req.headers['x-forwarded-for']);
+    console.log('Header x-real-ip:', req.headers['x-real-ip']);
+    console.log('IP finale utilisée:', realIP);
 
-      // Si IP locale, utiliser EUR par défaut
-      if (clientIP === '127.0.0.1' || clientIP === '::1' || clientIP.includes('localhost')) {
-        return 'EUR';
-      }
-
-      // Appel API de géolocalisation
-      const response = await axios.get(`http://ip-api.com/json/${clientIP}?fields=countryCode`, {
-        timeout: 3000
-      });
-      
-      const countryCode = response.data.countryCode;
-      console.log('Pays détecté:', countryCode);
-      
-      const countryToCurrency: { [key: string]: string } = {
-        'DZ': 'DZD',
-        'MA': 'MAD',
-        'TN': 'TND',
-        'EG': 'EGP',
-        'SA': 'SAR',
-        'AE': 'AED',
-        'US': 'USD',
-        'CA': 'CAD',
-        'GB': 'GBP',
-        'CH': 'CHF'
-        // Autres pays -> EUR par défaut
-      };
-      
-      return countryToCurrency[countryCode] || 'EUR';
-    } catch (error) {
-      console.log('Erreur détection devise, utilisation EUR par défaut:', error);
+    // Exclure les IPs privées/locales
+    if (realIP === '127.0.0.1' || 
+        realIP === '::1' || 
+        realIP.startsWith('10.') ||      // Réseaux privés
+        realIP.startsWith('172.') ||     // Réseaux privés  
+        realIP.startsWith('192.168.') || // Réseaux privés
+        realIP.includes('localhost')) {
+      console.log('IP PRIVEE DETECTEE - retour EUR');
       return 'EUR';
     }
+
+    const response = await axios.get(`http://ip-api.com/json/${realIP}?fields=countryCode,country,query`, {
+      timeout: 3000
+    });
+    
+    console.log('API Response complète:', response.data);
+    
+    const countryCode = response.data.countryCode;
+    if (!countryCode) {
+      console.log('Pas de pays détecté - retour EUR');
+      return 'EUR';
+    }
+    
+    const countryToCurrency: { [key: string]: string } = {
+      'DZ': 'DZD', 'MA': 'MAD', 'TN': 'TND', 'EG': 'EGP',
+      'SA': 'SAR', 'AE': 'AED', 'US': 'USD', 'CA': 'CAD',
+      'GB': 'GBP', 'CH': 'CHF'
+    };
+    
+    const finalCurrency = countryToCurrency[countryCode] || 'EUR';
+    console.log('PAYS:', countryCode, '-> DEVISE:', finalCurrency);
+    
+    return finalCurrency;
+  } catch (error) {
+    console.log('ERREUR DETECTION:', error);
+    return 'EUR';
   }
+}
 
   static async register(req: Request, res: Response) {
     try {
