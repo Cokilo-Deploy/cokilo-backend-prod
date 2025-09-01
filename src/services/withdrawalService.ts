@@ -83,7 +83,7 @@ export class WithdrawalService {
       `SELECT wr.* FROM withdrawal_requests wr
        JOIN wallets w ON wr.wallet_id = w.id
        WHERE w.user_id = $1
-       ORDER BY wr.created_at DESC`,
+       ORDER BY wr.requested_at DESC`,
       {
         bind: [userId],
         type: QueryTypes.SELECT
