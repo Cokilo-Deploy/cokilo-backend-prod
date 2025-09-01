@@ -79,6 +79,8 @@ export class AuthController {
         currency: detectedCurrency, // NOUVELLE LIGNE
       });
 
+       console.log('UTILISATEUR CREE avec devise:', user.currency); // LOG VERIFICATION
+
       const jwtSecret = process.env.JWT_SECRET || 'fallback-secret';
       const token = jwt.sign({ userId: user.id }, jwtSecret, { expiresIn: '7d' });
 
