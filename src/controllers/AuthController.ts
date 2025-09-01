@@ -2,8 +2,58 @@ import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import { getUserAccessInfo } from '../utils/userAccess';
+import axios from 'axios';
 
 export class AuthController {
+  
+  // Fonction helper pour détecter la devise par IP
+  private static async detectCurrencyFromIP(req: Request): Promise<string> {
+    try {
+      // Récupérer l'IP du client
+      const clientIP = req.ip || 
+                      req.connection?.remoteAddress || 
+                      req.socket?.remoteAddress || 
+                      (req.connection as any)?.socket?.remoteAddress ||
+                      req.headers['x-forwarded-for'] as string ||
+                      req.headers['x-real-ip'] as string ||
+                      '127.0.0.1';
+
+      console.log('IP détectée pour devise:', clientIP);
+
+      // Si IP locale, utiliser EUR par défaut
+      if (clientIP === '127.0.0.1' || clientIP === '::1' || clientIP.includes('localhost')) {
+        return 'EUR';
+      }
+
+      // Appel API de géolocalisation
+      const response = await axios.get(`http://ip-api.com/json/${clientIP}?fields=countryCode`, {
+        timeout: 3000
+      });
+      
+      const countryCode = response.data.countryCode;
+      console.log('Pays détecté:', countryCode);
+      
+      const countryToCurrency: { [key: string]: string } = {
+        'DZ': 'DZD',
+        'MA': 'MAD',
+        'TN': 'TND',
+        'EG': 'EGP',
+        'SA': 'SAR',
+        'AE': 'AED',
+        'US': 'USD',
+        'CA': 'CAD',
+        'GB': 'GBP',
+        'CH': 'CHF'
+        // Autres pays -> EUR par défaut
+      };
+      
+      return countryToCurrency[countryCode] || 'EUR';
+    } catch (error) {
+      console.log('Erreur détection devise, utilisation EUR par défaut:', error);
+      return 'EUR';
+    }
+  }
+
   static async register(req: Request, res: Response) {
     try {
       const { email, password, firstName, lastName, phone } = req.body;
@@ -16,12 +66,17 @@ export class AuthController {
         });
       }
 
+      // NOUVELLE LIGNE - Détecter la devise
+      const detectedCurrency = await AuthController.detectCurrencyFromIP(req);
+      console.log('Devise détectée pour nouvel utilisateur:', detectedCurrency);
+
       const user = await User.create({
         email,
         password,
         firstName,
         lastName,
         phone,
+        currency: detectedCurrency, // NOUVELLE LIGNE
       });
 
       const jwtSecret = process.env.JWT_SECRET || 'fallback-secret';
@@ -39,7 +94,9 @@ export class AuthController {
             firstName: user.firstName,
             lastName: user.lastName,
             verificationStatus: user.verificationStatus,
-          }
+            currency: user.currency, // NOUVELLE LIGNE - Renvoyer la devise
+          },
+          detectedCurrency // NOUVELLE LIGNE - Info pour le client
         },
         userAccess,
         message: 'Compte créé avec succès'
@@ -89,6 +146,7 @@ export class AuthController {
             firstName: user.firstName,
             lastName: user.lastName,
             verificationStatus: user.verificationStatus,
+            currency: user.currency, // NOUVELLE LIGNE - Inclure la devise
           }
         },
         userAccess,
@@ -122,6 +180,7 @@ export class AuthController {
             rating: user.rating,
             totalTrips: user.totalTrips,
             totalDeliveries: user.totalDeliveries,
+            currency: user.currency, // NOUVELLE LIGNE
           }
         },
         userAccess

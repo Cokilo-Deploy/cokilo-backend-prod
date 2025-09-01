@@ -226,12 +226,12 @@ User.init({
     },
   },
   currency: {
-    type: DataTypes.STRING(3),
-    defaultValue: 'EUR',
-    validate: {
-      isIn: [['EUR', 'USD', 'GBP', 'CAD', 'CHF']],
-    },
+  type: DataTypes.STRING(3),
+  defaultValue: 'EUR',
+  validate: {
+    isIn: [['EUR', 'USD', 'GBP', 'CAD', 'CHF', 'DZD', 'MAD', 'TND', 'EGP', 'SAR', 'AED']],
   },
+},
   timezone: {
     type: DataTypes.STRING,
     defaultValue: 'Europe/Paris',

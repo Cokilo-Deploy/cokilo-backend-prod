@@ -5,8 +5,28 @@ import { TripStatus, TripType } from '../types/trip';
 import { User } from '../models/User';
 import { getUserAccessInfo } from '../utils/userAccess';
 import { TripCapacityService } from '../services/TripCapacityService';
+import { CurrencyService } from '../services/CurrencyService';
 
 export class TripController {
+
+  private static async convertTripsForUser(trips: any[], userCurrency: string): Promise<any[]> {
+    if (userCurrency === 'EUR') return trips; // Pas de conversion nécessaire
+    
+    try {
+      const rates = await CurrencyService.getExchangeRates();
+      
+      return trips.map(trip => ({
+        ...trip,
+        pricePerKg: CurrencyService.convertPrice(trip.pricePerKg, 'EUR', userCurrency, rates),
+        originalPricePerKg: trip.pricePerKg, // Garder le prix original
+        displayCurrency: userCurrency,
+        currencySymbol: CurrencyService.getCurrencySymbol(userCurrency)
+      }));
+    } catch (error) {
+      console.error('Erreur conversion devise:', error);
+      return trips; // Retourner sans conversion en cas d'erreur
+    }
+  }
 
   static async getAvailableTrips(req: Request, res: Response) {
     try {
@@ -46,9 +66,12 @@ export class TripController {
       // Filtrer après calcul pour ne garder que les voyages avec capacité disponible
       const availableTrips = tripsWithCapacity.filter(trip => trip.availableWeight > 0);
 
+      // NOUVELLE LIGNE : Conversion devise
+      const convertedTrips = await TripController.convertTripsForUser(availableTrips, user.currency);
+
       res.json({
         success: true,
-        data: { trips: availableTrips }
+        data: { trips: convertedTrips }
       });
 
     } catch (error) {
@@ -109,10 +132,13 @@ export class TripController {
       // Limiter au nombre demandé après filtrage
       const paginatedTrips = availableTrips.slice(0, limit);
 
+      // NOUVELLE LIGNE : Conversion devise
+      const convertedTrips = await TripController.convertTripsForUser(paginatedTrips, user.currency);
+
       res.json({
         success: true,
         data: {
-          trips: paginatedTrips,
+          trips: convertedTrips, // Utiliser convertedTrips au lieu de paginatedTrips
           pagination: {
             currentPage: page,
             totalPages: Math.ceil(availableTrips.length / limit),
@@ -192,9 +218,12 @@ export class TripController {
         );
       }
 
+      // NOUVELLE LIGNE : Conversion devise
+      const convertedTrips = await TripController.convertTripsForUser(availableTrips.slice(0, 50), user.currency);
+
       res.json({
         success: true,
-        data: { trips: availableTrips.slice(0, 50) },
+        data: { trips: convertedTrips },
       });
     } catch (error: any) {
       console.error('Erreur recherche voyages:', error);
@@ -307,9 +336,12 @@ export class TripController {
         isOwnTrip: trip.travelerId === user.id
       };
 
+      // NOUVELLE LIGNE : Conversion devise pour trip unique
+      const convertedTrips = await TripController.convertTripsForUser([tripWithCapacity], user.currency);
+
       res.json({
         success: true,
-        data: { trip: tripWithCapacity },
+        data: { trip: convertedTrips[0] },
       });
     } catch (error: any) {
       console.error('Erreur récupération voyage:', error);
