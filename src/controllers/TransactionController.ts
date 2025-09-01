@@ -339,6 +339,15 @@ export class TransactionController {
         pickedUpAt: new Date(),
       });
 
+      // Après la mise à jour du statut
+const io = require('../socket/socketInstance').getIO();
+if (io) {
+  io.to(`user_${transaction.senderId}`).emit('transaction_updated', {
+    transactionId: transaction.id,
+    status: TransactionStatus.PACKAGE_PICKED_UP
+  });
+}
+
       return res.json({
         success: true,
         message: 'Récupération confirmée',
@@ -390,29 +399,57 @@ export class TransactionController {
         });
       }
 
+
+
       // Capturer le paiement (libérer l'argent au voyageur)
       if (transaction.stripePaymentIntentId) {
-        await PaymentService.capturePayment(transaction.stripePaymentIntentId);
-        console.log('💰 Paiement capturé et libéré au voyageur');
-      }
+      const captureResult = await PaymentService.capturePayment(transaction.stripePaymentIntentId);
+      
+      // Importer WalletService
+      const { WalletService } = require('../services/walletService');
+      
+      // Transférer l'argent vers le wallet du voyageur
+      await WalletService.creditWallet(
+        transaction.travelerId,
+        parseFloat(transaction.travelerAmount.toString()),
+        transaction.id,
+        `Paiement livraison confirmée #${transaction.id}`
+      );
+      
+      console.log(`💰 ${transaction.travelerAmount}€ transféré vers le wallet du voyageur ${transaction.travelerId}`);
+    }
 
-      await transaction.update({
-        status: TransactionStatus.PAYMENT_RELEASED,
-        deliveredAt: new Date(),
-      });
+    await transaction.update({
+      status: TransactionStatus.PAYMENT_RELEASED,
+      deliveredAt: new Date(),
+      paymentReleasedAt: new Date(),
+    });
 
-      return res.json({
-        success: true,
-        message: 'Livraison confirmée, paiement libéré au voyageur',
+    // AJOUT : Notification temps réel
+    const io = require('../socket/socketInstance').getIO();
+    if (io) {
+      io.to(`user_${transaction.senderId}`).emit('transaction_updated', {
+        transactionId: transaction.id,
+        status: TransactionStatus.PAYMENT_RELEASED
       });
-    } catch (error: any) {
-      console.error('❌ Erreur lors de la confirmation de livraison:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Erreur lors de la confirmation de livraison',
+      io.to(`user_${transaction.travelerId}`).emit('payment_received', {
+        transactionId: transaction.id,
+        amount: transaction.travelerAmount
       });
     }
+
+    return res.json({
+      success: true,
+      message: 'Livraison confirmée et paiement transféré vers votre wallet',
+    });
+  } catch (error: any) {
+    console.error('❌ Erreur confirmation livraison:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la confirmation de livraison',
+    });
   }
+}
 
   // --- Mes transactions ---
   static async getMyTransactions(req: Request, res: Response) {

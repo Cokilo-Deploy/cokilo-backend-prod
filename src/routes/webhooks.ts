@@ -1,3 +1,4 @@
+// Votre fichier webhooks.ts corrigé
 import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
 import { Transaction } from '../models';
@@ -22,6 +23,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  // Gérer payment_intent.succeeded
   if (event.type === 'payment_intent.succeeded') {
     const paymentIntent = event.data.object as Stripe.PaymentIntent;
     const transactionId = paymentIntent.metadata.transactionId;
@@ -37,6 +39,28 @@ router.post('/stripe', async (req: Request, res: Response) => {
           });
           
           console.log(`Transaction ${transactionId} mise à jour vers PAYMENT_ESCROWED`);
+        }
+      } catch (error) {
+        console.error('Erreur mise à jour transaction:', error);
+      }
+    }
+  }
+
+  // Gérer payment_intent.payment_failed
+  if (event.type === 'payment_intent.payment_failed') {
+    const paymentIntent = event.data.object as Stripe.PaymentIntent;
+    const transactionId = paymentIntent.metadata.transactionId;
+
+    if (transactionId) {
+      try {
+        const transaction = await Transaction.findByPk(transactionId);
+        if (transaction) {
+          await transaction.update({
+            status: TransactionStatus.CANCELLED,
+            cancellationReason: 'Échec du paiement'
+          });
+          
+          console.log(`Transaction ${transactionId} annulée pour échec paiement`);
         }
       } catch (error) {
         console.error('Erreur mise à jour transaction:', error);
