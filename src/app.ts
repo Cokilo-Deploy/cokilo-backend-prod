@@ -183,6 +183,23 @@ await sequelize.query(`
   );
 `);
   
+// Dans votre bloc de création de tables existant dans src/app.ts, ajoutez :
+
+// Table reviews
+await sequelize.query(`
+  CREATE TABLE IF NOT EXISTS reviews (
+    id SERIAL PRIMARY KEY,
+    "transactionId" INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+    "reviewerId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    "revieweeId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT,
+    "isPublic" BOOLEAN DEFAULT true,
+    "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE("transactionId", "reviewerId")
+  );
+`);  
   console.log('✅ Tables créées avec succès');
 
 } catch (error) {
