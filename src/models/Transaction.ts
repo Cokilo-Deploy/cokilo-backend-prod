@@ -382,6 +382,11 @@ travelerReviewed: {
             transaction.paymentReleasedAt = now;
             break;
         }
+        // AJOUT : Notification automatique
+      setTimeout(() => {
+        const { NotificationService } = require('../services/NotificationService');
+        NotificationService.notifyTransactionUpdate(transaction);
+      }, 100);
       }
     },
   },
