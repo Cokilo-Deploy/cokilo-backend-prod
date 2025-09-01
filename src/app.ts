@@ -164,7 +164,24 @@ try {
     status VARCHAR(255) DEFAULT 'completed',
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW()
   );
-`);  
+`);
+
+await sequelize.query(`
+  CREATE TABLE IF NOT EXISTS withdrawal_requests (
+    id SERIAL PRIMARY KEY,
+    wallet_id INTEGER NOT NULL REFERENCES wallets(id) ON DELETE CASCADE,
+    amount NUMERIC(10,2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'EUR',
+    bank_account_name VARCHAR(255),
+    bank_account_number VARCHAR(255),
+    bank_name VARCHAR(255),
+    bank_code VARCHAR(255),
+    status VARCHAR(50) DEFAULT 'pending',
+    requested_at TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    processed_at TIMESTAMP WITHOUT TIME ZONE,
+    notes TEXT
+  );
+`);
   
   console.log('✅ Tables créées avec succès');
 
