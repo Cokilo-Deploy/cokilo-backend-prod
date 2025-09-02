@@ -6,35 +6,58 @@ import { User } from '../models/User';
 import { getUserAccessInfo } from '../utils/userAccess';
 import { TripCapacityService } from '../services/TripCapacityService';
 import { CurrencyService } from '../services/CurrencyService';
+import { log } from 'console';
 
 export class TripController {
 
   // Dans TripController backend
 static async convertTripsForUser(trips: any[], userCurrency: string) {
   try {
-    const rates = await CurrencyService.getExchangeRates();
+    console.log('=== CONVERSION TRIPS ===');
+    console.log('User currency:', userCurrency);
+    console.log('Nombre de trips à convertir:', trips.length);
     
-    return trips.map(trip => {
-      // Le prix en base est en EUR (prix original)
-      const originalPrice = trip.pricePerKg; // Prix en EUR
+    if (trips.length > 0) {
+      console.log('Premier trip avant conversion:', {
+        id: trips[0].id,
+        pricePerKg: trips[0].pricePerKg,
+        title: trips[0].title
+      });
+    }
+
+    const rates = await CurrencyService.getExchangeRates();
+    console.log('Taux de change récupérés:', rates);
+    
+    const convertedTrips = trips.map(trip => {
+      const originalPrice = trip.pricePerKg;
       
       let convertedPrice;
       if (userCurrency === 'EUR') {
-        // Utilisateur en EUR : garder le prix original
         convertedPrice = originalPrice;
+        console.log(`Trip ${trip.id}: EUR - pas de conversion (${originalPrice})`);
       } else {
-        // Utilisateur en autre devise : convertir de EUR vers sa devise
         convertedPrice = CurrencyService.convertPrice(originalPrice, 'EUR', userCurrency, rates);
+        console.log(`Trip ${trip.id}: ${originalPrice} EUR -> ${convertedPrice} ${userCurrency}`);
       }
       
       return {
         ...trip,
-        originalPricePerKg: originalPrice, // Prix original en EUR
-        pricePerKg: convertedPrice,        // Prix converti
+        originalPricePerKg: originalPrice,
+        pricePerKg: convertedPrice,
         displayCurrency: userCurrency,
         currencySymbol: CurrencyService.getCurrencySymbol(userCurrency)
       };
     });
+
+    if (convertedTrips.length > 0) {
+      console.log('Premier trip après conversion:', {
+        pricePerKg: convertedTrips[0].pricePerKg,
+        displayCurrency: convertedTrips[0].displayCurrency,
+        currencySymbol: convertedTrips[0].currencySymbol
+      });
+    }
+
+    return convertedTrips;
   } catch (error) {
     console.error('Erreur conversion trips:', error);
     return trips.map(trip => ({
