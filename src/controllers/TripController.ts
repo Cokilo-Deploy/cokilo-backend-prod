@@ -28,7 +28,7 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
       }
       
       return {
-        ...trip.toJSON(),
+        ...trip,
         originalPricePerKg: originalPrice, // Prix original en EUR
         pricePerKg: convertedPrice,        // Prix converti
         displayCurrency: userCurrency,
@@ -38,7 +38,7 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
   } catch (error) {
     console.error('Erreur conversion trips:', error);
     return trips.map(trip => ({
-      ...trip.toJSON(),
+      ...trip,
       originalPricePerKg: trip.pricePerKg,
       displayCurrency: 'EUR',
       currencySymbol: '€'
