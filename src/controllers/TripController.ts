@@ -129,7 +129,13 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
       
       
       const user = (req as any).user;
-      console.log('USER CURRENCY dans getAllTrips:', user.currency);
+       // AJOUTEZ CE LOG DÉTAILLÉ
+    console.log('USER COMPLET dans getAllTrips:', {
+      id: user.id,
+      email: user.email,
+      currency: user.currency,
+      allFields: Object.keys(user.dataValues || user)
+    });
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const offset = (page - 1) * limit;
