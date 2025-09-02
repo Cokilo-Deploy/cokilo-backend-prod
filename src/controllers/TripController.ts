@@ -126,9 +126,10 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
 
   static async getAllTrips(req: Request, res: Response) {
     try {
-      console.log('BACKEND - getAllTrips appelé');
+      
       
       const user = (req as any).user;
+      console.log('USER CURRENCY dans getAllTrips:', user.currency);
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
       const offset = (page - 1) * limit;
@@ -175,6 +176,7 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
 
       // NOUVELLE LIGNE : Conversion devise
       const convertedTrips = await TripController.convertTripsForUser(paginatedTrips, user.currency);
+      console.log('TRIPS FINAUX envoyés au frontend:', convertedTrips.slice(0, 1));
 
       res.json({
         success: true,
