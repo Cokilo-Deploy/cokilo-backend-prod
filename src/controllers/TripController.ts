@@ -9,24 +9,42 @@ import { CurrencyService } from '../services/CurrencyService';
 
 export class TripController {
 
-  private static async convertTripsForUser(trips: any[], userCurrency: string): Promise<any[]> {
-    if (userCurrency === 'EUR') return trips; // Pas de conversion nécessaire
+  // Dans TripController backend
+static async convertTripsForUser(trips: any[], userCurrency: string) {
+  try {
+    const rates = await CurrencyService.getExchangeRates();
     
-    try {
-      const rates = await CurrencyService.getExchangeRates();
+    return trips.map(trip => {
+      // Le prix en base est en EUR (prix original)
+      const originalPrice = trip.pricePerKg; // Prix en EUR
       
-      return trips.map(trip => ({
-        ...trip,
-        pricePerKg: CurrencyService.convertPrice(trip.pricePerKg, 'EUR', userCurrency, rates),
-        originalPricePerKg: trip.pricePerKg, // Garder le prix original
+      let convertedPrice;
+      if (userCurrency === 'EUR') {
+        // Utilisateur en EUR : garder le prix original
+        convertedPrice = originalPrice;
+      } else {
+        // Utilisateur en autre devise : convertir de EUR vers sa devise
+        convertedPrice = CurrencyService.convertPrice(originalPrice, 'EUR', userCurrency, rates);
+      }
+      
+      return {
+        ...trip.toJSON(),
+        originalPricePerKg: originalPrice, // Prix original en EUR
+        pricePerKg: convertedPrice,        // Prix converti
         displayCurrency: userCurrency,
         currencySymbol: CurrencyService.getCurrencySymbol(userCurrency)
-      }));
-    } catch (error) {
-      console.error('Erreur conversion devise:', error);
-      return trips; // Retourner sans conversion en cas d'erreur
-    }
+      };
+    });
+  } catch (error) {
+    console.error('Erreur conversion trips:', error);
+    return trips.map(trip => ({
+      ...trip.toJSON(),
+      originalPricePerKg: trip.pricePerKg,
+      displayCurrency: 'EUR',
+      currencySymbol: '€'
+    }));
   }
+}
 
   static async getAvailableTrips(req: Request, res: Response) {
     try {
