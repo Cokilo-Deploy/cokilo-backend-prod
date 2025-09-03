@@ -17,19 +17,19 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
     console.log('User currency:', userCurrency);
     console.log('Nombre de trips à convertir:', trips.length);
     
-    if (trips.length > 0) {
-      console.log('Premier trip avant conversion:', {
-        id: trips[0].id,
-        pricePerKg: trips[0].pricePerKg,
-        title: trips[0].title
-      });
-    }
+    if (trips.length === 0) return [];
+    
+    console.log('Premier trip avant conversion:', {
+      id: trips[0].id,
+      pricePerKg: trips[0].pricePerKg,
+      title: trips[0].title
+    });
 
     const rates = await CurrencyService.getExchangeRates();
-    console.log('Taux de change récupérés:', rates);
+    console.log('Taux de change récupérés:', Object.keys(rates).length + ' devises');
     
     const convertedTrips = trips.map(trip => {
-      const originalPrice = trip.pricePerKg;
+      const originalPrice = parseFloat(trip.pricePerKg) || 0;
       
       let convertedPrice;
       if (userCurrency === 'EUR') {
@@ -60,6 +60,7 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
     return convertedTrips;
   } catch (error) {
     console.error('Erreur conversion trips:', error);
+    // En cas d'erreur, retourner les trips sans conversion
     return trips.map(trip => ({
       ...trip,
       originalPricePerKg: trip.pricePerKg,
@@ -128,7 +129,6 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
   try {
     const user = (req as any).user;
     
-    // Utiliser la devise forcée si fournie, sinon celle de l'utilisateur
     const forcedCurrency = req.headers['x-force-currency'] as string;
     const userCurrency = forcedCurrency || user.currency;
     
@@ -138,7 +138,6 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
       finalCurrency: userCurrency
     });
 
-    // DÉCLARER paginatedTrips D'ABORD
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const offset = (page - 1) * limit;
@@ -162,15 +161,10 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
 
     console.log('Trips récupérés avant conversion:', paginatedTrips.length);
 
-    // MAINTENANT utiliser convertTripsForUser
-    const convertedTrips = await TripController.convertTripsForUser(paginatedTrips, userCurrency);
+    // JUSTE CONVERTIR EN PLAIN OBJECTS - RIEN D'AUTRE
+    const plainTrips = paginatedTrips.map(trip => trip.toJSON());
 
-    console.log('USER COMPLET dans getAllTrips:', {
-      id: user.id,
-      email: user.email,
-      currency: user.currency,
-      finalCurrencyUsed: userCurrency
-    });
+    const convertedTrips = await TripController.convertTripsForUser(plainTrips, userCurrency);
 
     const totalTrips = await Trip.count({ where: whereClause });
 
