@@ -125,85 +125,76 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
   }
 
   static async getAllTrips(req: Request, res: Response) {
-    try {
-      
-      
-      const user = (req as any).user;
-       // AJOUTEZ CE LOG DÉTAILLÉ
+  try {
+    const user = (req as any).user;
+    
+    // Utiliser la devise forcée si fournie, sinon celle de l'utilisateur
+    const forcedCurrency = req.headers['x-force-currency'] as string;
+    const userCurrency = forcedCurrency || user.currency;
+    
+    console.log('DEVISE UTILISÉE:', {
+      userCurrencyFromDB: user.currency,
+      forcedCurrency,
+      finalCurrency: userCurrency
+    });
+
+    // DÉCLARER paginatedTrips D'ABORD
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit;
+
+    const whereClause = {
+      status: TripStatus.PUBLISHED,
+      travelerId: { [Op.not]: user.id }
+    };
+
+    const paginatedTrips = await Trip.findAll({
+      where: whereClause,
+      include: [{
+        model: User,
+        as: 'traveler',
+        attributes: ['id', 'firstName', 'lastName', 'profileName', 'rating']
+      }],
+      order: [['createdAt', 'DESC']],
+      limit,
+      offset
+    });
+
+    console.log('Trips récupérés avant conversion:', paginatedTrips.length);
+
+    // MAINTENANT utiliser convertTripsForUser
+    const convertedTrips = await TripController.convertTripsForUser(paginatedTrips, userCurrency);
+
     console.log('USER COMPLET dans getAllTrips:', {
       id: user.id,
       email: user.email,
       currency: user.currency,
-      allFields: Object.keys(user.dataValues || user)
+      finalCurrencyUsed: userCurrency
     });
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
-      const offset = (page - 1) * limit;
 
-      const whereClause = { 
-        status: TripStatus.PUBLISHED,
-        travelerId: { [Op.ne]: user.id }
-      };
+    const totalTrips = await Trip.count({ where: whereClause });
 
-      const trips = await Trip.findAndCountAll({
-        where: whereClause,
-        include: [
-          {
-            model: User,
-            as: 'traveler',
-            attributes: ['id', 'firstName', 'lastName', 'profileName']
-          },
-        ],
-        order: [['departureDate', 'ASC']],
-        limit: limit * 2, // Augmenter pour compenser le filtrage
-        offset,
-      });
+    res.json({
+      success: true,
+      data: {
+        trips: convertedTrips,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalTrips / limit),
+          totalTrips,
+          limit
+        }
+      }
+    });
 
-      const tripsWithCapacity = await Promise.all(
-        trips.rows.map(async (trip) => {
-          const reservedWeight = await TripCapacityService.calculateReservedWeight(trip.id);
-          const availableWeight = trip.capacityKg - reservedWeight;
-          
-          return {
-            ...trip.toJSON(),
-            reservedWeight,
-            availableWeight,
-            capacityPercentage: Math.round((reservedWeight / trip.capacityKg) * 100),
-            isOwnTrip: false
-          };
-        })
-      );
-
-      // Filtrer les voyages avec capacité disponible après calcul
-      const availableTrips = tripsWithCapacity.filter(trip => trip.availableWeight > 0);
-
-      // Limiter au nombre demandé après filtrage
-      const paginatedTrips = availableTrips.slice(0, limit);
-
-      // NOUVELLE LIGNE : Conversion devise
-      const convertedTrips = await TripController.convertTripsForUser(paginatedTrips, user.currency);
-      console.log('TRIPS FINAUX envoyés au frontend:', convertedTrips.slice(0, 1));
-
-      res.json({
-        success: true,
-        data: {
-          trips: convertedTrips, // Utiliser convertedTrips au lieu de paginatedTrips
-          pagination: {
-            currentPage: page,
-            totalPages: Math.ceil(availableTrips.length / limit),
-            totalItems: availableTrips.length,
-            itemsPerPage: limit,
-          },
-        },
-      });
-    } catch (error: any) {
-      console.error('Erreur récupération voyages:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Erreur lors de la récupération des voyages',
-      });
-    }
+  } catch (error: any) {
+    console.error('Erreur récupération voyages:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la récupération des voyages'
+    });
   }
+}
 
   static async searchTrips(req: Request, res: Response) {
     try {
