@@ -51,7 +51,16 @@ router.get('/', async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;
     console.log('📦 Récupération transactions pour user:', userId);
     
-
+// AJOUT - Récupération de la devise forcée
+    const forcedCurrency = req.headers['x-force-currency'] as string;
+    const user = (req as any).user;
+    const userCurrency = forcedCurrency || user.currency || 'DZD';
+    
+    console.log('DEVISE UTILISÉE:', {
+      userCurrencyFromDB: user.currency,
+      forcedCurrency: forcedCurrency,
+      finalCurrency: userCurrency
+    });
     const transactions = await Transaction.findAll({
       where: {
         // Transactions où l'user est expéditeur OU voyageur
@@ -68,10 +77,26 @@ router.get('/', async (req: Request, res: Response) => {
       order: [['createdAt', 'DESC']]
     });
 
+    console.log('Transactions récupérées avant conversion:', transactions.length);
+    console.log('=== CONVERSION TRANSACTIONS ===');
+    console.log('User currency:', userCurrency);
+
+    // AJOUT - Conversion des transactions
+    const { convertTransactions } = require('../services/currencyService');
+    const convertedTransactions = await convertTransactions(transactions, userCurrency);
+
+    if (convertedTransactions.length > 0) {
+      console.log('Première transaction après conversion:', {
+        amount: convertedTransactions[0].amount,
+        displayCurrency: convertedTransactions[0].displayCurrency,
+        currencySymbol: convertedTransactions[0].currencySymbol
+      });
+    }
+
     res.json({
       success: true,
       data: {
-        transactions
+        transactions: convertedTransactions
       }
     });
 
