@@ -8,9 +8,10 @@ import { User } from '../models/User';
 import { PaymentService } from '../services/paymentService';
 import Stripe from 'stripe';
 import { TripCapacityService } from '../services/TripCapacityService';
+import { CurrencyService } from '../services/CurrencyService';
 
 // AJOUT - Service de conversion
-import { CurrencyService } from '../services/CurrencyService';
+const { convertTransactions } = require('../services/CurrencyServic');
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-07-30.basil',
