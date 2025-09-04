@@ -11,7 +11,7 @@ import { TripCapacityService } from '../services/TripCapacityService';
 import { CurrencyService } from '../services/CurrencyService';
 
 // AJOUT - Service de conversion
-const { convertTransactions } = require('../services/CurrencyServic');
+const { convertTransactions } = require('../services/CurrencyService');
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-07-30.basil',
