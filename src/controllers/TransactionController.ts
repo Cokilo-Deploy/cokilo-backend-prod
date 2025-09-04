@@ -10,7 +10,7 @@ import Stripe from 'stripe';
 import { TripCapacityService } from '../services/TripCapacityService';
 
 // AJOUT - Service de conversion
-const CurrencyService = require('../services/currencyService');
+import { CurrencyService } from '../services/CurrencyService';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-07-30.basil',
