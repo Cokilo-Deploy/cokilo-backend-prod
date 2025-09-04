@@ -1,10 +1,14 @@
 import axios from 'axios';
+import { Transaction } from '../models';
 
 interface ExchangeRates {
   [key: string]: number;
 }
 
 export class CurrencyService {
+  static convertTransactions(uniqueTransactions: Transaction[], userCurrency: any): any {
+    throw new Error('Method not implemented.');
+  }
   private static readonly BASE_CURRENCY = 'EUR';
   private static readonly API_URL = 'https://api.exchangerate-api.com/v4/latest/EUR'; // API gratuite
   private static cachedRates: ExchangeRates | null = null;
