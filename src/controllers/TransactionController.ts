@@ -474,7 +474,7 @@ export class TransactionController {
 
       let convertedTransactions;
       if (userCurrency !== 'EUR') {
-        convertedTransactions = await CurrencyService.convertTransactions(uniqueTransactions, userCurrency);
+        convertedTransactions = await convertTransactions(uniqueTransactions, userCurrency);
       } else {
         convertedTransactions = uniqueTransactions.map(transaction => ({
           ...transaction.toJSON(),
