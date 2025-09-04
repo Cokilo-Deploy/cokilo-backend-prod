@@ -4,22 +4,22 @@ import { Op } from 'sequelize';
 import { Transaction } from '../models/Transaction';
 import { TransactionStatus, PackageType } from '../types/transaction';
 import { Trip } from '../models/Trip';
-import { User } from '../models/User'; // conservé si utilisé ailleurs
+import { User } from '../models/User';
 import { PaymentService } from '../services/paymentService';
 import Stripe from 'stripe';
 import { TripCapacityService } from '../services/TripCapacityService';
 
-// --- Stripe instance (typée, réutilisable) ---
+// AJOUT - Service de conversion
+const CurrencyService = require('../services/currencyService');
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-07-30.basil',
 });
 
-// Fonction pour générer des codes
 function generateRandomCode(): string {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-// Mapping français → anglais pour packageType
 function mapPackageType(frenchType: string | undefined | null): PackageType {
   const mapping: { [key: string]: PackageType } = {
     'vêtements': PackageType.CLOTHES,
@@ -38,7 +38,7 @@ function mapPackageType(frenchType: string | undefined | null): PackageType {
 }
 
 export class TransactionController {
-  // --- Créer PaymentIntent / escrow ---
+  
   static async createPaymentIntent(req: Request, res: Response) {
     try {
       const { id } = req.params;
@@ -69,7 +69,6 @@ export class TransactionController {
         });
       }
 
-      // Si un PaymentIntent existe déjà, on tente de le récupérer
       if (transaction.stripePaymentIntentId) {
         console.log('♻️ Payment Intent existant:', transaction.stripePaymentIntentId);
         try {
@@ -79,7 +78,7 @@ export class TransactionController {
           return res.json({
             success: true,
             client_secret: paymentIntent.client_secret,
-            clientSecret: paymentIntent.client_secret, // camelCase aussi
+            clientSecret: paymentIntent.client_secret,
             paymentIntentId: transaction.stripePaymentIntentId,
           });
         } catch (stripeError) {
@@ -87,7 +86,6 @@ export class TransactionController {
         }
       }
 
-      // Créer un nouveau PaymentIntent via ton PaymentService (on ne touche pas à ta logique)
       console.log('🆕 Création nouveau Payment Intent (PaymentService)…');
 
       const safeDesc = (transaction.packageDescription || '').toString();
@@ -95,18 +93,16 @@ export class TransactionController {
         'CoKilo - Livraison: ' + (safeDesc.length > 50 ? safeDesc.slice(0, 50) + '…' : safeDesc);
 
       const paymentData = await PaymentService.createEscrowPayment(
-        parseFloat(transaction.amount.toString()), // montant en EUR (comme tu le faisais)
-        'cus_default', // à remplacer par le vrai customer si tu en as un
+        parseFloat(transaction.amount.toString()),
+        'cus_default',
         transaction.id,
         description
       );
 
-      // Sauvegarder l'ID PaymentIntent
       await transaction.update({
         stripePaymentIntentId: paymentData.paymentIntentId,
       });
 
-      // CORRECTION: Mettre à jour le statut immédiatement en développement (simulation)
       await transaction.update({
         status: TransactionStatus.PAYMENT_ESCROWED,
       });
@@ -116,7 +112,7 @@ export class TransactionController {
       return res.json({
         success: true,
         client_secret: paymentData.clientSecret,
-        clientSecret: paymentData.clientSecret, // compat front
+        clientSecret: paymentData.clientSecret,
         paymentIntentId: paymentData.paymentIntentId,
       });
     } catch (error: any) {
@@ -149,7 +145,6 @@ export class TransactionController {
 
       console.log('🔍 Recherche du voyage tripId:', tripId);
       
-      // Vérifier que le voyage existe
       const trip = await Trip.findByPk(tripId);
       console.log('🔍 Voyage trouvé:', trip ? 'OUI' : 'NON');
       
@@ -167,7 +162,6 @@ export class TransactionController {
         pricePerKg: trip.pricePerKg
       });
 
-      // CORRECTION: Vérifier la disponibilité AVANT la création
       const isAvailable = await TripCapacityService.checkAvailability(tripId, weight);
       if (!isAvailable) {
         return res.status(400).json({
@@ -176,14 +170,11 @@ export class TransactionController {
         });
       }
 
-      // Calculer le montant
       const amount = parseFloat((Number(weight) * Number(trip.pricePerKg)).toFixed(2));
       console.log('🔍 Montant calculé:', amount);
 
-      // Mapper le type de colis
       const mappedPackageType = mapPackageType(itemType);
 
-      // Créer la transaction
       const transaction = await Transaction.create({
         travelerId: trip.travelerId,
         senderId: user.id,
@@ -204,10 +195,7 @@ export class TransactionController {
         deliveryCode: generateRandomCode(),
       });
 
-      // CORRECTION: Réserver la capacité APRÈS la création réussie
       await TripCapacityService.reserveCapacity(tripId, weight);
-
-      // Mettre à jour la visibilité des voyages
       await TripCapacityService.updateTripVisibility();
 
       return res.status(201).json({
@@ -218,8 +206,6 @@ export class TransactionController {
             amount: transaction.amount,
             status: transaction.status,
           },
-          // Tu renvoyais un "payment" fictif : je le garde pour compat,
-          // ta vraie création de PaymentIntent passe par /:id/payment-intent
           payment: {
             clientSecret: 'test_client_secret',
             paymentIntentId: 'test_payment_intent',
@@ -234,15 +220,13 @@ export class TransactionController {
       return res.status(500).json({
         success: false,
         error: 'Erreur création transaction',
-        details: error.message // ← Ajout du détail
+        details: error.message
       });
     }
   }
 
-  // --- Confirmer le paiement (passe à ESCROW) ---
   static async confirmPayment(req: Request, res: Response) {
     try {
-      // 🔧 Route = POST /api/transactions/:id/confirm-payment
       const idFromParams = Number(req.params.id);
       const idFromBody = Number(req.body?.transactionId);
       const transactionId = Number.isFinite(idFromParams) ? idFromParams : idFromBody;
@@ -274,7 +258,6 @@ export class TransactionController {
         });
       }
 
-      // Confirmer le paiement via PaymentService
       const paymentResult = await PaymentService.confirmPayment(
         transaction.stripePaymentIntentId,
         paymentMethodId
@@ -301,10 +284,8 @@ export class TransactionController {
     }
   }
 
-  // --- Confirmer la récupération ---
   static async confirmPickup(req: Request, res: Response) {
     try {
-      // 🔧 Route = POST /api/transactions/:id/confirm-pickup
       const idFromParams = Number(req.params.id);
       const idFromBody = Number(req.body?.transactionId);
       const transactionId = Number.isFinite(idFromParams) ? idFromParams : idFromBody;
@@ -339,14 +320,13 @@ export class TransactionController {
         pickedUpAt: new Date(),
       });
 
-      // Après la mise à jour du statut
-const io = require('../socket/socketInstance').getIO();
-if (io) {
-  io.to(`user_${transaction.senderId}`).emit('transaction_updated', {
-    transactionId: transaction.id,
-    status: TransactionStatus.PACKAGE_PICKED_UP
-  });
-}
+      const io = require('../socket/socketInstance').getIO();
+      if (io) {
+        io.to(`user_${transaction.senderId}`).emit('transaction_updated', {
+          transactionId: transaction.id,
+          status: TransactionStatus.PACKAGE_PICKED_UP
+        });
+      }
 
       return res.json({
         success: true,
@@ -361,10 +341,8 @@ if (io) {
     }
   }
 
-  // --- Confirmer la livraison (et CAPTURE du paiement) ---
   static async confirmDelivery(req: Request, res: Response) {
     try {
-      // 🔧 Route = POST /api/transactions/:id/confirm-delivery
       const idFromParams = Number(req.params.id);
       const idFromBody = Number(req.body?.transactionId);
       const transactionId = Number.isFinite(idFromParams) ? idFromParams : idFromBody;
@@ -399,62 +377,66 @@ if (io) {
         });
       }
 
-
-
-      // Capturer le paiement (libérer l'argent au voyageur)
       if (transaction.stripePaymentIntentId) {
-      const captureResult = await PaymentService.capturePayment(transaction.stripePaymentIntentId);
-      
-      // Importer WalletService
-      const { WalletService } = require('../services/walletService');
-      
-      // Transférer l'argent vers le wallet du voyageur
-      await WalletService.creditWallet(
-        transaction.travelerId,
-        parseFloat(transaction.travelerAmount.toString()),
-        transaction.id,
-        `Paiement livraison confirmée #${transaction.id}`
-      );
-      
-      console.log(`💰 ${transaction.travelerAmount}€ transféré vers le wallet du voyageur ${transaction.travelerId}`);
-    }
+        const captureResult = await PaymentService.capturePayment(transaction.stripePaymentIntentId);
+        
+        const { WalletService } = require('../services/walletService');
+        
+        await WalletService.creditWallet(
+          transaction.travelerId,
+          parseFloat(transaction.travelerAmount.toString()),
+          transaction.id,
+          `Paiement livraison confirmée #${transaction.id}`
+        );
+        
+        console.log(`💰 ${transaction.travelerAmount}€ transféré vers le wallet du voyageur ${transaction.travelerId}`);
+      }
 
-    await transaction.update({
-      status: TransactionStatus.PAYMENT_RELEASED,
-      deliveredAt: new Date(),
-      paymentReleasedAt: new Date(),
-    });
-
-    // AJOUT : Notification temps réel
-    const io = require('../socket/socketInstance').getIO();
-    if (io) {
-      io.to(`user_${transaction.senderId}`).emit('transaction_updated', {
-        transactionId: transaction.id,
-        status: TransactionStatus.PAYMENT_RELEASED
+      await transaction.update({
+        status: TransactionStatus.PAYMENT_RELEASED,
+        deliveredAt: new Date(),
+        paymentReleasedAt: new Date(),
       });
-      io.to(`user_${transaction.travelerId}`).emit('payment_received', {
-        transactionId: transaction.id,
-        amount: transaction.travelerAmount
+
+      const io = require('../socket/socketInstance').getIO();
+      if (io) {
+        io.to(`user_${transaction.senderId}`).emit('transaction_updated', {
+          transactionId: transaction.id,
+          status: TransactionStatus.PAYMENT_RELEASED
+        });
+        io.to(`user_${transaction.travelerId}`).emit('payment_received', {
+          transactionId: transaction.id,
+          amount: transaction.travelerAmount
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Livraison confirmée et paiement transféré vers votre wallet',
+      });
+    } catch (error: any) {
+      console.error('❌ Erreur confirmation livraison:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erreur lors de la confirmation de livraison',
       });
     }
-
-    return res.json({
-      success: true,
-      message: 'Livraison confirmée et paiement transféré vers votre wallet',
-    });
-  } catch (error: any) {
-    console.error('❌ Erreur confirmation livraison:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Erreur lors de la confirmation de livraison',
-    });
   }
-}
 
-  // --- Mes transactions ---
+  // FONCTION MODIFIÉE - avec conversion de devise
   static async getMyTransactions(req: Request, res: Response) {
     try {
       const user = (req as any).user;
+      
+      // RÉCUPÉRATION DU HEADER DE DEVISE FORCÉE
+      const forcedCurrency = req.headers['x-force-currency'] as string;
+      const userCurrency = forcedCurrency || user.currency || 'DZD';
+      
+      console.log('DEVISE UTILISÉE:', {
+        userCurrencyFromDB: user.currency,
+        forcedCurrency: forcedCurrency,
+        finalCurrency: userCurrency
+      });
 
       const senderTransactions = await Transaction.findAll({
         where: { senderId: user.id },
@@ -466,23 +448,54 @@ if (io) {
         order: [['createdAt', 'DESC']],
       });
 
-      // Combiner et dédupliquer par ID
       const allUserTransactions = [...senderTransactions, ...travelerTransactions];
       const uniqueTransactions = allUserTransactions.filter((transaction, index, array) =>
         array.findIndex((t) => t.id === transaction.id) === index
       );
 
-      // Trier par date
       uniqueTransactions.sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
-      console.log('📊 Transactions uniques:', uniqueTransactions.length);
+      // CONVERSION DES TRANSACTIONS
+      console.log('Transactions récupérées avant conversion:', uniqueTransactions.length);
+      console.log('=== CONVERSION TRANSACTIONS ===');
+      console.log('User currency:', userCurrency);
+      console.log('Nombre de transactions à convertir:', uniqueTransactions.length);
+      
+      if (uniqueTransactions.length > 0) {
+        console.log('Première transaction avant conversion:', {
+          id: uniqueTransactions[0].id,
+          amount: uniqueTransactions[0].amount,
+          packageDescription: uniqueTransactions[0].packageDescription?.substring(0, 50)
+        });
+      }
+
+      let convertedTransactions;
+      if (userCurrency !== 'EUR') {
+        convertedTransactions = await CurrencyService.convertTransactions(uniqueTransactions, userCurrency);
+      } else {
+        convertedTransactions = uniqueTransactions.map(transaction => ({
+          ...transaction.toJSON(),
+          displayCurrency: 'EUR',
+          currencySymbol: '€'
+        }));
+      }
+
+      if (convertedTransactions.length > 0) {
+        console.log('Première transaction après conversion:', {
+          amount: convertedTransactions[0].amount,
+          displayCurrency: convertedTransactions[0].displayCurrency,
+          currencySymbol: convertedTransactions[0].currencySymbol
+        });
+      }
+
+      console.log('📊 Transactions converties:', convertedTransactions.length);
 
       return res.json({
         success: true,
         data: {
-          transactions: uniqueTransactions,
+          transactions: convertedTransactions,
         },
       });
     } catch (error: any) {
@@ -491,7 +504,6 @@ if (io) {
     }
   }
 
-  // --- Détails d'une transaction ---
   static async getTransactionDetails(req: Request, res: Response) {
     try {
       const { id } = req.params;
@@ -516,84 +528,94 @@ if (io) {
         });
       }
 
+      // CONVERSION DE DEVISE POUR LE DÉTAIL AUSSI
+      const forcedCurrency = req.headers['x-force-currency'] as string;
+      const userCurrency = forcedCurrency || user.currency || 'DZD';
+      
+      let convertedTransaction;
+      if (userCurrency !== 'EUR') {
+        const converted = await CurrencyService.convertTransactions([transaction], userCurrency);
+        convertedTransaction = converted[0];
+      } else {
+        convertedTransaction = {
+          ...transaction.toJSON(),
+          displayCurrency: 'EUR',
+          currencySymbol: '€'
+        };
+      }
+
       return res.json({
         success: true,
-        data: { transaction },
+        data: { transaction: convertedTransaction },
       });
     } catch (error: any) {
       console.error('❌ Erreur getTransactionDetails:', error);
       return res.status(500).json({ success: false, error: 'Erreur' });
     }
   }
-  // --- Annuler une réservation (avant paiement uniquement) ---
-// --- Annuler une réservation (avant paiement uniquement) ---
-static async cancelTransaction(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
-    const user = (req as any).user;
 
-    const txId = Number(id);
-    if (!Number.isFinite(txId)) {
-      return res.status(400).json({ success: false, error: 'ID de transaction invalide' });
-    }
+  static async cancelTransaction(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
 
-    console.log('🚫 Tentative d\'annulation transaction:', txId, 'par user:', user.id);
-
-    const transaction = await Transaction.findOne({
-      where: { 
-        id: txId,
-        [Op.or]: [{ senderId: user.id }, { travelerId: user.id }]
+      const txId = Number(id);
+      if (!Number.isFinite(txId)) {
+        return res.status(400).json({ success: false, error: 'ID de transaction invalide' });
       }
-    });
 
-    if (!transaction) {
-      return res.status(404).json({
+      console.log('🚫 Tentative d\'annulation transaction:', txId, 'par user:', user.id);
+
+      const transaction = await Transaction.findOne({
+        where: { 
+          id: txId,
+          [Op.or]: [{ senderId: user.id }, { travelerId: user.id }]
+        }
+      });
+
+      if (!transaction) {
+        return res.status(404).json({
+          success: false,
+          error: 'Transaction non trouvée'
+        });
+      }
+
+      if (transaction.status !== TransactionStatus.PAYMENT_PENDING) {
+        return res.status(400).json({
+          success: false,
+          error: 'Cette réservation ne peut plus être annulée car le paiement a été effectué'
+        });
+      }
+
+      let cancelledBy = 'unknown';
+      if (user.id === transaction.senderId) {
+        cancelledBy = 'sender';
+      } else if (user.id === transaction.travelerId) {
+        cancelledBy = 'traveler';
+      }
+
+      await TripCapacityService.releaseCapacity(transaction.tripId, transaction.packageWeight);
+
+      await transaction.update({
+        status: TransactionStatus.CANCELLED,
+        internalNotes: `Annulée par ${cancelledBy}`
+      });
+
+      await TripCapacityService.updateTripVisibility();
+
+      console.log('✅ Transaction annulée:', txId);
+
+      return res.json({
+        success: true,
+        message: 'Réservation annulée avec succès'
+      });
+
+    } catch (error: any) {
+      console.error('❌ Erreur annulation transaction:', error);
+      return res.status(500).json({
         success: false,
-        error: 'Transaction non trouvée'
+        error: 'Erreur lors de l\'annulation'
       });
     }
-
-    // Vérifier que l'annulation est autorisée
-    if (transaction.status !== TransactionStatus.PAYMENT_PENDING) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cette réservation ne peut plus être annulée car le paiement a été effectué'
-      });
-    }
-
-    // Déterminer qui annule
-    let cancelledBy = 'unknown';
-    if (user.id === transaction.senderId) {
-      cancelledBy = 'sender';
-    } else if (user.id === transaction.travelerId) {
-      cancelledBy = 'traveler';
-    }
-
-    // Libérer la capacité réservée
-    await TripCapacityService.releaseCapacity(transaction.tripId, transaction.packageWeight);
-
-    // Mettre à jour le statut
-    await transaction.update({
-      status: TransactionStatus.CANCELLED,
-      internalNotes: `Annulée par ${cancelledBy}`
-    });
-
-    // Mettre à jour la visibilité des voyages
-    await TripCapacityService.updateTripVisibility();
-
-    console.log('✅ Transaction annulée:', txId);
-
-    return res.json({
-      success: true,
-      message: 'Réservation annulée avec succès'
-    });
-
-  } catch (error: any) {
-    console.error('❌ Erreur annulation transaction:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Erreur lors de l\'annulation'
-    });
   }
-}
 }
