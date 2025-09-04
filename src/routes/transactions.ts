@@ -51,7 +51,7 @@ router.get('/', async (req: Request, res: Response) => {
     const userId = (req as any).user?.id;
     console.log('📦 Récupération transactions pour user:', userId);
     
-// AJOUT - Récupération de la devise forcée
+    // AJOUT - Récupération de la devise forcée
     const forcedCurrency = req.headers['x-force-currency'] as string;
     const user = (req as any).user;
     const userCurrency = forcedCurrency || user.currency || 'DZD';
@@ -61,9 +61,9 @@ router.get('/', async (req: Request, res: Response) => {
       forcedCurrency: forcedCurrency,
       finalCurrency: userCurrency
     });
+
     const transactions = await Transaction.findAll({
       where: {
-        // Transactions où l'user est expéditeur OU voyageur
         [Op.or]: [
           { senderId: userId },
           { travelerId: userId }
