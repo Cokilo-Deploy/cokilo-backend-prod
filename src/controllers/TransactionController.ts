@@ -427,7 +427,9 @@ export class TransactionController {
   // FONCTION MODIFIÉE - avec conversion de devise
   static async getMyTransactions(req: Request, res: Response) {
     try {
-      const user = (req as any).user;
+      console.log('🔍 DEBUT getMyTransactions');
+    const user = (req as any).user;
+    console.log('🔍 User:', user.id);
       
       // RÉCUPÉRATION DU HEADER DE DEVISE FORCÉE
       const forcedCurrency = req.headers['x-force-currency'] as string;
@@ -439,30 +441,39 @@ export class TransactionController {
         finalCurrency: userCurrency
       });
 
-      const senderTransactions = await Transaction.findAll({
-        where: { senderId: user.id },
-        order: [['createdAt', 'DESC']],
-      });
 
-      const travelerTransactions = await Transaction.findAll({
-        where: { travelerId: user.id },
-        order: [['createdAt', 'DESC']],
-      });
+      console.log('🔍 Récupération sender transactions...');
+    const senderTransactions = await Transaction.findAll({
+      where: { senderId: user.id },
+      order: [['createdAt', 'DESC']],
+    });
+
+      console.log('🔍 Sender transactions:', senderTransactions.length);
+
+    console.log('🔍 Récupération traveler transactions...');
+    const travelerTransactions = await Transaction.findAll({
+      where: { travelerId: user.id },
+      order: [['createdAt', 'DESC']],
+    });
+
+    console.log('🔍 Traveler transactions:', travelerTransactions.length);
 
       const allUserTransactions = [...senderTransactions, ...travelerTransactions];
+      console.log('🔍 Total transactions:', allUserTransactions.length);
       const uniqueTransactions = allUserTransactions.filter((transaction, index, array) =>
         array.findIndex((t) => t.id === transaction.id) === index
       );
+      console.log('🔍 Unique transactions:', uniqueTransactions.length);
 
       uniqueTransactions.sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
-      // CONVERSION DES TRANSACTIONS
-      console.log('Transactions récupérées avant conversion:', uniqueTransactions.length);
-      console.log('=== CONVERSION TRANSACTIONS ===');
-      console.log('User currency:', userCurrency);
-      console.log('Nombre de transactions à convertir:', uniqueTransactions.length);
+
+      console.log('🔍 AVANT CONVERSION - Début section conversion');
+    console.log('Transactions récupérées avant conversion:', uniqueTransactions.length);
+    console.log('=== CONVERSION TRANSACTIONS ===');
+    console.log('User currency:', userCurrency);
       
       if (uniqueTransactions.length > 0) {
         console.log('Première transaction avant conversion:', {
@@ -500,9 +511,9 @@ export class TransactionController {
         },
       });
     } catch (error: any) {
-      console.error('❌ Erreur:', error);
-      return res.status(500).json({ success: false, error: 'Erreur' });
-    }
+    console.error('❌ Erreur getMyTransactions:', error);
+    return res.status(500).json({ success: false, error: 'Erreur' });
+  }
   }
 
   static async getTransactionDetails(req: Request, res: Response) {
