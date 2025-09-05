@@ -348,9 +348,7 @@ router.post('/:id/payment-intent', authMiddleware, async (req: Request, res: Res
   try {
     const transactionId = req.params.id;
     const userId = (req as any).user?.id;
-    console.log('💳 Création Payment Intent pour transaction:', transactionId);
 
-    // Vérifier que la transaction appartient à l'utilisateur
     const transaction = await Transaction.findOne({
       where: { id: transactionId, senderId: userId }
     });
@@ -362,67 +360,41 @@ router.post('/:id/payment-intent', authMiddleware, async (req: Request, res: Res
       });
     }
 
-    if (transaction.status !== TransactionStatus.PAYMENT_PENDING) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cette transaction a déjà été traitée'
-      });
-    }
-
-    // VÉRIFIER SI UN PAYMENT INTENT VALIDE EXISTE DÉJÀ
+    // NETTOYER LES ANCIENS PAYMENT INTENTS INVALIDES
     if (transaction.stripePaymentIntentId) {
       try {
-        const existingPI = await stripe.paymentIntents.retrieve(transaction.stripePaymentIntentId);
-        
-        // Si le Payment Intent existe et est utilisable, le retourner
-        if (existingPI.status === 'requires_payment_method' || existingPI.status === 'requires_confirmation') {
-          console.log('♻️ Réutilisation Payment Intent existant:', existingPI.id);
-          return res.json({
-            success: true,
-            client_secret: existingPI.client_secret,
-            payment_intent_id: existingPI.id
-          });
-        }
+        await stripe.paymentIntents.retrieve(transaction.stripePaymentIntentId);
       } catch (stripeError: any) {
-        console.log('⚠️ Payment Intent existant invalide, création d\'un nouveau...');
-        // Continuer pour créer un nouveau Payment Intent
+        // Si erreur de conflits d'environnement, nettoyer l'ID
+        if (stripeError.message?.includes('live mode') || stripeError.message?.includes('test mode')) {
+          console.log('🧹 Nettoyage ancien Payment Intent incompatible');
+          await transaction.update({ stripePaymentIntentId: undefined });
+        }
       }
     }
 
-
-    // Créer le Payment Intent Stripe
-    const uniqueDescription = `CoKilo-${transactionId}-${Date.now()}`;
-
+    // TOUJOURS CRÉER UN NOUVEAU PAYMENT INTENT
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(parseFloat(transaction.amount.toString()) * 100),
       currency: 'eur',
       automatic_payment_methods: { enabled: true },
-      description: uniqueDescription,
-      metadata: {
-        transactionId: transactionId.toString(),
-        userId: userId.toString(),
-        environment: process.env.NODE_ENV || 'production'
-      },
+      description: `CoKilo-T${transactionId}-${Date.now()}`,
+      metadata: { transactionId: transactionId.toString() },
     });
 
-    // SAUVEGARDER LE NOUVEAU PAYMENT INTENT ID
     await transaction.update({
       status: TransactionStatus.PAYMENT_ESCROWED,
       stripePaymentIntentId: paymentIntent.id
     });
 
-    console.log('✅ Nouveau Payment Intent créé:', paymentIntent.id);
-
     res.json({
       success: true,
       client_secret: paymentIntent.client_secret,
-      payment_intent_id: paymentIntent.id,
-      amount: Math.round(parseFloat(transaction.amount.toString()) * 100),
-      currency: 'eur'
+      payment_intent_id: paymentIntent.id
     });
 
   } catch (error: any) {
-    console.error('❌ Erreur Payment Intent:', error);
+    console.error('Erreur Payment Intent:', error);
     res.status(500).json({ 
       success: false,
       error: 'Erreur création payment intent'
