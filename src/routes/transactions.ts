@@ -362,26 +362,56 @@ router.post('/:id/payment-intent', authMiddleware, async (req: Request, res: Res
       });
     }
 
+    if (transaction.status !== TransactionStatus.PAYMENT_PENDING) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cette transaction a déjà été traitée'
+      });
+    }
+
+    // VÉRIFIER SI UN PAYMENT INTENT VALIDE EXISTE DÉJÀ
+    if (transaction.stripePaymentIntentId) {
+      try {
+        const existingPI = await stripe.paymentIntents.retrieve(transaction.stripePaymentIntentId);
+        
+        // Si le Payment Intent existe et est utilisable, le retourner
+        if (existingPI.status === 'requires_payment_method' || existingPI.status === 'requires_confirmation') {
+          console.log('♻️ Réutilisation Payment Intent existant:', existingPI.id);
+          return res.json({
+            success: true,
+            client_secret: existingPI.client_secret,
+            payment_intent_id: existingPI.id
+          });
+        }
+      } catch (stripeError: any) {
+        console.log('⚠️ Payment Intent existant invalide, création d\'un nouveau...');
+        // Continuer pour créer un nouveau Payment Intent
+      }
+    }
+
+
     // Créer le Payment Intent Stripe
+    const uniqueDescription = `CoKilo-${transactionId}-${Date.now()}`;
+
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(parseFloat(transaction.amount.toString()) * 100), // Montant réel en centimes
+      amount: Math.round(parseFloat(transaction.amount.toString()) * 100),
       currency: 'eur',
-      automatic_payment_methods: {
-        enabled: true,
-      },
-      description: `CoKilo - Transport transaction ${transactionId}`,
+      automatic_payment_methods: { enabled: true },
+      description: uniqueDescription,
       metadata: {
-        transactionId: transactionId,
+        transactionId: transactionId.toString(),
+        userId: userId.toString(),
+        environment: process.env.NODE_ENV || 'production'
       },
     });
 
-    // AJOUT: Mettre à jour immédiatement le statut (simulation paiement réussi)
+    // SAUVEGARDER LE NOUVEAU PAYMENT INTENT ID
     await transaction.update({
       status: TransactionStatus.PAYMENT_ESCROWED,
       stripePaymentIntentId: paymentIntent.id
     });
 
-    console.log('✅ Payment Intent créé et statut mis à jour:', paymentIntent.id);
+    console.log('✅ Nouveau Payment Intent créé:', paymentIntent.id);
 
     res.json({
       success: true,
@@ -399,6 +429,8 @@ router.post('/:id/payment-intent', authMiddleware, async (req: Request, res: Res
     });
   }
 });
+
+    
 
 // Ajoutez cette route après payment-intent
 router.post('/:id/confirm-payment', authMiddleware, async (req: Request, res: Response) => {
