@@ -62,7 +62,7 @@ export class WithdrawalService {
       // Enregistrer le mouvement dans wallet_transactions
       await sequelize.query(
         `INSERT INTO wallet_transactions (wallet_id, type, amount, description, transaction_id, created_at)
-         VALUES ($1, 'debit', $2, $3, 'completed', NULL, NOW())`,
+         VALUES ($1, 'debit', $2, $3, NULL, NOW())`,
         {
           bind: [wallet.id, amount, `Demande de retrait #${withdrawalResult[0][0].id}`],
           transaction
