@@ -230,7 +230,6 @@ router.post('/:id/confirm-delivery', authMiddleware, async (req, res) => {
     
     console.log('Vérification accès transaction...');
     
-    // REMPLACEMENT : Utiliser Sequelize avec condition OR
     const transaction = await Transaction.findOne({
       where: {
         id: id,
@@ -265,6 +264,14 @@ router.post('/:id/confirm-delivery', authMiddleware, async (req, res) => {
       });
     }
     
+    // AJOUT : Vérifier que la livraison n'a pas déjà été confirmée
+    if (transaction.status === TransactionStatus.PAYMENT_RELEASED) {
+      console.log('Livraison déjà confirmée');
+      return res.status(400).json({ 
+        error: 'Cette livraison a déjà été confirmée' 
+      });
+    }
+    
     // Vérifier que le colis a été récupéré
     if (!transaction.pickedUpAt) {
       console.log('Colis pas encore récupéré');
@@ -273,9 +280,17 @@ router.post('/:id/confirm-delivery', authMiddleware, async (req, res) => {
       });
     }
     
+    // AJOUT : Vérifier le statut correct
+    if (transaction.status !== TransactionStatus.PACKAGE_PICKED_UP) {
+      console.log('Statut invalide pour livraison:', transaction.status);
+      return res.status(400).json({ 
+        error: 'Le colis doit être en statut "récupéré" pour être livré',
+        currentStatus: transaction.status 
+      });
+    }
+    
     console.log('Mise à jour statut vers payment_released...');
     
-    // REMPLACEMENT : Utiliser Sequelize update
     await transaction.update({
       status: TransactionStatus.PAYMENT_RELEASED,
       deliveredAt: new Date()
@@ -287,7 +302,6 @@ router.post('/:id/confirm-delivery', authMiddleware, async (req, res) => {
       deliveredAt: transaction.deliveredAt
     });
     
-    // Calculer le montant pour le voyageur
     const travelerAmount = parseFloat(String(transaction.travelerAmount || transaction.amount));
     
     console.log('Crédit wallet voyageur:', travelerAmount, 'EUR pour user', transaction.travelerId);
@@ -311,7 +325,7 @@ router.post('/:id/confirm-delivery', authMiddleware, async (req, res) => {
         deliveredAt: transaction.deliveredAt,
         deliveryCode: transaction.deliveryCode,
         travelerAmount: travelerAmount,
-        senderName: `${transaction. sender?.firstName || ''} ${transaction.sender?.lastName || ''}`
+        senderName: transaction.sender ? `${transaction.sender.firstName} ${transaction.sender.lastName}` : 'Expéditeur inconnu'
       }
     });
     
