@@ -22,8 +22,8 @@ export class WithdrawalService {
       throw new Error('Solde insuffisant');
     }
     
-    if (amount < 50) {
-      throw new Error('Montant minimum de retrait: 50€');
+    if (amount < 1) {
+      throw new Error('Montant minimum de retrait: 1€');
     }
     
     // Transaction atomique avec Sequelize
