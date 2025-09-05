@@ -360,28 +360,22 @@ router.post('/:id/payment-intent', authMiddleware, async (req: Request, res: Res
       });
     }
 
-    // NETTOYER LES ANCIENS PAYMENT INTENTS INVALIDES
-    if (transaction.stripePaymentIntentId) {
-      try {
-        await stripe.paymentIntents.retrieve(transaction.stripePaymentIntentId);
-      } catch (stripeError: any) {
-        // Si erreur de conflits d'environnement, nettoyer l'ID
-        if (stripeError.message?.includes('live mode') || stripeError.message?.includes('test mode')) {
-          console.log('🧹 Nettoyage ancien Payment Intent incompatible');
-          await transaction.update({ stripePaymentIntentId: undefined });
-        }
-      }
-    }
-
-    // TOUJOURS CRÉER UN NOUVEAU PAYMENT INTENT
+    // FORCER UN NOUVEL ID UNIQUE À CHAQUE FOIS
+    const uniqueRef = `${transactionId}-${userId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(parseFloat(transaction.amount.toString()) * 100),
       currency: 'eur',
       automatic_payment_methods: { enabled: true },
-      description: `CoKilo-T${transactionId}-${Date.now()}`,
-      metadata: { transactionId: transactionId.toString() },
+      description: `CoKilo-${uniqueRef}`,
+      metadata: {
+        transactionId: transactionId.toString(),
+        userId: userId.toString(),
+        uniqueRef: uniqueRef
+      },
     });
 
+    // Mettre à jour avec le nouveau Payment Intent
     await transaction.update({
       status: TransactionStatus.PAYMENT_ESCROWED,
       stripePaymentIntentId: paymentIntent.id
