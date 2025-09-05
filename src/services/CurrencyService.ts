@@ -84,7 +84,7 @@ export class CurrencyService {
 
       return transactions.map(transaction => {
         const txData = transaction.toJSON();
-        const originalAmount = parseFloat(txData.amount);
+        const originalAmount = parseFloat(String(txData.amount));
         const convertedAmount = parseFloat((originalAmount * rate).toFixed(2));
         
         console.log(`Transaction ${txData.id}: ${originalAmount} EUR -> ${convertedAmount} ${targetCurrency}`);
