@@ -6,11 +6,8 @@ interface ExchangeRates {
 }
 
 export class CurrencyService {
-  static convertTransactions(uniqueTransactions: Transaction[], userCurrency: any): any {
-    throw new Error('Method not implemented.');
-  }
   private static readonly BASE_CURRENCY = 'EUR';
-  private static readonly API_URL = 'https://api.exchangerate-api.com/v4/latest/EUR'; // API gratuite
+  private static readonly API_URL = 'https://api.exchangerate-api.com/v4/latest/EUR';
   private static cachedRates: ExchangeRates | null = null;
   private static lastUpdate: number = 0;
   private static readonly CACHE_DURATION = 3600000; // 1 heure en ms
@@ -18,7 +15,6 @@ export class CurrencyService {
   static async getExchangeRates(): Promise<ExchangeRates> {
     const now = Date.now();
     
-    // Utiliser cache si valide
     if (this.cachedRates && (now - this.lastUpdate) < this.CACHE_DURATION) {
       return this.cachedRates;
     }
@@ -26,20 +22,18 @@ export class CurrencyService {
     try {
       const response = await axios.get(this.API_URL, { timeout: 5000 });
       
-      // Vérifier que la réponse contient les taux
       if (response.data && response.data.rates) {
         this.cachedRates = response.data.rates;
         this.lastUpdate = now;
         
         console.log('Taux de change mis à jour:', Object.keys(this.cachedRates || {}).length, 'devises');
-        return this.cachedRates!; // Assertion que cachedRates n'est pas null
+        return this.cachedRates!;
       } else {
         throw new Error('Format de réponse API invalide');
       }
     } catch (error) {
       console.error('Erreur récupération taux de change:', error);
       
-      // Fallback avec taux statiques si API échoue
       if (this.cachedRates) {
         console.log('Utilisation du cache existant');
         return this.cachedRates;
@@ -60,7 +54,6 @@ export class CurrencyService {
         AED: 4.0
       };
       
-      // Mettre en cache les taux de fallback
       this.cachedRates = fallbackRates;
       this.lastUpdate = now;
       
@@ -68,10 +61,51 @@ export class CurrencyService {
     }
   }
 
+  // MÉTHODE CONVERTRANSACTIONS COMPLÈTE
+  static async convertTransactions(transactions: Transaction[], targetCurrency: string): Promise<any[]> {
+    if (!targetCurrency || targetCurrency === 'EUR') {
+      return transactions.map(tx => ({
+        ...tx.toJSON(),
+        displayCurrency: 'EUR',
+        currencySymbol: '€'
+      }));
+    }
+
+    try {
+      const rates = await this.getExchangeRates();
+      const rate = rates[targetCurrency];
+      
+      if (!rate) {
+        console.error(`Pas de taux pour ${targetCurrency}`);
+        return transactions.map(tx => tx.toJSON());
+      }
+
+      console.log(`Taux de change récupérés: ${Object.keys(rates).length} devises`);
+
+      return transactions.map(transaction => {
+        const txData = transaction.toJSON();
+        const originalAmount = parseFloat(txData.amount);
+        const convertedAmount = parseFloat((originalAmount * rate).toFixed(2));
+        
+        console.log(`Transaction ${txData.id}: ${originalAmount} EUR -> ${convertedAmount} ${targetCurrency}`);
+        
+        return {
+          ...txData,
+          amount: convertedAmount,
+          originalAmount: originalAmount,
+          displayCurrency: targetCurrency,
+          currencySymbol: this.getCurrencySymbol(targetCurrency)
+        };
+      });
+    } catch (error) {
+      console.error('Erreur conversion transactions:', error);
+      return transactions.map(tx => tx.toJSON());
+    }
+  }
+
   static convertPrice(amount: number, fromCurrency: string, toCurrency: string, rates: ExchangeRates): number {
     if (fromCurrency === toCurrency) return amount;
     
-    // Vérifier que les devises existent dans les taux
     if (fromCurrency !== 'EUR' && !rates[fromCurrency]) {
       console.warn(`Devise source ${fromCurrency} non trouvée, pas de conversion`);
       return amount;
@@ -83,15 +117,13 @@ export class CurrencyService {
     }
     
     try {
-      // Tout convertir via EUR comme base
       const euroAmount = fromCurrency === 'EUR' ? amount : amount / rates[fromCurrency];
       const convertedAmount = toCurrency === 'EUR' ? euroAmount : euroAmount * rates[toCurrency];
       
-      // Arrondir à 2 décimales
       return Math.round(convertedAmount * 100) / 100;
     } catch (error) {
       console.error('Erreur lors de la conversion:', error);
-      return amount; // Retourner le montant original en cas d'erreur
+      return amount;
     }
   }
 
@@ -112,7 +144,6 @@ export class CurrencyService {
     return symbols[currency] || currency;
   }
 
-  // Méthode utilitaire pour obtenir la liste des devises supportées
   static getSupportedCurrencies(): Array<{code: string, name: string, symbol: string}> {
     return [
       { code: 'EUR', name: 'Euro', symbol: '€' },
@@ -129,7 +160,6 @@ export class CurrencyService {
     ];
   }
 
-  // Méthode pour forcer la mise à jour du cache
   static async forceUpdateRates(): Promise<ExchangeRates> {
     this.cachedRates = null;
     this.lastUpdate = 0;

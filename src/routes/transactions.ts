@@ -8,6 +8,7 @@ import { db } from '../config/database'; // Ajustez le chemin selon votre struct
 import { WalletService } from '../services/walletService';
 import { TransactionStatus } from '../types/transaction';
 import { ReviewController } from '../controllers/ReviewController';
+import { CurrencyService } from '../services/CurrencyService';
 
 
 
@@ -82,8 +83,8 @@ router.get('/', async (req: Request, res: Response) => {
     console.log('User currency:', userCurrency);
 
     // AJOUT - Conversion des transactions
-    const { convertTransactions } = require('../services/CurrencyService');
-    const convertedTransactions = await convertTransactions(transactions, userCurrency);
+    
+    const convertedTransactions = await CurrencyService.convertTransactions(transactions, userCurrency);
 
     if (convertedTransactions.length > 0) {
       console.log('Première transaction après conversion:', {
