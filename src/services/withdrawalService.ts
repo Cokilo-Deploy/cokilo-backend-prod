@@ -43,7 +43,7 @@ export class WithdrawalService {
       const withdrawalResult = await sequelize.query(
         `INSERT INTO withdrawal_requests 
          (wallet_id, amount, bank_account_name, bank_account_number, bank_name, bank_code, status, requested_at)
-         VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW())
+         VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW())
          RETURNING *`,
         {
           bind: [
