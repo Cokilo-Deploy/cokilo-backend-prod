@@ -111,113 +111,104 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 router.post('/:id/confirm-pickup', authMiddleware, async (req, res) => {
- console.log('Route confirm-pickup appelée !');
- 
- try {
-   const { id } = req.params;
-   const { pickupCode } = req.body;
-   console.log('ID reçu:', id);
-   console.log('Code récupération reçu:', pickupCode);
-   
-   if (!req.user) {
-     console.log('Utilisateur non authentifié');
-     return res.status(401).json({ error: 'Utilisateur non authentifié' });
-   }
-   
-   const userId = req.user.id;
-   console.log('User ID:', userId);
-   
-   // Vérification que la transaction existe et que l'utilisateur a accès
-   const checkQuery = `
-     SELECT 
-       t.*,
-       traveler."firstName" as traveler_first_name,
-       traveler."lastName" as traveler_last_name
-     FROM transactions t 
-     LEFT JOIN users traveler ON t."travelerId" = traveler.id 
-     WHERE t.id = $1 AND t."travelerId" = $2
-   `;
-   
-   console.log('Vérification accès transaction...');
-   const checkResult = await db.query(checkQuery, [id, userId]);
-   
-   if (checkResult.rows.length === 0) {
-     console.log('Transaction non trouvée ou accès refusé');
-     return res.status(404).json({ error: 'Transaction non trouvée ou accès refusé' });
-   }
-   
-   const transaction = checkResult.rows[0];
-   console.log('Transaction trouvée:', {
-     id: transaction.id,
-     status: transaction.status,
-     pickupCode: transaction.pickupCode,
-     travelerId: transaction.travelerId,
-     senderId: transaction.senderId
-   });
-   
-   // Vérifier le code de récupération
-   if (transaction.pickupCode !== pickupCode) {
-     console.log('Code de récupération incorrect');
-     return res.status(400).json({ 
-       error: 'Code de récupération incorrect' 
-     });
-   }
-   
-   // Vérifier que la transaction est en statut payment_escrowed
-   if (transaction.status !== 'payment_escrowed') {
-     console.log('Statut invalide pour récupération:', transaction.status);
-     return res.status(400).json({ 
-       error: 'La transaction doit être payée pour être récupérée',
-       currentStatus: transaction.status 
-     });
-   }
-   
-   console.log('Mise à jour statut vers package_picked_up...');
-   
-   // Mise à jour vers package_picked_up
-   const updateQuery = `
-     UPDATE transactions 
-     SET 
-       status = 'package_picked_up',
-       "pickedUpAt" = NOW(),
-       "updatedAt" = NOW()
-     WHERE id = $1 
-     RETURNING *
-   `;
-   
-   const updateResult = await db.query(updateQuery, [id]);
-   const updatedTransaction = updateResult.rows[0];
-   
-   console.log('Transaction mise à jour:', {
-     id: updatedTransaction.id,
-     newStatus: updatedTransaction.status,
-     pickedUpAt: updatedTransaction.pickedUpAt
-   });
-   
-   res.json({
-     success: true,
-     message: 'Récupération confirmée avec succès',
-     transaction: {
-       id: updatedTransaction.id,
-       status: updatedTransaction.status,
-       pickedUpAt: updatedTransaction.pickedUpAt,
-       pickupCode: updatedTransaction.pickupCode,
-       deliveryCode: updatedTransaction.deliveryCode,
-       travelerName: `${transaction.traveler_first_name} ${transaction.traveler_last_name}`
-     }
-   });
-   
-   console.log('Réponse envoyée avec succès');
-   
- } catch (error) {
-   const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-   console.error('Erreur dans confirm-pickup:', errorMessage);
-   
-   res.status(500).json({ 
-     error: 'Erreur serveur lors de la confirmation',
-     details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-   });
- }
+  console.log('Route confirm-pickup appelée !');
+  
+  try {
+    const { id } = req.params;
+    const { pickupCode } = req.body;
+    console.log('ID reçu:', id);
+    console.log('Code récupération reçu:', pickupCode);
+    
+    if (!req.user) {
+      console.log('Utilisateur non authentifié');
+      return res.status(401).json({ error: 'Utilisateur non authentifié' });
+    }
+    
+    const userId = req.user.id;
+    console.log('User ID:', userId);
+    
+    console.log('Vérification accès transaction...');
+    
+    // REMPLACEMENT : Utiliser Sequelize au lieu de db.query
+    const transaction = await Transaction.findOne({
+      where: { 
+        id: id, 
+        travelerId: userId 
+      },
+      include: [
+        { model: User, as: 'traveler' },
+        { model: User, as: 'sender' }
+      ]
+    });
+    
+    if (!transaction) {
+      console.log('Transaction non trouvée ou accès refusé');
+      return res.status(404).json({ error: 'Transaction non trouvée ou accès refusé' });
+    }
+    
+    console.log('Transaction trouvée:', {
+      id: transaction.id,
+      status: transaction.status,
+      pickupCode: transaction.pickupCode,
+      travelerId: transaction.travelerId,
+      senderId: transaction.senderId
+    });
+    
+    // Vérifier le code de récupération
+    if (transaction.pickupCode !== pickupCode) {
+      console.log('Code de récupération incorrect');
+      return res.status(400).json({ 
+        error: 'Code de récupération incorrect' 
+      });
+    }
+    
+    // Vérifier que la transaction est en statut payment_escrowed
+    if (transaction.status !== 'payment_escrowed') {
+      console.log('Statut invalide pour récupération:', transaction.status);
+      return res.status(400).json({ 
+        error: 'La transaction doit être payée pour être récupérée',
+        currentStatus: transaction.status 
+      });
+    }
+    
+    console.log('Mise à jour statut vers package_picked_up...');
+    
+    // REMPLACEMENT : Utiliser Sequelize update
+    await transaction.update({
+      status: TransactionStatus.PACKAGE_PICKED_UP,
+      pickedUpAt: new Date()
+    });
+    
+    console.log('Transaction mise à jour:', {
+      id: transaction.id,
+      newStatus: transaction.status,
+      pickedUpAt: transaction.pickedUpAt
+    });
+    
+    res.json({
+      success: true,
+      message: 'Récupération confirmée avec succès',
+      transaction: {
+        id: transaction.id,
+        status: transaction.status,
+        pickedUpAt: transaction.pickedUpAt,
+        pickupCode: transaction.pickupCode,
+        deliveryCode: transaction.deliveryCode,
+        travelerName: `${transaction.traveler.firstName} ${transaction.traveler.lastName}`
+      }
+    });
+    
+    console.log('Réponse envoyée avec succès');
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+    console.error('Erreur dans confirm-pickup:', errorMessage);
+    
+    res.status(500).json({ 
+      error: 'Erreur serveur lors de la confirmation',
+      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+    });
+  }
 });
 
 router.post('/:id/confirm-delivery', authMiddleware, async (req, res) => {
@@ -237,26 +228,28 @@ router.post('/:id/confirm-delivery', authMiddleware, async (req, res) => {
     const userId = req.user.id;
     console.log('User ID:', userId);
     
-    // Vérification que la transaction existe et que l'utilisateur a accès
-    const checkQuery = `
-      SELECT 
-        t.*,
-        sender."firstName" as sender_first_name,
-        sender."lastName" as sender_last_name
-      FROM transactions t 
-      LEFT JOIN users sender ON t."senderId" = sender.id 
-      WHERE t.id = $1 AND (t."travelerId" = $2 OR t."senderId" = $2)
-    `;
-    
     console.log('Vérification accès transaction...');
-    const checkResult = await db.query(checkQuery, [id, userId]);
     
-    if (checkResult.rows.length === 0) {
+    // REMPLACEMENT : Utiliser Sequelize avec condition OR
+    const transaction = await Transaction.findOne({
+      where: {
+        id: id,
+        [Op.or]: [
+          { travelerId: userId },
+          { senderId: userId }
+        ]
+      },
+      include: [
+        { model: User, as: 'traveler' },
+        { model: User, as: 'sender' }
+      ]
+    });
+    
+    if (!transaction) {
       console.log('Transaction non trouvée ou accès refusé');
       return res.status(404).json({ error: 'Transaction non trouvée ou accès refusé' });
     }
     
-    const transaction = checkResult.rows[0];
     console.log('Transaction trouvée:', {
       id: transaction.id,
       status: transaction.status,
@@ -282,37 +275,29 @@ router.post('/:id/confirm-delivery', authMiddleware, async (req, res) => {
     
     console.log('Mise à jour statut vers payment_released...');
     
-    // Mettre à jour vers payment_released (libérer le paiement)
-    const updateQuery = `
-      UPDATE transactions 
-      SET 
-        status = 'payment_released',
-        "deliveredAt" = NOW(),
-        "updatedAt" = NOW()
-      WHERE id = $1 
-      RETURNING *
-    `;
-    
-    const updateResult = await db.query(updateQuery, [id]);
-    const updatedTransaction = updateResult.rows[0];
-    
-    console.log('Transaction mise à jour:', {
-      id: updatedTransaction.id,
-      newStatus: updatedTransaction.status,
-      deliveredAt: updatedTransaction.deliveredAt
+    // REMPLACEMENT : Utiliser Sequelize update
+    await transaction.update({
+      status: TransactionStatus.PAYMENT_RELEASED,
+      deliveredAt: new Date()
     });
     
-    // Calculer le montant pour le voyageur (montant - frais de service)
-    const travelerAmount = parseFloat(updatedTransaction.travelerAmount || updatedTransaction.amount);
+    console.log('Transaction mise à jour:', {
+      id: transaction.id,
+      newStatus: transaction.status,
+      deliveredAt: transaction.deliveredAt
+    });
     
-    console.log('Crédit wallet voyageur:', travelerAmount, 'EUR pour user', updatedTransaction.travelerId);
+    // Calculer le montant pour le voyageur
+    const travelerAmount = parseFloat(String(transaction.travelerAmount || transaction.amount));
+    
+    console.log('Crédit wallet voyageur:', travelerAmount, 'EUR pour user', transaction.travelerId);
     
     // Créditer le wallet du voyageur
     await WalletService.creditWallet(
-      updatedTransaction.travelerId,
+      transaction.travelerId,
       travelerAmount,
-      updatedTransaction.id,
-      `Livraison confirmée - Transaction #${updatedTransaction.id}`
+      transaction.id,
+      `Livraison confirmée - Transaction #${transaction.id}`
     );
     
     console.log('Wallet crédité avec succès');
@@ -321,12 +306,12 @@ router.post('/:id/confirm-delivery', authMiddleware, async (req, res) => {
       success: true,
       message: 'Livraison confirmée, paiement libéré au voyageur',
       transaction: {
-        id: updatedTransaction.id,
-        status: updatedTransaction.status,
-        deliveredAt: updatedTransaction.deliveredAt,
-        deliveryCode: updatedTransaction.deliveryCode,
+        id: transaction.id,
+        status: transaction.status,
+        deliveredAt: transaction.deliveredAt,
+        deliveryCode: transaction.deliveryCode,
         travelerAmount: travelerAmount,
-        senderName: `${transaction.sender_first_name} ${transaction.sender_last_name}`
+        senderName: `${transaction. sender?.firstName || ''} ${transaction.sender?.lastName || ''}`
       }
     });
     
