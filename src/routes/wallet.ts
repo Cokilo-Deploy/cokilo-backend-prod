@@ -11,9 +11,12 @@ router.get('/balance', authMiddleware, async (req, res) => {
     const userId = (req as any).user.id;
     const balance = await WalletService.getWalletBalance(userId);
     
+    // CORRECTION : S'assurer que balance est un nombre avant toFixed
+    const numericBalance = Number(balance) || 0;
+    
     res.json({
       success: true,
-      data: { balance: Number((balance || 0).toFixed(2)) }
+      data: { balance: Number(numericBalance.toFixed(2)) }
     });
   } catch (error) {
     console.error('Erreur récupération solde:', error);
