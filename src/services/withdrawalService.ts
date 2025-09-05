@@ -32,7 +32,7 @@ export class WithdrawalService {
     try {
       // Débiter le wallet
       await sequelize.query(
-        'UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE id = $2',
+        'UPDATE wallets SET balance = balance - $1 WHERE id = $2',
         {
           bind: [amount, wallet.id],
           transaction
@@ -42,7 +42,7 @@ export class WithdrawalService {
       // Créer la demande de retrait
       const withdrawalResult = await sequelize.query(
         `INSERT INTO withdrawal_requests 
-         (wallet_id, amount, bank_account_name, bank_account_number, bank_name, bank_code, status, created_at, updated_at)
+         (wallet_id, amount, bank_account_name, bank_account_number, bank_name, bank_code, status, requested_at)
          VALUES ($1, $2, $3, $4, $5, $6, 'pending', NOW(), NOW())
          RETURNING *`,
         {
@@ -61,7 +61,7 @@ export class WithdrawalService {
       
       // Enregistrer le mouvement dans wallet_transactions
       await sequelize.query(
-        `INSERT INTO wallet_transactions (wallet_id, type, amount, description, status, created_at, updated_at)
+        `INSERT INTO wallet_transactions (wallet_id, type, amount, description, status, requested_at)
          VALUES ($1, 'debit', $2, $3, 'completed', NOW(), NOW())`,
         {
           bind: [wallet.id, amount, `Demande de retrait #${withdrawalResult[0][0].id}`],
@@ -95,8 +95,8 @@ export class WithdrawalService {
   
   static async updateWithdrawalStatus(withdrawalId: number, status: string, notes?: string) {
   const updateQuery = notes 
-    ? 'UPDATE withdrawal_requests SET status = $1, notes = $2, processed_at = NOW(), updated_at = NOW() WHERE id = $3 RETURNING *'
-    : 'UPDATE withdrawal_requests SET status = $1, processed_at = NOW(), updated_at = NOW() WHERE id = $2 RETURNING *';
+    ? 'UPDATE withdrawal_requests SET status = $1, notes = $2, processed_at = NOW() WHERE id = $3 RETURNING *'
+    : 'UPDATE withdrawal_requests SET status = $1, processed_at = NOW() WHERE id = $2 RETURNING *';
   
   const params = notes ? [status, notes, withdrawalId] : [status, withdrawalId];
   
