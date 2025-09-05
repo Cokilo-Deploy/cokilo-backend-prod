@@ -82,7 +82,7 @@ router.get('/', async (req: Request, res: Response) => {
     console.log('User currency:', userCurrency);
 
     // AJOUT - Conversion des transactions
-    const { convertTransactions } = require('../services/currencyService');
+    const { convertTransactions } = require('../services/CurrencyService');
     const convertedTransactions = await convertTransactions(transactions, userCurrency);
 
     if (convertedTransactions.length > 0) {
