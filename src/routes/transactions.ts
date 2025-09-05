@@ -463,27 +463,14 @@ router.post('/reviews', authMiddleware, ReviewController.createReview);
 router.get('/users/:userId/reviews', ReviewController.getUserReviews);
 router.get('/transactions/:transactionId/reviews', authMiddleware, ReviewController.getTransactionReviews);
 
-// Route de nettoyage radical - ajoutez dans routes/transactions.ts
-router.post('/reset-all-payments', authMiddleware, async (req: Request, res: Response) => {
+router.get('/reset-payments-now', async (req: Request, res: Response) => {
   try {
-    // SUPPRIMER TOUS LES PAYMENT INTENT IDs
     const result = await Transaction.update(
-      { 
-        stripePaymentIntentId: null as any,
-        status: TransactionStatus.PAYMENT_PENDING 
-      },
-      { 
-        where: {} // Pas de condition = toutes les transactions
-      }
+      { stripePaymentIntentId: null as any },
+      { where: {} }
     );
-
-    res.json({ 
-      success: true, 
-      message: `${result[0]} transactions nettoyées`,
-      action: 'Tous les Payment Intents supprimés'
-    });
-
-  } catch (error : any) {
+    res.json({ success: true, message: `${result[0]} transactions nettoyées` });
+  } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
   }
 });
