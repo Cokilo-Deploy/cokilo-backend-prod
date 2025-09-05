@@ -21,7 +21,7 @@ export class WalletService {
     try {
       // Utiliser les vrais noms de colonnes de la base
       await sequelize.query(
-        'UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2',
+        'UPDATE wallets SET balance = balance + $1 = NOW() WHERE wallet_id = $2',
         {
           bind: [amount, userId],
           transaction
@@ -48,7 +48,7 @@ export class WalletService {
 
   static async getWalletBalance(userId: number): Promise<number> {
     const result = await sequelize.query(
-      'SELECT balance FROM wallets WHERE user_id = $1',
+      'SELECT balance FROM wallets WHERE wallet_id = $1',
       {
         bind: [userId],
         type: QueryTypes.SELECT
@@ -64,7 +64,7 @@ export class WalletService {
        FROM wallet_transactions wt
        JOIN wallets w ON wt.wallet_id = w.id
        LEFT JOIN transactions t ON wt.transaction_id = t.id
-       WHERE w.user_id = $1
+       WHERE w.wallet_id = $1
        ORDER BY wt.created_at DESC`,
       {
         bind: [userId],
