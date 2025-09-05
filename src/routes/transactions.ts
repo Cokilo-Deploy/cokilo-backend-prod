@@ -463,15 +463,5 @@ router.post('/reviews', authMiddleware, ReviewController.createReview);
 router.get('/users/:userId/reviews', ReviewController.getUserReviews);
 router.get('/transactions/:transactionId/reviews', authMiddleware, ReviewController.getTransactionReviews);
 
-router.get('/reset-payments-now', async (req: Request, res: Response) => {
-  try {
-    const result = await Transaction.update(
-      { stripePaymentIntentId: null as any },
-      { where: {} }
-    );
-    res.json({ success: true, message: `${result[0]} transactions nettoyées` });
-  } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
+
 export default router;
