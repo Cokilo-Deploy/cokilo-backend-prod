@@ -360,26 +360,29 @@ router.post('/:id/payment-intent', authMiddleware, async (req: Request, res: Res
       });
     }
 
-    // FORCER UN NOUVEL ID UNIQUE À CHAQUE FOIS
-    const uniqueRef = `${transactionId}-${userId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // LOGIQUE COMPLÈTEMENT DIFFÉRENTE - Pas de référence à l'ID de transaction
+    const randomSuffix = Math.random().toString(36).substring(2, 15);
+    const timestamp = Date.now().toString();
     
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(parseFloat(transaction.amount.toString()) * 100),
       currency: 'eur',
       automatic_payment_methods: { enabled: true },
-      description: `CoKilo-${uniqueRef}`,
+      description: `Cokilo-Prod-${timestamp}-${randomSuffix}`, // Complètement différent
       metadata: {
-        transactionId: transactionId.toString(),
-        userId: userId.toString(),
-        uniqueRef: uniqueRef
+        app_transaction_id: transactionId.toString(),
+        user_id: userId.toString(),
+        environment: 'production',
+        created_at: new Date().toISOString()
       },
     });
 
-    // Mettre à jour avec le nouveau Payment Intent
     await transaction.update({
       status: TransactionStatus.PAYMENT_ESCROWED,
       stripePaymentIntentId: paymentIntent.id
     });
+
+    console.log('Payment Intent créé:', paymentIntent.id);
 
     res.json({
       success: true,
