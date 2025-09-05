@@ -123,6 +123,7 @@ class Transaction extends Model<TransactionAttributes, TransactionCreationAttrib
 
   public senderReviewed!: boolean;
   public travelerReviewed!: boolean;
+  sender: any;
 
   public canBePickedUp(): boolean {
     return this.status === TransactionStatus.PAYMENT_ESCROWED;
