@@ -19,18 +19,19 @@ export class WalletService {
     const transaction = await sequelize.transaction();
     
     try {
-      // Utiliser les vrais noms de colonnes de la base
+      // CORRECTION : Utiliser user_id au lieu de wallet_id pour la table wallets
       await sequelize.query(
-        'UPDATE wallets SET balance = balance + $1 = NOW() WHERE wallet_id = $2',
+        'UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2',
         {
           bind: [amount, userId],
           transaction
         }
       );
       
+      // CORRECTION : Supprimer status et corriger la syntaxe
       await sequelize.query(
-        `INSERT INTO wallet_transactions (wallet_id, transaction_id, type, amount, description, status, created_at)
-         VALUES ($1, $2, 'credit', $3, $4, 'completed', NOW(), NOW())`,
+        `INSERT INTO wallet_transactions (wallet_id, transaction_id, type, amount, description, created_at)
+         VALUES ($1, $2, 'credit', $3, $4, NOW())`,
         {
           bind: [wallet.id, transactionId, amount, description],
           transaction
@@ -47,8 +48,9 @@ export class WalletService {
   }
 
   static async getWalletBalance(userId: number): Promise<number> {
+    // CORRECTION : Utiliser user_id au lieu de wallet_id
     const result = await sequelize.query(
-      'SELECT balance FROM wallets WHERE wallet_id = $1',
+      'SELECT balance FROM wallets WHERE user_id = $1',
       {
         bind: [userId],
         type: QueryTypes.SELECT
@@ -59,12 +61,13 @@ export class WalletService {
   }
 
   static async getWalletHistory(userId: number) {
+    // CORRECTION : Utiliser user_id dans la condition WHERE
     const result = await sequelize.query(
       `SELECT wt.*, t.id as transaction_number
        FROM wallet_transactions wt
        JOIN wallets w ON wt.wallet_id = w.id
        LEFT JOIN transactions t ON wt.transaction_id = t.id
-       WHERE w.wallet_id = $1
+       WHERE w.user_id = $1
        ORDER BY wt.created_at DESC`,
       {
         bind: [userId],
