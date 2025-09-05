@@ -463,4 +463,12 @@ router.post('/reviews', authMiddleware, ReviewController.createReview);
 router.get('/users/:userId/reviews', ReviewController.getUserReviews);
 router.get('/transactions/:transactionId/reviews', authMiddleware, ReviewController.getTransactionReviews);
 
+router.get('/clean/:id', async (req, res) => {
+  const transactionId = req.params.id;
+  await Transaction.update(
+    { stripePaymentIntentId: undefined },
+    { where: { id: transactionId } }
+  );
+  res.json({ success: true, message: `Transaction ${transactionId} nettoyée` });
+});
 export default router;
