@@ -29,7 +29,7 @@ export class WalletService {
       );
       
       await sequelize.query(
-        `INSERT INTO wallet_transactions (wallet_id, transaction_id, type, amount, description, status, created_at, updated_at)
+        `INSERT INTO wallet_transactions (wallet_id, transaction_id, type, amount, description, status, created_at)
          VALUES ($1, $2, 'credit', $3, $4, 'completed', NOW(), NOW())`,
         {
           bind: [wallet.id, transactionId, amount, description],
