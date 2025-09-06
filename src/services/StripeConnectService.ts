@@ -11,55 +11,52 @@ export class StripeConnectService {
   /**
    * Créer un Connected Account pour un voyageur européen
    */
-  static async createConnectedAccount(userId: number): Promise<string> {
-    try {
-      const user = await User.findByPk(userId);
-      if (!user) {
-        throw new Error('Utilisateur non trouvé');
-      }
-
-      // Vérifier si l'utilisateur peut utiliser Connect
-      if (!user.canUseStripeConnect() && user.getRecommendedPaymentMethod() !== 'stripe_connect') {
-        throw new Error('Utilisateur non éligible pour Stripe Connect');
-      }
-
-      // Créer le Connected Account
-      const account = await stripe.accounts.create({
-        type: 'custom',
-        country: user.country || 'FR',
-        email: user.email,
-        capabilities: {
-          transfers: { requested: true },
-        },
-        business_type: 'individual',
-        individual: {
-          first_name: user.firstName,
-          last_name: user.lastName,
-          email: user.email,
-        },
-        metadata: {
-          userId: userId.toString(),
-          platform: 'cokilo'
-        }
-      });
-
-      // Sauvegarder l'ID du compte connecté
-      await User.update(
-        { 
-          stripeConnectedAccountId: account.id,
-          paymentMethod: 'stripe_connect'
-        },
-        { where: { id: userId } }
-      );
-
-      console.log(`✅ Connected Account créé: ${account.id} pour user ${userId}`);
-      return account.id;
-
-    } catch (error) {
-      console.error('Erreur création Connected Account:', error);
-      throw error;
+  // Dans src/services/StripeConnectService.ts
+static async createConnectedAccount(userId: number): Promise<string> {
+  try {
+    const user = await User.findByPk(userId);
+    if (!user) {
+      throw new Error('Utilisateur non trouvé');
     }
+
+    // Créer le Connected Account avec les bonnes capabilities
+    const account = await stripe.accounts.create({
+      type: 'custom',
+      country: user.country || 'FR',
+      email: user.email,
+      capabilities: {
+        transfers: { requested: true },
+        card_payments: { requested: true } // AJOUT OBLIGATOIRE pour la France
+      },
+      business_type: 'individual',
+      individual: {
+        first_name: user.firstName,
+        last_name: user.lastName,
+        email: user.email,
+      },
+      metadata: {
+        userId: userId.toString(),
+        platform: 'cokilo'
+      }
+    });
+
+    // Sauvegarder l'ID du compte connecté
+    await User.update(
+      { 
+        stripeConnectedAccountId: account.id,
+        paymentMethod: 'stripe_connect'
+      },
+      { where: { id: userId } }
+    );
+
+    console.log(`✅ Connected Account créé: ${account.id} pour user ${userId}`);
+    return account.id;
+
+  } catch (error) {
+    console.error('Erreur création Connected Account:', error);
+    throw error;
   }
+}
 
   /**
    * Créer un lien d'onboarding pour compléter le profil
