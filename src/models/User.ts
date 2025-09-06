@@ -17,6 +17,9 @@ interface UserAttributes {
   verificationStatus: UserVerificationStatus;
   stripeIdentitySessionId?: string;
   stripeCustomerId?: string;
+  stripeConnectedAccountId?: string; // NOUVEAU
+  country?: string; // NOUVEAU
+  paymentMethod: 'manual' | 'stripe_connect'; // NOUVEAU
   
   role: UserRole;
   isActive: boolean;
@@ -36,12 +39,12 @@ interface UserAttributes {
   lastLoginAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
-  
 }
 
 interface UserCreationAttributes extends Optional<UserAttributes, 
   'id' | 'verificationStatus' | 'role' | 'isActive' | 'rating' | 'totalTrips' | 
-  'totalDeliveries' | 'totalEarnings' | 'language' | 'currency' | 'timezone' | 'notificationsEnabled'> {}
+  'totalDeliveries' | 'totalEarnings' | 'language' | 'currency' | 'timezone' | 
+  'notificationsEnabled' | 'paymentMethod'> {} // Ajouté paymentMethod comme optionnel
 
 class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: number;
@@ -55,6 +58,9 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public verificationStatus!: UserVerificationStatus;
   public stripeIdentitySessionId?: string;
   public stripeCustomerId?: string;
+  public stripeConnectedAccountId?: string; // NOUVEAU
+  public country?: string; // NOUVEAU
+  public paymentMethod!: 'manual' | 'stripe_connect'; // NOUVEAU
   
   public role!: UserRole;
   public isActive!: boolean;
@@ -91,6 +97,19 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
 
   public canChat(): boolean {
     return this.verificationStatus === UserVerificationStatus.VERIFIED;
+  }
+
+  // NOUVELLE MÉTHODE : Vérifier si l'utilisateur peut utiliser Stripe Connect
+  public canUseStripeConnect(): boolean {
+    return this.paymentMethod === 'stripe_connect' && 
+           this.stripeConnectedAccountId !== null &&
+           ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT'].includes(this.country || '');
+  }
+
+  // NOUVELLE MÉTHODE : Déterminer la méthode de paiement selon le pays
+  public getRecommendedPaymentMethod(): 'manual' | 'stripe_connect' {
+    const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
+    return euCountries.includes(this.country || '') ? 'stripe_connect' : 'manual';
   }
 
   public getFullName(): string {
@@ -180,6 +199,24 @@ User.init({
     allowNull: true,
     unique: true,
   },
+  // NOUVELLES COLONNES STRIPE CONNECT
+  stripeConnectedAccountId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    unique: true,
+  },
+  country: {
+    type: DataTypes.STRING(3),
+    allowNull: true,
+    validate: {
+      isIn: [['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'DZ', 'MA', 'TN', 'US', 'GB', 'CA']],
+    },
+  },
+  paymentMethod: {
+    type: DataTypes.ENUM('manual', 'stripe_connect'),
+    allowNull: false,
+    defaultValue: 'manual',
+  },
   role: {
     type: DataTypes.ENUM('user', 'admin'),
     allowNull: false,
@@ -226,12 +263,12 @@ User.init({
     },
   },
   currency: {
-  type: DataTypes.STRING(3),
-  defaultValue: 'EUR',
-  validate: {
-    isIn: [['EUR', 'USD', 'GBP', 'CAD', 'CHF', 'DZD', 'MAD', 'TND', 'EGP', 'SAR', 'AED']],
+    type: DataTypes.STRING(3),
+    defaultValue: 'EUR',
+    validate: {
+      isIn: [['EUR', 'USD', 'GBP', 'CAD', 'CHF', 'DZD', 'MAD', 'TND', 'EGP', 'SAR', 'AED']],
+    },
   },
-},
   timezone: {
     type: DataTypes.STRING,
     defaultValue: 'Europe/Paris',
@@ -257,13 +294,13 @@ User.init({
     allowNull: true,
   },
   profileName: {
-  type: DataTypes.STRING(50),
-  allowNull: true,
-  unique:true,
-  validate: {
-    len: [2, 50],
+    type: DataTypes.STRING(50),
+    allowNull: true,
+    unique: true,
+    validate: {
+      len: [2, 50],
+    },
   },
-},
 }, {
   sequelize,
   modelName: 'User',
@@ -293,6 +330,22 @@ User.init({
           [Op.ne]: null,
         },
       },
+    },
+    // NOUVEAUX INDEX
+    {
+      fields: ['stripeConnectedAccountId'],
+      unique: true,
+      where: {
+        stripeConnectedAccountId: {
+          [Op.ne]: null,
+        },
+      },
+    },
+    {
+      fields: ['country'],
+    },
+    {
+      fields: ['paymentMethod'],
     },
     {
       fields: ['verificationStatus'],
