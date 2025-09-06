@@ -62,26 +62,26 @@ static async createConnectedAccount(userId: number): Promise<string> {
    * Créer un lien d'onboarding pour compléter le profil
    */
   static async createOnboardingLink(userId: number): Promise<string> {
-    try {
-      const user = await User.findByPk(userId);
-      if (!user || !user.stripeConnectedAccountId) {
-        throw new Error('Connected Account non trouvé');
-      }
-
-      const accountLink = await stripe.accountLinks.create({
-        account: user.stripeConnectedAccountId,
-        refresh_url: `${process.env.FRONTEND_URL}/onboarding/refresh`,
-        return_url: `${process.env.FRONTEND_URL}/onboarding/success`,
-        type: 'account_onboarding',
-      });
-
-      return accountLink.url;
-
-    } catch (error) {
-      console.error('Erreur création lien onboarding:', error);
-      throw error;
+  try {
+    const user = await User.findByPk(userId);
+    if (!user || !user.stripeConnectedAccountId) {
+      throw new Error('Connected Account non trouvé');
     }
+
+    const accountLink = await stripe.accountLinks.create({
+      account: user.stripeConnectedAccountId,
+      refresh_url: 'https://stripe.com/test-refresh', // URL temporaire HTTPS
+      return_url: 'https://stripe.com/test-success',  // URL temporaire HTTPS
+      type: 'account_onboarding',
+    });
+
+    return accountLink.url;
+
+  } catch (error) {
+    console.error('Erreur création lien onboarding:', error);
+    throw error;
   }
+}
 
   /**
    * Vérifier le statut d'un Connected Account
