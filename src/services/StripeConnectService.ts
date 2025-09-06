@@ -61,7 +61,8 @@ static async createConnectedAccount(userId: number): Promise<string> {
   /**
    * Créer un lien d'onboarding pour compléter le profil
    */
-  static async createOnboardingLink(userId: number): Promise<string> {
+  
+static async createOnboardingLink(userId: number): Promise<string> {
   try {
     const user = await User.findByPk(userId);
     if (!user || !user.stripeConnectedAccountId) {
@@ -70,9 +71,10 @@ static async createConnectedAccount(userId: number): Promise<string> {
 
     const accountLink = await stripe.accountLinks.create({
       account: user.stripeConnectedAccountId,
-      refresh_url: 'https://stripe.com/test-refresh', // URL temporaire HTTPS
-      return_url: 'https://stripe.com/test-success',  // URL temporaire HTTPS
+      refresh_url: `${process.env.FRONTEND_URL}/onboarding/refresh`,
+      return_url: `${process.env.FRONTEND_URL}/dashboard?setup=complete`,
       type: 'account_onboarding',
+      collect: 'eventually_due' // Collecte progressive des informations
     });
 
     return accountLink.url;
