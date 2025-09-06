@@ -199,11 +199,12 @@ User.init({
     allowNull: true,
     unique: true,
   },
-  // NOUVELLES COLONNES STRIPE CONNECT
+  // NOUVELLES COLONNES STRIPE CONNECT AVEC MAPPING CORRECT
   stripeConnectedAccountId: {
     type: DataTypes.STRING,
     allowNull: true,
     unique: true,
+    field: 'stripeconnectedaccountid' // Mapping vers le nom réel en base
   },
   country: {
     type: DataTypes.STRING(3),
@@ -211,11 +212,13 @@ User.init({
     validate: {
       isIn: [['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'DZ', 'MA', 'TN', 'US', 'GB', 'CA']],
     },
+    field: 'country' // Nom correct, pas de mapping nécessaire
   },
   paymentMethod: {
     type: DataTypes.ENUM('manual', 'stripe_connect'),
     allowNull: false,
     defaultValue: 'manual',
+    field: 'paymentmethod' // Mapping vers le nom réel en base
   },
   role: {
     type: DataTypes.ENUM('user', 'admin'),
@@ -331,12 +334,12 @@ User.init({
         },
       },
     },
-    // NOUVEAUX INDEX
+    // NOUVEAUX INDEX AVEC NOMS CORRECTS DE LA BASE
     {
-      fields: ['stripeconnectedaccountId'],
+      fields: ['stripeconnectedaccountid'], // Nom en base de données
       unique: true,
       where: {
-        stripeConnectedAccountId: {
+        stripeconnectedaccountid: {
           [Op.ne]: null,
         },
       },
@@ -345,7 +348,7 @@ User.init({
       fields: ['country'],
     },
     {
-      fields: ['paymentmethod'],
+      fields: ['paymentmethod'], // Nom en base de données
     },
     {
       fields: ['verificationStatus'],
