@@ -161,4 +161,70 @@ static async createOnboardingLink(userId: number): Promise<string> {
       throw error;
     }
   }
+
+  // src/services/StripeConnectService.ts - Ajoutez cette nouvelle méthode
+
+static async createConnectedAccountWithUserData(userId: number, userIp: string): Promise<string> {
+  try {
+    const user = await User.findByPk(userId);
+    if (!user) {
+      throw new Error('Utilisateur non trouvé');
+    }
+
+    // Vérifier que toutes les données nécessaires sont présentes
+    if (!user.dateOfBirth || !user.addressLine1 || !user.addressCity || !user.addressPostalCode) {
+      throw new Error('Données utilisateur incomplètes pour la création du compte Connect');
+    }
+
+    const account = await stripe.accounts.create({
+      type: 'custom',
+      country: user.country || 'FR',
+      email: user.email,
+      capabilities: {
+        transfers: { requested: true },
+        card_payments: { requested: true }
+      },
+      business_type: 'individual',
+      individual: {
+        first_name: user.firstName,
+        last_name: user.lastName,
+        email: user.email,
+        phone: user.phone,
+        dob: {
+          day: user.dateOfBirth.getDate(),
+          month: user.dateOfBirth.getMonth() + 1,
+          year: user.dateOfBirth.getFullYear()
+        },
+        address: {
+          line1: user.addressLine1,
+          city: user.addressCity,
+          postal_code: user.addressPostalCode,
+          country: user.country || 'FR'
+        }
+      },
+      tos_acceptance: {
+        date: Math.floor((user.stripeTermsAcceptedAt || new Date()).getTime() / 1000),
+        ip: userIp
+      },
+      metadata: {
+        userId: userId.toString(),
+        platform: 'cokilo',
+        registration_auto: 'true'
+      }
+    });
+
+    // Sauvegarder l'ID du compte connecté
+    await User.update(
+      { stripeConnectedAccountId: account.id },
+      { where: { id: userId } }
+    );
+
+    console.log(`Connected Account créé automatiquement: ${account.id} pour user ${userId}`);
+    return account.id;
+
+  } catch (error) {
+    console.error('Erreur création Connected Account avec données user:', error);
+    throw error;
+  }
+}
 }

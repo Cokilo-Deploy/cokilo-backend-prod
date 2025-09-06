@@ -39,12 +39,21 @@ interface UserAttributes {
   lastLoginAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
+  
+
+  addressLine1?: string;
+  addressCity?: string;
+  addressPostalCode?: string;
+  dateOfBirth?: Date;
+  stripeTermsAccepted: boolean;
+  stripeTermsAcceptedAt?: Date;
+  
 }
 
 interface UserCreationAttributes extends Optional<UserAttributes, 
   'id' | 'verificationStatus' | 'role' | 'isActive' | 'rating' | 'totalTrips' | 
   'totalDeliveries' | 'totalEarnings' | 'language' | 'currency' | 'timezone' | 
-  'notificationsEnabled' | 'paymentMethod'> {} // Ajouté paymentMethod comme optionnel
+  'notificationsEnabled' | 'paymentMethod'| 'stripeTermsAccepted'> {} // Ajouté paymentMethod comme optionnel
 
 class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: number;
@@ -54,6 +63,12 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public lastName!: string;
   public phone!: string;
   public avatar?: string;
+  public addressLine1?: string;
+  public addressCity?: string;
+  public addressPostalCode?: string;
+  public dateOfBirth?: Date;
+  public stripeTermsAccepted!: boolean;
+  public stripeTermsAcceptedAt?: Date;
   
   public verificationStatus!: UserVerificationStatus;
   public stripeIdentitySessionId?: string;
@@ -304,6 +319,38 @@ User.init({
       len: [2, 50],
     },
   },
+
+  // Ajoutez ces colonnes dans User.init()
+addressLine1: {
+  type: DataTypes.STRING(255),
+  allowNull: true,
+  field: 'address_line1'
+},
+addressCity: {
+  type: DataTypes.STRING(100),
+  allowNull: true,
+  field: 'address_city'
+},
+addressPostalCode: {
+  type: DataTypes.STRING(20),
+  allowNull: true,
+  field: 'address_postal_code'
+},
+dateOfBirth: {
+  type: DataTypes.DATEONLY,
+  allowNull: true,
+  field: 'date_of_birth'
+},
+stripeTermsAccepted: {
+  type: DataTypes.BOOLEAN,
+  defaultValue: false,
+  field: 'stripe_terms_accepted'
+},
+stripeTermsAcceptedAt: {
+  type: DataTypes.DATE,
+  allowNull: true,
+  field: 'stripe_terms_accepted_at'
+},
 }, {
   sequelize,
   modelName: 'User',
