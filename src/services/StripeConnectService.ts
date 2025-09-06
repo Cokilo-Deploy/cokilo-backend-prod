@@ -186,15 +186,28 @@ static async createConnectedAccountWithUserData(userId: number, userIp: string):
       },
       business_type: 'individual',
       individual: {
-        first_name: user.firstName,
-        last_name: user.lastName,
-        email: user.email,
-        phone: user.phone,
-        dob: {
-          day: user.dateOfBirth.getDate(),
-          month: user.dateOfBirth.getMonth() + 1,
-          year: user.dateOfBirth.getFullYear()
-        },
+  first_name: user.firstName,
+  last_name: user.lastName,
+  email: user.email,
+  phone: user.phone,
+  ...(user.dateOfBirth && {
+    dob: (() => {
+      try {
+        const birthDate = typeof user.dateOfBirth === 'string' 
+          ? new Date(user.dateOfBirth) 
+          : user.dateOfBirth;
+        
+        return {
+          day: birthDate.getDate(),
+          month: birthDate.getMonth() + 1,
+          year: birthDate.getFullYear()
+        };
+      } catch (error) {
+        console.error('Erreur parsing date de naissance:', error);
+        return undefined;
+      }
+    })()
+  }),
         address: {
           line1: user.addressLine1,
           city: user.addressCity,
