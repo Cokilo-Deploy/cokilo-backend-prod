@@ -178,52 +178,15 @@ static async createConnectedAccountWithUserData(userId: number, userIp: string):
 
     const account = await stripe.accounts.create({
       type: 'custom',
-      country: user.country || 'FR',
+      country: user.country,
       email: user.email,
       capabilities: {
         transfers: { requested: true },
         card_payments: { requested: true }
       },
-      business_type: 'individual',
-      individual: {
-  first_name: user.firstName,
-  last_name: user.lastName,
-  email: user.email,
-  phone: user.phone,
-  ...(user.dateOfBirth && {
-    dob: (() => {
-      try {
-        const birthDate = typeof user.dateOfBirth === 'string' 
-          ? new Date(user.dateOfBirth) 
-          : user.dateOfBirth;
+      
+  
         
-        return {
-          day: birthDate.getDate(),
-          month: birthDate.getMonth() + 1,
-          year: birthDate.getFullYear()
-        };
-      } catch (error) {
-        console.error('Erreur parsing date de naissance:', error);
-        return undefined;
-      }
-    })()
-  }),
-        address: {
-          line1: user.addressLine1,
-          city: user.addressCity,
-          postal_code: user.addressPostalCode,
-          country: user.country || 'FR'
-        }
-      },
-      tos_acceptance: {
-  date: Math.floor((user.stripeTermsAcceptedAt || new Date()).getTime() / 1000),
-  ip: this.validateAndCleanIP(userIp)
-},
-      metadata: {
-        userId: userId.toString(),
-        platform: 'cokilo',
-        registration_auto: 'true'
-      }
     });
 
     
