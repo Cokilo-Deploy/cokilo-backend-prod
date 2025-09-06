@@ -70,12 +70,12 @@ static async createOnboardingLink(userId: number): Promise<string> {
     }
 
     const accountLink = await stripe.accountLinks.create({
-      account: user.stripeConnectedAccountId,
-      refresh_url: `${process.env.FRONTEND_URL}/onboarding/refresh`,
-      return_url: `${process.env.FRONTEND_URL}/dashboard?setup=complete`,
-      type: 'account_onboarding',
-      collect: 'eventually_due' // Collecte progressive des informations
-    });
+  account: user.stripeConnectedAccountId,
+  refresh_url: 'https://stripe.com/docs', // URL temporaire HTTPS
+  return_url: 'https://stripe.com/docs',  // URL temporaire HTTPS
+  type: 'account_onboarding',
+  collect: 'eventually_due'
+});
 
     return accountLink.url;
 
