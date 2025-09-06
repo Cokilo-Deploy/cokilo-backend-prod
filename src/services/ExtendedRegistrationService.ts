@@ -56,18 +56,12 @@ export class ExtendedRegistrationService {
     // Générer le token
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
+    
     return {
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        country: user.country,
-        paymentMethod: user.paymentMethod,
-        stripeAccountCreated,
-        needsStripeOnboarding: isEuropeanUser && !stripeAccountCreated
-      }
-    };
+  token,
+  user: user, // Retourner l'objet User complet au lieu d'un objet partiel
+  stripeAccountCreated,
+  needsStripeOnboarding: isEuropeanUser && !stripeAccountCreated
+};
   }
 }
