@@ -333,7 +333,7 @@ User.init({
     },
     // NOUVEAUX INDEX
     {
-      fields: ['stripeConnectedAccountId'],
+      fields: ['stripeconnectedaccountId'],
       unique: true,
       where: {
         stripeConnectedAccountId: {
@@ -345,7 +345,7 @@ User.init({
       fields: ['country'],
     },
     {
-      fields: ['paymentMethod'],
+      fields: ['paymentmethod'],
     },
     {
       fields: ['verificationStatus'],
