@@ -125,19 +125,25 @@ export class AuthController {
       const userAccess = getUserAccessInfo(result.user);
 
       res.status(201).json({
-        success: true,
-        data: {
-          token: result.token,
-          user: {
-            ...result.user,
-            currency: req.body.currency
-          },
-          detectedCurrency,
-          stripeAccountCreated: result.user.stripeAccountCreated
-        },
-        userAccess,
-        message: 'Inscription réussie'
-      });
+  success: true,
+  data: {
+    token: result.token,
+    user: {
+      id: result.user.id,
+      email: result.user.email,
+      firstName: result.user.firstName,
+      lastName: result.user.lastName,
+      verificationStatus: result.user.verificationStatus,
+      currency: result.user.currency,
+      country: result.user.country,
+      paymentMethod: result.user.paymentMethod
+    },
+    detectedCurrency: req.body.currency,
+    stripeAccountCreated: result.stripeAccountCreated
+  },
+  userAccess,
+  message: 'Inscription réussie'
+});
 
     } catch (error: any) {
       console.error('Erreur inscription:', error);
