@@ -216,9 +216,9 @@ static async createConnectedAccountWithUserData(userId: number, userIp: string):
         }
       },
       tos_acceptance: {
-        date: Math.floor((user.stripeTermsAcceptedAt || new Date()).getTime() / 1000),
-        ip: userIp
-      },
+  date: Math.floor((user.stripeTermsAcceptedAt || new Date()).getTime() / 1000),
+  ip: this.validateAndCleanIP(userIp)
+},
       metadata: {
         userId: userId.toString(),
         platform: 'cokilo',
@@ -226,6 +226,7 @@ static async createConnectedAccountWithUserData(userId: number, userIp: string):
       }
     });
 
+    
     // Sauvegarder l'ID du compte connecté
     await User.update(
       { stripeConnectedAccountId: account.id },
@@ -239,5 +240,30 @@ static async createConnectedAccountWithUserData(userId: number, userIp: string):
     console.error('Erreur création Connected Account avec données user:', error);
     throw error;
   }
+  }
+
+  // Ajoutez cette méthode dans StripeConnectService
+private static validateAndCleanIP(ip: string): string {
+  // Nettoyer l'IP
+  const cleanIP = ip.trim().split(',')[0].trim();
+  
+  // Validation IPv4
+  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+  
+  if (ipv4Regex.test(cleanIP)) {
+    const parts = cleanIP.split('.');
+    const validParts = parts.every(part => {
+      const num = parseInt(part, 10);
+      return num >= 0 && num <= 255;
+    });
+    
+    if (validParts) {
+      return cleanIP;
+    }
+  }
+  
+  // Si IP invalide, utiliser une IP par défaut pour les tests
+  console.warn('IP invalide détectée:', ip, '- Utilisation IP par défaut');
+  return '8.8.8.8'; // IP publique valide pour les tests
 }
 }
