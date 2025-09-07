@@ -17,9 +17,6 @@ interface UserAttributes {
   verificationStatus: UserVerificationStatus;
   stripeIdentitySessionId?: string;
   stripeCustomerId?: string;
-  stripeConnectedAccountId?: string; // NOUVEAU
-  country?: string; // NOUVEAU
-  paymentMethod: 'manual' | 'stripe_connect'; // NOUVEAU
   
   role: UserRole;
   isActive: boolean;
@@ -40,20 +37,11 @@ interface UserAttributes {
   createdAt?: Date;
   updatedAt?: Date;
   
-
-  addressLine1?: string;
-  addressCity?: string;
-  addressPostalCode?: string;
-  dateOfBirth?: Date;
-  stripeTermsAccepted: boolean;
-  stripeTermsAcceptedAt?: Date;
-  
 }
 
 interface UserCreationAttributes extends Optional<UserAttributes, 
   'id' | 'verificationStatus' | 'role' | 'isActive' | 'rating' | 'totalTrips' | 
-  'totalDeliveries' | 'totalEarnings' | 'language' | 'currency' | 'timezone' | 
-  'notificationsEnabled' | 'paymentMethod'| 'stripeTermsAccepted'> {} // Ajouté paymentMethod comme optionnel
+  'totalDeliveries' | 'totalEarnings' | 'language' | 'currency' | 'timezone' | 'notificationsEnabled'> {}
 
 class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: number;
@@ -63,19 +51,10 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public lastName!: string;
   public phone!: string;
   public avatar?: string;
-  public addressLine1?: string;
-  public addressCity?: string;
-  public addressPostalCode?: string;
-  public dateOfBirth?: Date;
-  public stripeTermsAccepted!: boolean;
-  public stripeTermsAcceptedAt?: Date;
   
   public verificationStatus!: UserVerificationStatus;
   public stripeIdentitySessionId?: string;
   public stripeCustomerId?: string;
-  public stripeConnectedAccountId?: string; // NOUVEAU
-  public country?: string; // NOUVEAU
-  public paymentMethod!: 'manual' | 'stripe_connect'; // NOUVEAU
   
   public role!: UserRole;
   public isActive!: boolean;
@@ -112,19 +91,6 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
 
   public canChat(): boolean {
     return this.verificationStatus === UserVerificationStatus.VERIFIED;
-  }
-
-  // NOUVELLE MÉTHODE : Vérifier si l'utilisateur peut utiliser Stripe Connect
-  public canUseStripeConnect(): boolean {
-    return this.paymentMethod === 'stripe_connect' && 
-           this.stripeConnectedAccountId !== null &&
-           ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT'].includes(this.country || '');
-  }
-
-  // NOUVELLE MÉTHODE : Déterminer la méthode de paiement selon le pays
-  public getRecommendedPaymentMethod(): 'manual' | 'stripe_connect' {
-    const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
-    return euCountries.includes(this.country || '') ? 'stripe_connect' : 'manual';
   }
 
   public getFullName(): string {
@@ -214,27 +180,6 @@ User.init({
     allowNull: true,
     unique: true,
   },
-  // NOUVELLES COLONNES STRIPE CONNECT AVEC MAPPING CORRECT
-  stripeConnectedAccountId: {
-    type: DataTypes.STRING,
-    allowNull: true,
-    unique: true,
-    field: 'stripeconnectedaccountid' // Mapping vers le nom réel en base
-  },
-  country: {
-    type: DataTypes.STRING(3),
-    allowNull: true,
-    validate: {
-      isIn: [['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'DZ', 'MA', 'TN', 'US', 'GB', 'CA']],
-    },
-    field: 'country' // Nom correct, pas de mapping nécessaire
-  },
-  paymentMethod: {
-    type: DataTypes.ENUM('manual', 'stripe_connect'),
-    allowNull: false,
-    defaultValue: 'manual',
-    field: 'paymentmethod' // Mapping vers le nom réel en base
-  },
   role: {
     type: DataTypes.ENUM('user', 'admin'),
     allowNull: false,
@@ -281,12 +226,12 @@ User.init({
     },
   },
   currency: {
-    type: DataTypes.STRING(3),
-    defaultValue: 'EUR',
-    validate: {
-      isIn: [['EUR', 'USD', 'GBP', 'CAD', 'CHF', 'DZD', 'MAD', 'TND', 'EGP', 'SAR', 'AED']],
-    },
+  type: DataTypes.STRING(3),
+  defaultValue: 'EUR',
+  validate: {
+    isIn: [['EUR', 'USD', 'GBP', 'CAD', 'CHF', 'DZD', 'MAD', 'TND', 'EGP', 'SAR', 'AED']],
   },
+},
   timezone: {
     type: DataTypes.STRING,
     defaultValue: 'Europe/Paris',
@@ -312,44 +257,12 @@ User.init({
     allowNull: true,
   },
   profileName: {
-    type: DataTypes.STRING(50),
-    allowNull: true,
-    unique: true,
-    validate: {
-      len: [2, 50],
-    },
+  type: DataTypes.STRING(50),
+  allowNull: true,
+  unique:true,
+  validate: {
+    len: [2, 50],
   },
-
-  // Ajoutez ces colonnes dans User.init()
-addressLine1: {
-  type: DataTypes.STRING(255),
-  allowNull: true,
-  field: 'address_line1'
-},
-addressCity: {
-  type: DataTypes.STRING(100),
-  allowNull: true,
-  field: 'address_city'
-},
-addressPostalCode: {
-  type: DataTypes.STRING(20),
-  allowNull: true,
-  field: 'address_postal_code'
-},
-dateOfBirth: {
-  type: DataTypes.DATEONLY,
-  allowNull: true,
-  field: 'date_of_birth'
-},
-stripeTermsAccepted: {
-  type: DataTypes.BOOLEAN,
-  defaultValue: false,
-  field: 'stripe_terms_accepted'
-},
-stripeTermsAcceptedAt: {
-  type: DataTypes.DATE,
-  allowNull: true,
-  field: 'stripe_terms_accepted_at'
 },
 }, {
   sequelize,
@@ -380,22 +293,6 @@ stripeTermsAcceptedAt: {
           [Op.ne]: null,
         },
       },
-    },
-    // NOUVEAUX INDEX AVEC NOMS CORRECTS DE LA BASE
-    {
-      fields: ['stripeconnectedaccountid'], // Nom en base de données
-      unique: true,
-      where: {
-        stripeconnectedaccountid: {
-          [Op.ne]: null,
-        },
-      },
-    },
-    {
-      fields: ['country'],
-    },
-    {
-      fields: ['paymentmethod'], // Nom en base de données
     },
     {
       fields: ['verificationStatus'],
