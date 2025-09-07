@@ -1,9 +1,8 @@
-// routes/webhooks.ts
+// Votre fichier webhooks.ts corrigé
 import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
 import { Transaction } from '../models';
 import { TransactionStatus } from '../types/transaction';
-import { handleStripeConnectWebhook } from '../controllers/stripeConnectWebhookController';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-07-30.basil',
@@ -11,7 +10,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 const router = Router();
 
-// Webhook existant (paiements)
 router.post('/stripe', async (req: Request, res: Response) => {
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -33,13 +31,13 @@ router.post('/stripe', async (req: Request, res: Response) => {
     if (transactionId) {
       try {
         const transaction = await Transaction.findByPk(transactionId);
-
+        
         if (transaction && transaction.status === TransactionStatus.PAYMENT_PENDING) {
           await transaction.update({
             status: TransactionStatus.PAYMENT_ESCROWED,
             stripePaymentIntentId: paymentIntent.id
           });
-
+          
           console.log(`Transaction ${transactionId} mise à jour vers PAYMENT_ESCROWED`);
         }
       } catch (error) {
@@ -61,7 +59,7 @@ router.post('/stripe', async (req: Request, res: Response) => {
             status: TransactionStatus.CANCELLED,
             cancellationReason: 'Échec du paiement'
           });
-
+          
           console.log(`Transaction ${transactionId} annulée pour échec paiement`);
         }
       } catch (error) {
@@ -72,10 +70,5 @@ router.post('/stripe', async (req: Request, res: Response) => {
 
   res.json({ received: true });
 });
-
-// Nouveau webhook Connect (transfers)
-router.post('/stripe-connect', 
-  handleStripeConnectWebhook
-);
 
 export default router;

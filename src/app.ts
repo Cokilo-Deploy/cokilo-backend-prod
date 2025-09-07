@@ -17,8 +17,6 @@ import { ChatSocketServer } from './socket/chatSocket';
 import userRoutes from './routes/user';
 import { verificationRouter } from './routes/verification';
 import { QueryTypes } from 'sequelize';
-import stripeConnectRoutes from './routes/stripeConnect';
-
 
 
 dotenv.config();
@@ -71,8 +69,6 @@ app.use('/api/wallet', walletRoutes);
 app.use('/api/chat', chatRouter);
 app.use('/api/users', userRoutes);
 app.use('/api/verification', verificationRouter);
-app.use('/api/stripe-connect', stripeConnectRoutes);
-app.use('/api/webhooks', webhookRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

@@ -9,8 +9,7 @@ import { PaymentService } from '../services/paymentService';
 import Stripe from 'stripe';
 import { TripCapacityService } from '../services/TripCapacityService';
 import { CurrencyService } from '../services/CurrencyService';
-import { StripeConnectService } from '../services/StripeConnectService';
-import { WalletService } from '../services/walletService';
+
 
 // AJOUT - Service de conversion
 const { convertTransactions } = require('../services/CurrencyService');
@@ -345,133 +344,87 @@ export class TransactionController {
   }
 
   static async confirmDelivery(req: Request, res: Response) {
-  try {
-    const idFromParams = Number(req.params.id);
-    const idFromBody = Number(req.body?.transactionId);
-    const transactionId = Number.isFinite(idFromParams) ? idFromParams : idFromBody;
+    try {
+      const idFromParams = Number(req.params.id);
+      const idFromBody = Number(req.body?.transactionId);
+      const transactionId = Number.isFinite(idFromParams) ? idFromParams : idFromBody;
 
-    const { deliveryCode } = req.body;
-    const user = (req as any).user;
+      const { deliveryCode } = req.body;
+      const user = (req as any).user;
 
-    if (!Number.isFinite(transactionId)) {
-      return res.status(400).json({ success: false, error: 'ID de transaction invalide' });
-    }
+      if (!Number.isFinite(transactionId)) {
+        return res.status(400).json({ success: false, error: 'ID de transaction invalide' });
+      }
 
-    console.log('🔄 Confirmation livraison pour transaction:', transactionId);
+      console.log('🔄 Confirmation livraison pour transaction:', transactionId);
 
-    const transaction = await Transaction.findOne({
-      where: {
-        id: transactionId,
-        [Op.or]: [{ senderId: user.id }, { travelerId: user.id }],
-      },
-      include: [{ model: User, as: 'traveler' }]
-    });
-
-    if (!transaction) {
-      return res.status(404).json({
-        success: false,
-        error: 'Transaction non trouvée',
+      const transaction = await Transaction.findOne({
+        where: {
+          id: transactionId,
+          [Op.or]: [{ senderId: user.id }, { travelerId: user.id }],
+        },
       });
-    }
 
-    if (!deliveryCode || transaction.deliveryCode !== deliveryCode) {
-      return res.status(400).json({
-        success: false,
-        error: 'Code de livraison incorrect',
-      });
-    }
+      if (!transaction) {
+        return res.status(404).json({
+          success: false,
+          error: 'Transaction non trouvée',
+        });
+      }
 
-    if (transaction.stripePaymentIntentId) {
-      const captureResult = await PaymentService.capturePayment(transaction.stripePaymentIntentId);
-      
-      const { WalletService } = require('../services/walletService');
-      const traveler = transaction.traveler;
+      if (!deliveryCode || transaction.deliveryCode !== deliveryCode) {
+        return res.status(400).json({
+          success: false,
+          error: 'Code de livraison incorrect',
+        });
+      }
 
-      // Logique de paiement hybride
-      if (traveler && traveler.paymentMethod === 'stripe_connect' && traveler.stripeConnectedAccountId) {
-        // Flux automatique Stripe Connect pour l'Europe
-        try {
-          const { StripeConnectService } = require('../services/StripeConnectService');
-          
-          const transferId = await StripeConnectService.transferToTraveler(
-            traveler.id,
-            parseFloat(transaction.travelerAmount.toString()),
-            transaction.currency,
-            transaction.id
-          );
-
-          await transaction.update({
-            status: TransactionStatus.PAYMENT_RELEASED,
-            deliveredAt: new Date(),
-            paymentReleasedAt: new Date(),
-            stripeTransferId: transferId
-          });
-
-          console.log(`💳 Transfer automatique ${transaction.travelerAmount}€ vers Stripe Connect ${traveler.id}`);
-
-        } catch (error: any) {
-          console.error('❌ Erreur transfer Stripe Connect, fallback wallet:', error);
-          
-          // Fallback vers wallet en cas d'échec
-          await WalletService.creditWallet(
-            transaction.travelerId,
-            parseFloat(transaction.travelerAmount.toString()),
-            transaction.id,
-            `Fallback wallet - Transfer Stripe échoué #${transaction.id}`
-          );
-
-          await transaction.update({
-            status: TransactionStatus.PAYMENT_RELEASED,
-            deliveredAt: new Date(),
-            paymentReleasedAt: new Date(),
-            internalNotes: `Transfer Stripe échoué - Fallback wallet: ${error?.message || String(error)}`
-          });
-
-          console.log(`💰 Fallback: ${transaction.travelerAmount}€ transféré vers le wallet du voyageur ${transaction.travelerId}`);
-        }
-      } else {
-        // Flux manuel via wallet pour l'Algérie
+      if (transaction.stripePaymentIntentId) {
+        const captureResult = await PaymentService.capturePayment(transaction.stripePaymentIntentId);
+        
+        const { WalletService } = require('../services/walletService');
+        
         await WalletService.creditWallet(
           transaction.travelerId,
           parseFloat(transaction.travelerAmount.toString()),
           transaction.id,
           `Paiement livraison confirmée #${transaction.id}`
         );
-
-        await transaction.update({
-          status: TransactionStatus.PAYMENT_RELEASED,
-          deliveredAt: new Date(),
-          paymentReleasedAt: new Date(),
-        });
-
+        
         console.log(`💰 ${transaction.travelerAmount}€ transféré vers le wallet du voyageur ${transaction.travelerId}`);
       }
-    }
 
-    const io = require('../socket/socketInstance').getIO();
-    if (io) {
-      io.to(`user_${transaction.senderId}`).emit('transaction_updated', {
-        transactionId: transaction.id,
-        status: TransactionStatus.PAYMENT_RELEASED
+      await transaction.update({
+        status: TransactionStatus.PAYMENT_RELEASED,
+        deliveredAt: new Date(),
+        paymentReleasedAt: new Date(),
       });
-      io.to(`user_${transaction.travelerId}`).emit('payment_received', {
-        transactionId: transaction.id,
-        amount: transaction.travelerAmount
+
+      const io = require('../socket/socketInstance').getIO();
+      if (io) {
+        io.to(`user_${transaction.senderId}`).emit('transaction_updated', {
+          transactionId: transaction.id,
+          status: TransactionStatus.PAYMENT_RELEASED
+        });
+        io.to(`user_${transaction.travelerId}`).emit('payment_received', {
+          transactionId: transaction.id,
+          amount: transaction.travelerAmount
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Livraison confirmée et paiement transféré vers votre wallet',
+      });
+    } catch (error: any) {
+      console.error('❌ Erreur confirmation livraison:', error);
+      return res.status(500).json({
+        success: false,
+        error: 'Erreur lors de la confirmation de livraison',
       });
     }
-
-    return res.json({
-      success: true,
-      message: 'Livraison confirmée et paiement transféré',
-    });
-  } catch (error: any) {
-    console.error('❌ Erreur confirmation livraison:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Erreur lors de la confirmation de livraison',
-    });
   }
-}
+
   // FONCTION MODIFIÉE - avec conversion de devise
   static async getMyTransactions(req: Request, res: Response) {
     try {
