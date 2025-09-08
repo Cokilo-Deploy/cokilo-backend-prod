@@ -56,13 +56,13 @@ export class StripeConnectService {
         throw new Error('Données utilisateur incomplètes pour la création du compte Connect');
       }
 
-      const account = await stripe.accounts.create({
+   const account = await stripe.accounts.create({
   type: 'custom',
   country: user.country || 'FR',
   email: user.email,
   capabilities: {
     transfers: { requested: true },
-    card_payments: { requested: true }
+    
   },
   business_type: 'individual', // IMPORTANT : Spécifier "individual"
   individual: {
