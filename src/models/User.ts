@@ -380,7 +380,7 @@ User.init({
       fields: ['stripeconnectedaccountid'],
       unique: true,
       where: {
-        stripeConnectedAccountId: {
+        stripeconnectedaccountid: {
           [Op.ne]: null,
         },
       },
