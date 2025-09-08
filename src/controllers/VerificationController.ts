@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import { User } from '../models/User';
 import { getUserAccessInfo } from '../utils/userAccess';
 import { UserVerificationStatus } from '../types/user';
+import { StripeConnectService } from '../services/StripeConnectService'; // AJOUT
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-07-30.basil',
@@ -15,6 +16,7 @@ export class VerificationController {
       const user = (req as any).user;
       
       console.log('🔄 Démarrage vérification pour utilisateur:', user.id);
+      console.log('💰 Devise utilisateur:', user.currency); // AJOUT
 
       // Détection du pays de l'utilisateur
       let userCountry = 'FR'; // Valeur par défaut (France)
@@ -58,6 +60,7 @@ export class VerificationController {
         metadata: {
           userId: user.id.toString(),
           country: userCountry,
+          userCurrency: user.currency, // AJOUT - Préserver la devise
         },
         options: sessionOptions,
         return_url: `http://192.168.1.106:3000/verification/complete?user_id=${user.id}`,
@@ -65,10 +68,11 @@ export class VerificationController {
 
       console.log('✅ Session Stripe créée:', verificationSession.id);
 
-      // Sauvegarder l'ID de session sur l'utilisateur
+      // Sauvegarder l'ID de session sur l'utilisateur SANS modifier la devise
       await user.update({
         stripeIdentitySessionId: verificationSession.id,
         verificationStatus: UserVerificationStatus.PENDING_VERIFICATION,
+        // NE PAS modifier currency ici
       });
 
       res.json({
@@ -160,6 +164,39 @@ export class VerificationController {
           newStatus = UserVerificationStatus.VERIFIED;
           statusMessage = '✅ Identité vérifiée avec succès !';
           statusColor = '#34C759';
+          
+          // NOUVEAU : Traitement différencié après validation
+          const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
+          const isEuropeanUser = euCountries.includes(user.country || 'FR');
+          
+          if (isEuropeanUser) {
+            console.log('🇪🇺 Utilisateur européen - Création compte Connect');
+            try {
+              const connectAccount = await StripeConnectService.createConnectedAccountWithUserData(
+                user.id, 
+                req.ip || '127.0.0.1'
+              );
+              
+              await user.update({
+                verificationStatus: newStatus,
+                paymentMethod: 'stripe_connect',
+                stripeConnectedAccountId: connectAccount,
+                identityVerifiedAt: new Date()
+              });
+              
+              console.log('✅ Compte Connect créé:', connectAccount);
+            } catch (connectError) {
+              console.error('❌ Erreur création compte Connect:', connectError);
+            }
+          } else {
+            console.log('🇩🇿 Utilisateur non-européen - Wallet manuel');
+            await user.update({
+              verificationStatus: newStatus,
+              paymentMethod: 'manual',
+              identityVerifiedAt: new Date()
+            });
+          }
+          
           break;
         case 'requires_input':
           newStatus = UserVerificationStatus.VERIFICATION_FAILED;
@@ -176,15 +213,17 @@ export class VerificationController {
           statusColor = '#8E8E93';
       }
 
-      // Sauvegarder le nouveau statut
-      await user.update({
-        verificationStatus: newStatus,
-        ...(newStatus === UserVerificationStatus.VERIFIED && { 
-          identityVerifiedAt: new Date() 
-        }),
-      });
+      // Sauvegarder le nouveau statut (si pas déjà fait dans le switch)
+      if (verificationSession.status !== 'verified') {
+        await user.update({
+          verificationStatus: newStatus,
+          ...(newStatus === UserVerificationStatus.VERIFIED && { 
+            identityVerifiedAt: new Date() 
+          }),
+        });
+      }
 
-      // Page de succès/échec
+      // Page de succès/échec (INCHANGÉE)
       res.send(`
         <!DOCTYPE html>
         <html>
@@ -305,6 +344,7 @@ export class VerificationController {
       const user = (req as any).user;
       
       console.log('🔍 Vérification statut pour utilisateur:', user.id);
+      console.log('💰 Devise actuelle:', user.currency, '🌍 Pays:', user.country); // AJOUT
 
       // Si pas de session de vérification
       if (!user.stripeIdentitySessionId) {
@@ -328,6 +368,41 @@ export class VerificationController {
       switch (verificationSession.status) {
         case 'verified':
           newStatus = UserVerificationStatus.VERIFIED;
+          
+          // NOUVEAU : Traitement différencié si pas encore fait
+          if (user.verificationStatus !== UserVerificationStatus.VERIFIED) {
+            const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
+            const isEuropeanUser = euCountries.includes(user.country || 'FR');
+            
+            if (isEuropeanUser && !user.stripeConnectedAccountId) {
+              console.log('🇪🇺 Utilisateur européen - Création compte Connect');
+              try {
+                const connectAccount = await StripeConnectService.createConnectedAccountWithUserData(
+                  user.id, 
+                  req.ip || '127.0.0.1'
+                );
+                
+                await user.update({
+                  verificationStatus: newStatus,
+                  paymentMethod: 'stripe_connect',
+                  stripeConnectedAccountId: connectAccount,
+                  identityVerifiedAt: new Date()
+                });
+                
+                console.log('✅ Compte Connect créé:', connectAccount);
+              } catch (connectError) {
+                console.error('❌ Erreur création compte Connect:', connectError);
+              }
+            } else if (!isEuropeanUser) {
+              console.log('🇩🇿 Utilisateur non-européen - Wallet manuel');
+              await user.update({
+                verificationStatus: newStatus,
+                paymentMethod: 'manual',
+                identityVerifiedAt: new Date()
+              });
+            }
+          }
+          
           break;
         case 'requires_input':
           newStatus = UserVerificationStatus.VERIFICATION_FAILED;
@@ -339,8 +414,8 @@ export class VerificationController {
           newStatus = UserVerificationStatus.UNVERIFIED;
       }
 
-      // Sauvegarder le nouveau statut
-      if (newStatus !== user.verificationStatus) {
+      // Sauvegarder le nouveau statut si pas encore fait
+      if (newStatus !== user.verificationStatus && verificationSession.status !== 'verified') {
         await user.update({
           verificationStatus: newStatus,
           ...(newStatus === UserVerificationStatus.VERIFIED && { 
@@ -349,10 +424,16 @@ export class VerificationController {
         });
       }
 
+      // Recharger l'utilisateur pour avoir les données à jour
+      await user.reload();
+
       res.json({
         success: true,
         verificationStatus: newStatus,
         stripeStatus: verificationSession.status,
+        paymentMethod: user.paymentMethod, // AJOUT
+        hasStripeConnect: !!user.stripeConnectedAccountId, // AJOUT
+        currency: user.currency, // AJOUT
         userAccess: getUserAccessInfo(user),
       });
 
@@ -366,66 +447,129 @@ export class VerificationController {
     }
   }
 
-  // Webhook Stripe
+  // Webhook Stripe (INCHANGÉ)
   static async stripeWebhook(req: Request, res: Response) {
-  try {
-    const sig = req.headers['stripe-signature'];
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+    try {
+      const sig = req.headers['stripe-signature'];
+      const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-    if (!sig || !webhookSecret) {
-      return res.status(400).send('Webhook signature missing');
-    }
-
-    const event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-
-    console.log('🔔 Webhook Stripe reçu:', event.type);
-
-    // Gérer tous les événements de vérification
-    if (event.type.startsWith('identity.verification_session.')) {
-      const session = event.data.object as any;
-      const userId = session.metadata?.userId;
-
-      console.log('👤 UserId du webhook:', userId);
-      console.log('📊 Statut session:', session.status);
-
-      if (userId) {
-        const user = await User.findByPk(userId);
-        if (user) {
-          let newStatus = UserVerificationStatus.UNVERIFIED;
-          
-          switch (session.status) {
-            case 'verified':
-              newStatus = UserVerificationStatus.VERIFIED;
-              break;
-            case 'requires_input':
-              newStatus = UserVerificationStatus.VERIFICATION_FAILED;
-              break;
-            case 'processing':
-              newStatus = UserVerificationStatus.PENDING_VERIFICATION;
-              break;
-          }
-          
-          await user.update({
-            verificationStatus: newStatus,
-            ...(newStatus === UserVerificationStatus.VERIFIED && { 
-              identityVerifiedAt: new Date() 
-            }),
-          });
-          
-          console.log('✅ Utilisateur', userId, 'statut mis à jour vers:', newStatus);
-        } else {
-          console.log('❌ Utilisateur non trouvé:', userId);
-        }
-      } else {
-        console.log('❌ Pas de userId dans les metadata');
+      if (!sig || !webhookSecret) {
+        return res.status(400).send('Webhook signature missing');
       }
+
+      const event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+
+      console.log('🔔 Webhook Stripe reçu:', event.type);
+
+      // Gérer tous les événements de vérification
+      if (event.type.startsWith('identity.verification_session.')) {
+        const session = event.data.object as any;
+        const userId = session.metadata?.userId;
+
+        console.log('👤 UserId du webhook:', userId);
+        console.log('📊 Statut session:', session.status);
+
+        if (userId) {
+          const user = await User.findByPk(userId);
+          if (user) {
+            let newStatus = UserVerificationStatus.UNVERIFIED;
+            
+            switch (session.status) {
+              case 'verified':
+                newStatus = UserVerificationStatus.VERIFIED;
+                
+                // NOUVEAU : Traitement Connect via webhook aussi
+                const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
+                const isEuropeanUser = euCountries.includes(user.country || 'FR');
+                
+                if (isEuropeanUser && !user.stripeConnectedAccountId) {
+                  try {
+                    const connectAccount = await StripeConnectService.createConnectedAccountWithUserData(
+                      user.id, 
+                      '127.0.0.1' // IP par défaut pour webhook
+                    );
+                    
+                    await user.update({
+                      verificationStatus: newStatus,
+                      paymentMethod: 'stripe_connect',
+                      stripeConnectedAccountId: connectAccount,
+                      identityVerifiedAt: new Date()
+                    });
+                  } catch (connectError) {
+                    console.error('❌ Erreur création compte Connect via webhook:', connectError);
+                  }
+                } else if (!isEuropeanUser) {
+                  await user.update({
+                    verificationStatus: newStatus,
+                    paymentMethod: 'manual',
+                    identityVerifiedAt: new Date()
+                  });
+                }
+                
+                break;
+              case 'requires_input':
+                newStatus = UserVerificationStatus.VERIFICATION_FAILED;
+                await user.update({ verificationStatus: newStatus });
+                break;
+              case 'processing':
+                newStatus = UserVerificationStatus.PENDING_VERIFICATION;
+                await user.update({ verificationStatus: newStatus });
+                break;
+            }
+            
+            console.log('✅ Utilisateur', userId, 'statut mis à jour vers:', newStatus);
+          } else {
+            console.log('❌ Utilisateur non trouvé:', userId);
+          }
+        } else {
+          console.log('❌ Pas de userId dans les metadata');
+        }
+      }
+
+      res.json({ received: true });
+
+    } catch (error: any) {
+      console.error('❌ Erreur webhook:', error);
+      res.status(400).send(`Webhook Error: ${error.message}`);
     }
-
-    res.json({ received: true });
-
-  } catch (error: any) {
-    console.error('❌ Erreur webhook:', error);
-    res.status(400).send(`Webhook Error: ${error.message}`);
   }
-}
+
+  static async submitStripeData(req: Request, res: Response) {
+    try {
+      const user = (req as any).user;
+      const { dateOfBirth, addressLine1, addressCity, addressPostalCode, acceptStripeTerms } = req.body;
+
+      // Validation
+      if (!dateOfBirth || !addressLine1 || !addressCity || !addressPostalCode || !acceptStripeTerms) {
+        return res.status(400).json({
+          success: false,
+          error: 'Tous les champs sont requis'
+        });
+      }
+
+      // Mettre à jour l'utilisateur avec les données Stripe
+      await user.update({
+        dateOfBirth: new Date(dateOfBirth),
+        addressLine1,
+        addressCity,
+        addressPostalCode,
+        stripeTermsAccepted: acceptStripeTerms,
+        stripeTermsAcceptedAt: new Date()
+      });
+
+      console.log('✅ Données Stripe sauvegardées pour utilisateur:', user.id);
+
+      res.json({
+        success: true,
+        message: 'Informations sauvegardées. Vous pouvez maintenant procéder à la vérification d\'identité.'
+      });
+
+    } catch (error) {
+      console.error('❌ Erreur sauvegarde données Stripe:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erreur lors de la sauvegarde'
+      });
+    }
+  }
 }
