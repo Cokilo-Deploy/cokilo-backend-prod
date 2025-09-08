@@ -232,6 +232,7 @@ User.init({
     type: DataTypes.ENUM('manual', 'stripe_connect'),
     allowNull: false,
     defaultValue: 'manual',
+    field: 'paymentmethod' // AJOUTER cette ligne
   },
   role: {
     type: DataTypes.ENUM('user', 'admin'),
