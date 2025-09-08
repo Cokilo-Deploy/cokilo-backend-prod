@@ -537,7 +537,7 @@ export class VerificationController {
   static async submitStripeData(req: Request, res: Response) {
     try {
       const user = (req as any).user;
-      const { dateOfBirth, addressLine1, addressCity, addressPostalCode, acceptStripeTerms } = req.body;
+      const { dateOfBirth, addressLine1, addressCity, addressPostalCode, acceptStripeTerms, phone } = req.body;
 
       // Validation
       if (!dateOfBirth || !addressLine1 || !addressCity || !addressPostalCode || !acceptStripeTerms) {
@@ -553,8 +553,10 @@ export class VerificationController {
         addressLine1,
         addressCity,
         addressPostalCode,
+        phone,
         stripeTermsAccepted: acceptStripeTerms,
         stripeTermsAcceptedAt: new Date()
+
       });
 
       console.log('✅ Données Stripe sauvegardées pour utilisateur:', user.id);
