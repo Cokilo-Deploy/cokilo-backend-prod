@@ -44,7 +44,7 @@ export class AuthController {
       
       console.log('API Response complète:', response.data);
       
-      const countryCode = response.data.countryCode;
+      const countryCode = (response.data as any).countryCode;
       if (!countryCode) {
         console.log('Pas de pays détecté - retour EUR');
         return 'EUR';
@@ -90,7 +90,7 @@ export class AuthController {
         timeout: 3000
       });
       
-      return response.data.countryCode || 'FR';
+      return (response.data as any).countryCode || 'FR';
     } catch (error) {
       console.log('ERREUR DETECTION PAYS:', error);
       return 'FR';
@@ -125,25 +125,32 @@ export class AuthController {
       const userAccess = getUserAccessInfo(result.user);
 
       res.status(201).json({
-  success: true,
-  data: {
-    token: result.token,
-    user: {
-      id: result.user.id,
-      email: result.user.email,
-      firstName: result.user.firstName,
-      lastName: result.user.lastName,
-      verificationStatus: result.user.verificationStatus,
-      currency: result.user.currency,
-      country: result.user.country,
-      paymentMethod: result.user.paymentMethod
-    },
-    detectedCurrency: req.body.currency,
-    stripeAccountCreated: result.stripeAccountCreated
-  },
-  userAccess,
-  message: 'Inscription réussie'
-});
+        success: true,
+        data: {
+          token: result.token,
+          user: {
+            id: result.user.id,
+            email: result.user.email,
+            firstName: result.user.firstName,
+            lastName: result.user.lastName,
+            verificationStatus: result.user.verificationStatus,
+            currency: result.user.currency,
+            country: result.user.country,
+            paymentMethod: result.user.paymentMethod
+          },
+          detectedCurrency: req.body.currency,
+          stripeAccountCreated: result.stripeAccountCreated
+        },
+        userAccess,
+        message: 'Inscription réussie'
+      });
+
+    } catch (error: any) {
+      console.error('Erreur inscription:', error);
+      res.status(400).json({
+        success: false,
+        error: error.message || 'Erreur lors de l\'inscription'
+      });
     }
   }
 
@@ -262,7 +269,7 @@ export class AuthController {
 
     } catch (error) {
       console.error('Erreur connexion:', error);
-      res.status(500).json({
+      res.status(500).json({  
         success: false,
         error: 'Erreur lors de la connexion'
       });

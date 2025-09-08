@@ -17,9 +17,9 @@ interface UserAttributes {
   verificationStatus: UserVerificationStatus;
   stripeIdentitySessionId?: string;
   stripeCustomerId?: string;
-  stripeConnectedAccountId?: string; // NOUVEAU
-  country?: string; // NOUVEAU
-  paymentMethod: 'manual' | 'stripe_connect'; // NOUVEAU
+  stripeConnectedAccountId?: string;
+  country?: string;
+  paymentMethod: 'manual' | 'stripe_connect';
   
   role: UserRole;
   isActive: boolean;
@@ -33,6 +33,14 @@ interface UserAttributes {
   timezone: string;
   notificationsEnabled: boolean;
   
+  // Nouvelles propriétés ajoutées
+  addressLine1?: string;
+  addressCity?: string;
+  addressPostalCode?: string;
+  dateOfBirth?: Date;
+  stripeTermsAccepted?: boolean;
+  stripeTermsAcceptedAt?: Date;
+  
   emailVerifiedAt?: Date;
   phoneVerifiedAt?: Date;
   identityVerifiedAt?: Date;
@@ -44,7 +52,8 @@ interface UserAttributes {
 interface UserCreationAttributes extends Optional<UserAttributes, 
   'id' | 'verificationStatus' | 'role' | 'isActive' | 'rating' | 'totalTrips' | 
   'totalDeliveries' | 'totalEarnings' | 'language' | 'currency' | 'timezone' | 
-  'notificationsEnabled' | 'paymentMethod'> {} // Ajouté paymentMethod comme optionnel
+  'notificationsEnabled' | 'paymentMethod' | 'stripeTermsAccepted' | 'stripeTermsAcceptedAt' |
+  'addressLine1' | 'addressCity' | 'addressPostalCode' | 'dateOfBirth'> {}
 
 class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: number;
@@ -58,9 +67,9 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public verificationStatus!: UserVerificationStatus;
   public stripeIdentitySessionId?: string;
   public stripeCustomerId?: string;
-  public stripeConnectedAccountId?: string; // NOUVEAU
-  public country?: string; // NOUVEAU
-  public paymentMethod!: 'manual' | 'stripe_connect'; // NOUVEAU
+  public stripeConnectedAccountId?: string;
+  public country?: string;
+  public paymentMethod!: 'manual' | 'stripe_connect';
   
   public role!: UserRole;
   public isActive!: boolean;
@@ -74,19 +83,21 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public timezone!: string;
   public notificationsEnabled!: boolean;
   
+  // Nouvelles propriétés
+  public addressLine1?: string;
+  public addressCity?: string;
+  public addressPostalCode?: string;
+  public dateOfBirth?: Date;
+  public stripeTermsAccepted?: boolean;
+  public stripeTermsAcceptedAt?: Date;
+  
   public emailVerifiedAt?: Date;
   public phoneVerifiedAt?: Date;
   public identityVerifiedAt?: Date;
   public lastLoginAt?: Date;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
-  bio: any;
   public profileName?: string;
-    dateOfBirth: any;
-    addressLine1: string | undefined;
-    addressCity: any;
-    addressPostalCode: any;
-    stripeTermsAcceptedAt: Date;
 
   public canViewTrips(): boolean {
     return this.isActive && this.verificationStatus !== UserVerificationStatus.SUSPENDED;
@@ -104,14 +115,12 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
     return this.verificationStatus === UserVerificationStatus.VERIFIED;
   }
 
-  // NOUVELLE MÉTHODE : Vérifier si l'utilisateur peut utiliser Stripe Connect
   public canUseStripeConnect(): boolean {
     return this.paymentMethod === 'stripe_connect' && 
            this.stripeConnectedAccountId !== null &&
            ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT'].includes(this.country || '');
   }
 
-  // NOUVELLE MÉTHODE : Déterminer la méthode de paiement selon le pays
   public getRecommendedPaymentMethod(): 'manual' | 'stripe_connect' {
     const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
     return euCountries.includes(this.country || '') ? 'stripe_connect' : 'manual';
@@ -204,7 +213,6 @@ User.init({
     allowNull: true,
     unique: true,
   },
-  // NOUVELLES COLONNES STRIPE CONNECT
   stripeConnectedAccountId: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -306,37 +314,36 @@ User.init({
       len: [2, 50],
     },
   },
-
-addressLine1: {
-  type: DataTypes.STRING(255),
-  allowNull: true,
-  field: 'address_line1'
-},
-addressCity: {
-  type: DataTypes.STRING(100),
-  allowNull: true,
-  field: 'address_city'
-},
-addressPostalCode: {
-  type: DataTypes.STRING(20),
-  allowNull: true,
-  field: 'address_postal_code'
-},
-dateOfBirth: {
-  type: DataTypes.DATEONLY,
-  allowNull: true,
-  field: 'date_of_birth'
-},
-stripeTermsAccepted: {
-  type: DataTypes.BOOLEAN,
-  defaultValue: false,
-  field: 'stripe_terms_accepted'
-},
-stripeTermsAcceptedAt: {
-  type: DataTypes.DATE,
-  allowNull: true,
-  field: 'stripe_terms_accepted_at'
-},
+  addressLine1: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'address_line1'
+  },
+  addressCity: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'address_city'
+  },
+  addressPostalCode: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    field: 'address_postal_code'
+  },
+  dateOfBirth: {
+    type: DataTypes.DATEONLY,
+    allowNull: true,
+    field: 'date_of_birth'
+  },
+  stripeTermsAccepted: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
+    field: 'stripe_terms_accepted'
+  },
+  stripeTermsAcceptedAt: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'stripe_terms_accepted_at'
+  },
 }, {
   sequelize,
   modelName: 'User',
@@ -367,9 +374,8 @@ stripeTermsAcceptedAt: {
         },
       },
     },
-    // NOUVEAUX INDEX
     {
-      fields: ['stripeconnectedaccountid'],
+      fields: ['stripeConnectedAccountId'],
       unique: true,
       where: {
         stripeConnectedAccountId: {
@@ -381,7 +387,7 @@ stripeTermsAcceptedAt: {
       fields: ['country'],
     },
     {
-      fields: ['paymentmethod'],
+      fields: ['paymentMethod'],
     },
     {
       fields: ['verificationStatus'],
