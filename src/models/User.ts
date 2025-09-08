@@ -11,7 +11,7 @@ interface UserAttributes {
   firstName: string;
   lastName: string;
   profileName?: string;
-  phone: string;
+  phone?: string;
   avatar?: string;
  
   
@@ -189,7 +189,7 @@ User.init({
   },
   phone: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
     validate: {
       len: [10, 20],
     },
