@@ -377,7 +377,7 @@ User.init({
       },
     },
     {
-      fields: ['stripeConnectedAccountId'],
+      fields: ['stripeconnectedaccountid'],
       unique: true,
       where: {
         stripeConnectedAccountId: {
@@ -389,7 +389,7 @@ User.init({
       fields: ['country'],
     },
     {
-      fields: ['paymentMethod'],
+      fields: ['paymentmethod'],
     },
     {
       fields: ['verificationStatus'],
