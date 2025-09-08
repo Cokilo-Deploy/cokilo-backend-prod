@@ -13,7 +13,7 @@ interface UserAttributes {
   profileName?: string;
   phone: string;
   avatar?: string;
-  bio?: string;
+ 
   
   verificationStatus: UserVerificationStatus;
   stripeIdentitySessionId?: string;
@@ -64,7 +64,7 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public lastName!: string;
   public phone!: string;
   public avatar?: string;
-  public bio?: string; 
+   
   
   public verificationStatus!: UserVerificationStatus;
   public stripeIdentitySessionId?: string;
@@ -200,11 +200,7 @@ User.init({
     validate: {
       isUrl: true,
     },
-  },
-  bio: {
-    type: DataTypes.TEXT,
-    allowNull: true,
-  },
+  },  
   verificationStatus: {
     type: DataTypes.ENUM('unverified', 'pending', 'verified', 'failed', 'suspended'),
     allowNull: false,
