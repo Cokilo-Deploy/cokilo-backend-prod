@@ -32,7 +32,6 @@ export class UserController {
             lastName: req.user.lastName,
             phone: req.user.phone,
             avatar: req.user.avatar,
-            bio: req.user.bio,
             rating: req.user.rating,
             totalTrips: req.user.totalTrips,
             totalDeliveries: req.user.totalDeliveries,
