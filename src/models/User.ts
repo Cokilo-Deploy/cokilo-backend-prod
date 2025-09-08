@@ -219,6 +219,7 @@ User.init({
     type: DataTypes.STRING,
     allowNull: true,
     unique: true,
+    field: 'stripeconnectedaccountid' // AJOUTER cette ligne
   },
   country: {
     type: DataTypes.STRING(3),
@@ -346,6 +347,8 @@ User.init({
     allowNull: true,
     field: 'stripe_terms_accepted_at'
   },
+  
+  
 }, {
   sequelize,
   modelName: 'User',
@@ -377,10 +380,10 @@ User.init({
       },
     },
     {
-      fields: ['stripeconnectedaccountid'],
+      fields: ['stripeConnectedAccountId'],
       unique: true,
       where: {
-        stripeconnectedaccountid: {
+        stripeConnectedAccountId: {
           [Op.ne]: null,
         },
       },
@@ -389,7 +392,7 @@ User.init({
       fields: ['country'],
     },
     {
-      fields: ['paymentmethod'],
+      fields: ['paymentMethod'],
     },
     {
       fields: ['verificationStatus'],
