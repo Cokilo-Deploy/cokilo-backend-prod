@@ -57,50 +57,53 @@ export class StripeConnectService {
       }
 
       const account = await stripe.accounts.create({
-        type: 'custom',
-        country: user.country || 'FR',
-        email: user.email,
-        capabilities: {
-          transfers: { requested: true },
-          card_payments: { requested: true }
-        },
-        business_type: 'individual',
-        individual: {
-          first_name: user.firstName,
-          last_name: user.lastName,
-          email: user.email,
-          // phone: user.phone, // Commenté pour éviter les erreurs de validation
-          ...(user.dateOfBirth && {
-            dob: (() => {
-              try {
-                const birthDate = typeof user.dateOfBirth === 'string' 
-                  ? new Date(user.dateOfBirth) 
-                  : user.dateOfBirth;
-                
-                return {
-                  day: birthDate.getDate(),
-                  month: birthDate.getMonth() + 1,
-                  year: birthDate.getFullYear()
-                };
-              } catch (error) {
-                console.error('Erreur parsing date de naissance:', error);
-                return undefined;
-              }
-            })()
-          }),
-          address: {
-            line1: user.addressLine1,
-            city: user.addressCity,
-            postal_code: user.addressPostalCode,
-            country: user.country || 'FR'
-          }
-        },
-        metadata: {
-          userId: userId.toString(),
-          platform: 'cokilo',
-          registration_auto: 'true'
-        }
-      });
+  type: 'custom',
+  country: user.country || 'FR',
+  email: user.email,
+  capabilities: {
+    transfers: { requested: true },
+    card_payments: { requested: true }
+  },
+  business_type: 'individual', // IMPORTANT : Spécifier "individual"
+  individual: {
+    first_name: user.firstName,
+    last_name: user.lastName,
+    email: user.email,
+    phone: user.phone, // Ajouter ce champ au formulaire
+    dob: (() => {
+  try {
+    const parsedDate = typeof user.dateOfBirth === 'string' 
+      ? new Date(user.dateOfBirth) 
+      : user.dateOfBirth;
+    
+    return {
+      day: parsedDate.getDate(),
+      month: parsedDate.getMonth() + 1,
+      year: parsedDate.getFullYear()
+    };
+  } catch (error) {
+    console.error('Erreur parsing date de naissance:', error);
+    return undefined;
+  }
+})(),
+    address: {
+      line1: user.addressLine1,
+      city: user.addressCity,
+      postal_code: user.addressPostalCode,
+      country: user.country || 'FR'
+    }
+  },
+  tos_acceptance: {
+    date: Math.floor(Date.now() / 1000),
+    ip: userIp,
+    service_agreement: user.country || 'FR' // Acceptation CGU Stripe
+  },
+  metadata: {
+    userId: userId.toString(),
+    platform: 'cokilo',
+    account_type: 'individual'
+  }
+});
 
       // Sauvegarder l'ID du compte connecté
       await User.update(
