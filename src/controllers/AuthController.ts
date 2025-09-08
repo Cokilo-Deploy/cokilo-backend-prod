@@ -297,7 +297,7 @@ export class AuthController {
             currency: user.currency,
             country: user.country,
             paymentMethod: user.paymentMethod,
-            stripeConnectedAccountId: user.stripeConnectedAccountId
+            stripeConnectedAccountId: user.stripeconnectedaccountid
           }
         },
         userAccess
