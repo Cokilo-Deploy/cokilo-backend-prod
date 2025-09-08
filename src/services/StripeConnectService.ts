@@ -96,7 +96,7 @@ export class StripeConnectService {
   tos_acceptance: {
     date: Math.floor(Date.now() / 1000),
     ip: userIp,
-    service_agreement: user.country || 'FR' // Acceptation CGU Stripe
+    service_agreement: 'recipient'
   },
   metadata: {
     userId: userId.toString(),
