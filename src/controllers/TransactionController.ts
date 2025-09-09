@@ -350,15 +350,21 @@ export class TransactionController {
     const idFromParams = Number(req.params.id);
     const idFromBody = Number(req.body?.transactionId);
     const transactionId = Number.isFinite(idFromParams) ? idFromParams : idFromBody;
+    console.log('✅ ID parsed:', transactionId);
 
     const { deliveryCode } = req.body;
+    console.log('✅ DeliveryCode:', deliveryCode);
     const user = (req as any).user;
+    console.log('✅ User:', user?.id);
 
     if (!Number.isFinite(transactionId)) {
+      console.log('❌ ID invalide');
       return res.status(400).json({ success: false, error: 'ID de transaction invalide' });
     }
 
-    console.log('🔄 Confirmation livraison pour transaction:', transactionId);
+     console.log('🔄 Confirmation livraison pour transaction:', transactionId);
+    console.log('✅ Recherche transaction...');
+
 
     const transaction = await Transaction.findOne({
       where: {
@@ -367,13 +373,16 @@ export class TransactionController {
       },
       include: [{ model: User, as: 'traveler' }] // Ajout pour récupérer les infos du voyageur
     });
+    console.log('✅ Transaction trouvée:', !!transaction);
 
     if (!transaction) {
+       console.log('❌ Transaction non trouvée');
       return res.status(404).json({
         success: false,
         error: 'Transaction non trouvée',
       });
     }
+     console.log('✅ Vérification code livraison...');
 
     if (!deliveryCode || transaction.deliveryCode !== deliveryCode) {
       return res.status(400).json({
