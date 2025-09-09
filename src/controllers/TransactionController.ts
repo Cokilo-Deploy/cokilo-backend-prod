@@ -403,11 +403,9 @@ export class TransactionController {
         const captureResult = await PaymentService.capturePayment(transaction.stripePaymentIntentId);
         console.log('✅ Capture terminée');
       } catch (captureError: any) {
-        // Si déjà capturé, c'est OK, on continue
         if (captureError.message.includes('already been captured')) {
           console.log('ℹ️ PaymentIntent déjà capturé, continue...');
         } else {
-          // Autre erreur, on la remonte
           throw captureError;
         }
       }
@@ -415,58 +413,45 @@ export class TransactionController {
       const { WalletService } = require('../services/walletService');
       const traveler = transaction.traveler;
       console.log('✅ Traveler récupéré:', traveler?.id);
-      await traveler.reload(); // Recharger les données depuis la DB
+      await traveler.reload();
 
       console.log('👤 Voyageur rechargé:', traveler.id);
       console.log('💳 PaymentMethod:', traveler.paymentMethod);
       console.log('🏦 ConnectedAccountId:', traveler.stripeConnectedAccountId);
 
-      // Logique de paiement hybride
+      // Logique de paiement hybride : EU (Stripe Connect obligatoire) vs DZ (Wallet)
       if (traveler.paymentMethod === 'stripe_connect' && traveler.stripeConnectedAccountId) {
-        // Flux automatique Stripe Connect pour l'Europe
-        try {
-          console.log('🇪🇺 Utilisateur EU - Transfer Stripe Connect');
-          const { StripeConnectService } = require('../services/StripeConnectService');
-          
-          const transferId = await StripeConnectService.transferToTraveler(
-            traveler.id,
-            parseFloat(transaction.travelerAmount.toString()),
-            transaction.currency,
-            transaction.id
-          );
+        // Utilisateur européen - Stripe Connect OBLIGATOIRE (sans fallback)
+        console.log('🇪🇺 Utilisateur EU - Transfer Stripe Connect OBLIGATOIRE');
+        
+        const balance = await stripe.balance.retrieve();
+        console.log('💰 Balance Stripe disponible:', {
+          available: balance.available,
+          pending: balance.pending
+        });
+        
+        const { StripeConnectService } = require('../services/StripeConnectService');
+        
+        // Si ce transfer échoue, toute la fonction échoue (pas de try/catch)
+        const transferId = await StripeConnectService.transferToTraveler(
+          traveler.id,
+          parseFloat(transaction.travelerAmount.toString()),
+          transaction.currency,
+          transaction.id
+        );
 
-          await transaction.update({
-            status: TransactionStatus.PAYMENT_RELEASED,
-            deliveredAt: new Date(),
-            paymentReleasedAt: new Date(),
-            stripeTransferId: transferId
-          });
+        await transaction.update({
+          status: TransactionStatus.PAYMENT_RELEASED,
+          deliveredAt: new Date(),
+          paymentReleasedAt: new Date(),
+          stripeTransferId: transferId
+        });
 
-          console.log(`💳 Transfer automatique ${transaction.travelerAmount}€ vers Stripe Connect ${traveler.id}`);
+        console.log(`💳 Transfer automatique réussi ${transaction.travelerAmount}€ vers Stripe Connect ${traveler.id}`);
 
-        } catch (error: any) {
-          console.error('❌ Erreur transfer Stripe Connect, fallback wallet:', error);
-          
-          // Fallback vers wallet en cas d'échec
-          await WalletService.creditWallet(
-            transaction.travelerId,
-            parseFloat(transaction.travelerAmount.toString()),
-            transaction.id,
-            `Fallback wallet - Transfer Stripe échoué #${transaction.id}`
-          );
-
-          await transaction.update({
-            status: TransactionStatus.PAYMENT_RELEASED,
-            deliveredAt: new Date(),
-            paymentReleasedAt: new Date(),
-            internalNotes: `Transfer Stripe échoué - Fallback wallet: ${error.message}`
-          });
-
-          console.log(`💰 Fallback: ${transaction.travelerAmount}€ transféré vers le wallet du voyageur ${transaction.travelerId}`);
-        }
       } else {
-        // Flux manuel via wallet pour l'Algérie
-        console.log('🇩🇿 Utilisateur non-EU - Wallet manuel');
+        // Utilisateur algérien - Wallet manuel (logique existante)
+        console.log('🇩🇿 Utilisateur DZ - Wallet manuel');
         await WalletService.creditWallet(
           transaction.travelerId,
           parseFloat(transaction.travelerAmount.toString()),
@@ -490,22 +475,30 @@ export class TransactionController {
       });
     }
 
-    const io = require('../socket/socketInstance').getIO();
-    if (io) {
-      io.to(`user_${transaction.senderId}`).emit('transaction_updated', {
-        transactionId: transaction.id,
-        status: TransactionStatus.PAYMENT_RELEASED
-      });
-      io.to(`user_${transaction.travelerId}`).emit('payment_received', {
-        transactionId: transaction.id,
-        amount: transaction.travelerAmount
-      });
+    // WebSocket avec gestion d'erreur
+    try {
+      const io = require('../socket/socketInstance').getIO();
+      if (io) {
+        io.to(`user_${transaction.senderId}`).emit('transaction_updated', {
+          transactionId: transaction.id,
+          status: TransactionStatus.PAYMENT_RELEASED
+        });
+        io.to(`user_${transaction.travelerId}`).emit('payment_received', {
+          transactionId: transaction.id,
+          amount: transaction.travelerAmount
+        });
+        console.log('✅ Notifications WebSocket envoyées');
+      }
+    } catch (socketError) {
+      console.log('⚠️ WebSocket non disponible, continue sans notifications');
     }
 
+    console.log('✅ Envoi réponse succès à l\'app mobile');
     return res.json({
       success: true,
       message: 'Livraison confirmée et paiement transféré',
     });
+
   } catch (error: any) {
     console.error('❌ Erreur confirmation livraison:', error);
     return res.status(500).json({
