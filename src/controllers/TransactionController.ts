@@ -346,7 +346,7 @@ export class TransactionController {
 
   static async confirmDelivery(req: Request, res: Response) {
   try {
-     console.log('🔄 VERSION: Stripe Connect Logic v2.0 - Sep 09 2025');
+    console.log('🔄 VERSION: Stripe Connect Logic v2.0 - Sep 09 2025');
     const idFromParams = Number(req.params.id);
     const idFromBody = Number(req.body?.transactionId);
     const transactionId = Number.isFinite(idFromParams) ? idFromParams : idFromBody;
@@ -362,31 +362,32 @@ export class TransactionController {
       return res.status(400).json({ success: false, error: 'ID de transaction invalide' });
     }
 
-     console.log('🔄 Confirmation livraison pour transaction:', transactionId);
+    console.log('🔄 Confirmation livraison pour transaction:', transactionId);
     console.log('✅ Recherche transaction...');
-
 
     const transaction = await Transaction.findOne({
       where: {
         id: transactionId,
         [Op.or]: [{ senderId: user.id }, { travelerId: user.id }],
       },
-      include: [{ model: User, as: 'traveler' }] // Ajout pour récupérer les infos du voyageur
+      include: [{ model: User, as: 'traveler' }]
     });
     console.log('✅ Transaction trouvée:', !!transaction);
 
     if (!transaction) {
-       console.log('❌ Transaction non trouvée');
+      console.log('❌ Transaction non trouvée');
       return res.status(404).json({
         success: false,
         error: 'Transaction non trouvée',
       });
     }
-     console.log('✅ Vérification code livraison...');
-console.log('Code reçu:', deliveryCode);
-console.log('Code attendu:', transaction.deliveryCode);
+
+    console.log('✅ Vérification code livraison...');
+    console.log('Code reçu:', deliveryCode);
+    console.log('Code attendu:', transaction.deliveryCode);
 
     if (!deliveryCode || transaction.deliveryCode !== deliveryCode) {
+      console.log('❌ Code de livraison incorrect');
       return res.status(400).json({
         success: false,
         error: 'Code de livraison incorrect',
@@ -396,22 +397,35 @@ console.log('Code attendu:', transaction.deliveryCode);
 
     if (transaction.stripePaymentIntentId) {
       console.log('✅ Payment Intent trouvé:', transaction.stripePaymentIntentId);
-  console.log('✅ Début capture payment...');
-      const captureResult = await PaymentService.capturePayment(transaction.stripePaymentIntentId);
-       console.log('✅ Capture terminée');
+      
+      try {
+        console.log('✅ Début capture payment...');
+        const captureResult = await PaymentService.capturePayment(transaction.stripePaymentIntentId);
+        console.log('✅ Capture terminée');
+      } catch (captureError: any) {
+        // Si déjà capturé, c'est OK, on continue
+        if (captureError.message.includes('already been captured')) {
+          console.log('ℹ️ PaymentIntent déjà capturé, continue...');
+        } else {
+          // Autre erreur, on la remonte
+          throw captureError;
+        }
+      }
+
       const { WalletService } = require('../services/walletService');
       const traveler = transaction.traveler;
       console.log('✅ Traveler récupéré:', traveler?.id);
       await traveler.reload(); // Recharger les données depuis la DB
 
-console.log('👤 Voyageur rechargé:', traveler.id);
-console.log('💳 PaymentMethod:', traveler.paymentMethod);
-console.log('🏦 ConnectedAccountId:', traveler.stripeConnectedAccountId);
+      console.log('👤 Voyageur rechargé:', traveler.id);
+      console.log('💳 PaymentMethod:', traveler.paymentMethod);
+      console.log('🏦 ConnectedAccountId:', traveler.stripeConnectedAccountId);
 
       // Logique de paiement hybride
       if (traveler.paymentMethod === 'stripe_connect' && traveler.stripeConnectedAccountId) {
         // Flux automatique Stripe Connect pour l'Europe
         try {
+          console.log('🇪🇺 Utilisateur EU - Transfer Stripe Connect');
           const { StripeConnectService } = require('../services/StripeConnectService');
           
           const transferId = await StripeConnectService.transferToTraveler(
@@ -430,7 +444,7 @@ console.log('🏦 ConnectedAccountId:', traveler.stripeConnectedAccountId);
 
           console.log(`💳 Transfer automatique ${transaction.travelerAmount}€ vers Stripe Connect ${traveler.id}`);
 
-        } catch (error:any) {
+        } catch (error: any) {
           console.error('❌ Erreur transfer Stripe Connect, fallback wallet:', error);
           
           // Fallback vers wallet en cas d'échec
@@ -451,8 +465,8 @@ console.log('🏦 ConnectedAccountId:', traveler.stripeConnectedAccountId);
           console.log(`💰 Fallback: ${transaction.travelerAmount}€ transféré vers le wallet du voyageur ${transaction.travelerId}`);
         }
       } else {
-        console.log('❌ Pas de stripePaymentIntentId');
         // Flux manuel via wallet pour l'Algérie
+        console.log('🇩🇿 Utilisateur non-EU - Wallet manuel');
         await WalletService.creditWallet(
           transaction.travelerId,
           parseFloat(transaction.travelerAmount.toString()),
@@ -468,6 +482,12 @@ console.log('🏦 ConnectedAccountId:', traveler.stripeConnectedAccountId);
 
         console.log(`💰 ${transaction.travelerAmount}€ transféré vers le wallet du voyageur ${transaction.travelerId}`);
       }
+    } else {
+      console.log('❌ Pas de stripePaymentIntentId');
+      return res.status(400).json({
+        success: false,
+        error: 'Transaction sans paiement Stripe'
+      });
     }
 
     const io = require('../socket/socketInstance').getIO();
@@ -494,7 +514,6 @@ console.log('🏦 ConnectedAccountId:', traveler.stripeConnectedAccountId);
     });
   }
 }
-
   // FONCTION MODIFIÉE - avec conversion de devise
   static async getMyTransactions(req: Request, res: Response) {
     try {
