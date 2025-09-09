@@ -370,7 +370,7 @@ export class VerificationController {
           newStatus = UserVerificationStatus.VERIFIED;
           
           // NOUVEAU : Traitement différencié si pas encore fait
-          if (user.verificationStatus !== UserVerificationStatus.VERIFIED) {
+          if (!user.stripeConnectedAccountId) {
             const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
             const isEuropeanUser = euCountries.includes(user.country || 'FR');
             
