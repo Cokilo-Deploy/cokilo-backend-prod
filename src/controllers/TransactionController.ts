@@ -346,6 +346,7 @@ export class TransactionController {
 
   static async confirmDelivery(req: Request, res: Response) {
   try {
+     console.log('🔄 VERSION: Stripe Connect Logic v2.0 - Sep 09 2025');
     const idFromParams = Number(req.params.id);
     const idFromBody = Number(req.body?.transactionId);
     const transactionId = Number.isFinite(idFromParams) ? idFromParams : idFromBody;
