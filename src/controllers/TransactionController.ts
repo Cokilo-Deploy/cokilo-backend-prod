@@ -386,6 +386,11 @@ export class TransactionController {
       
       const { WalletService } = require('../services/walletService');
       const traveler = transaction.traveler;
+      await traveler.reload(); // Recharger les données depuis la DB
+
+console.log('👤 Voyageur rechargé:', traveler.id);
+console.log('💳 PaymentMethod:', traveler.paymentMethod);
+console.log('🏦 ConnectedAccountId:', traveler.stripeConnectedAccountId);
 
       // Logique de paiement hybride
       if (traveler.paymentMethod === 'stripe_connect' && traveler.stripeConnectedAccountId) {

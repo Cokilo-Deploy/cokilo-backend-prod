@@ -12,37 +12,38 @@ export class StripeConnectService {
    * Créer un Connected Account pour un voyageur européen
    */
   static async createConnectedAccount(userId: number): Promise<string> {
-    try {
-      const user = await User.findByPk(userId);
-      if (!user) {
-        throw new Error('Utilisateur non trouvé');
-      }
-
-      // Créer le compte avec le pays de l'utilisateur
-      const account = await stripe.accounts.create({
-        type: 'custom',
-        country: user.country,
-        capabilities: {
-          transfers: { requested: true },
-          card_payments: { requested: true }
-        },
-        metadata: {
-          userId: userId.toString(),
-          platform: 'cokilo'
-        }
-      });
-
-      await User.update(
-        { stripeConnectedAccountId: account.id },
-        { where: { id: userId } }
-      );
-
-      return account.id;
-    } catch (error) {
-      console.error('Erreur création Connected Account:', error);
-      throw error;
+  try {
+    const user = await User.findByPk(userId);
+    if (!user) {
+      throw new Error('Utilisateur non trouvé');
     }
+
+    // Créer le compte avec le pays de l'utilisateur
+    const account = await stripe.accounts.create({
+      type: 'custom',
+      country: user.country,
+      capabilities: {
+        transfers: { requested: true }
+        // Supprimé card_payments pour éviter de demander les coordonnées bancaires
+      },
+      business_type: 'individual', // Ajout pour clarifier le type
+      metadata: {
+        userId: userId.toString(),
+        platform: 'cokilo'
+      }
+    });
+
+    await User.update(
+      { stripeConnectedAccountId: account.id },
+      { where: { id: userId } }
+    );
+
+    return account.id;
+  } catch (error) {
+    console.error('Erreur création Connected Account:', error);
+    throw error;
   }
+}
 
   static async createConnectedAccountWithUserData(userId: number, userIp: string): Promise<string> {
     try {
