@@ -187,29 +187,31 @@ export class StripeConnectService {
    * Effectuer un transfer vers un Connected Account
    */
   static async transferToTraveler(
-    userId: number, 
-    amount: number, 
-    currency: string = 'eur',
-    targetCurrency: string,
-    transactionId: number
-  ): Promise<string> {
-    try {
-      const user = await User.findByPk(userId);
-      if (!user || !user.stripeConnectedAccountId) {
-        throw new Error('Connected Account non trouvé');
-      }
+  userId: number, 
+  amount: number, 
+  targetCurrency: string, 
+  transactionId: number
+): Promise<string> {
+  try {
+    console.log('🔍 Transfer - Début fonction avec params:', {
+      userId,
+      amount,
+      targetCurrency,
+      transactionId
+    });
 
-      // Vérifier que le compte peut recevoir des paiements
-      const status = await this.getAccountStatus(userId);
-      if (!status.canReceivePayments) {
-        throw new Error('Le compte Connect ne peut pas encore recevoir de paiements');
-      }
+    // Récupérer les infos du voyageur
+    const user = await User.findByPk(userId);
+    if (!user?.stripeConnectedAccountId) {
+      throw new Error('Compte Connect non trouvé');
+    }
 
-      // Effectuer le transfer
-      // Transfer en USD (devise de votre solde) vers EUR (devise du compte Connect)
+    console.log('✅ User trouvé, ConnectedAccountId:', user.stripeConnectedAccountId);
+
+    // Effectuer le transfer avec conversion automatique USD -> EUR
     const transfer = await stripe.transfers.create({
-      amount: Math.round(amount * 100), // Montant en centimes EUR souhaité
-      currency: targetCurrency, // 'eur' - Devise cible
+      amount: Math.round(amount * 100), // Montant en centimes
+      currency: targetCurrency.toLowerCase(), // 'eur'
       destination: user.stripeConnectedAccountId,
       metadata: {
         transaction_id: transactionId.toString(),
@@ -219,12 +221,14 @@ export class StripeConnectService {
       }
     });
 
-      console.log(`💱 Transfer avec conversion: ${amount} ${targetCurrency} vers ${user.stripeConnectedAccountId}`);
+    console.log(`💱 Transfer créé avec succès: ${transfer.id}`);
+    console.log(`💱 Montant: ${amount} ${targetCurrency} vers ${user.stripeConnectedAccountId}`);
+    
     return transfer.id;
 
-    } catch (error) {
-      console.error('Erreur transfer vers voyageur:', error);
-      throw error;
-    }
+  } catch (error) {
+    console.error('Erreur transfer vers voyageur:', error);
+    throw error;
   }
+}
 }
