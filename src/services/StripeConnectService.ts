@@ -190,6 +190,7 @@ export class StripeConnectService {
     userId: number, 
     amount: number, 
     currency: string = 'eur',
+    targetCurrency: string,
     transactionId: number
   ): Promise<string> {
     try {
@@ -205,18 +206,21 @@ export class StripeConnectService {
       }
 
       // Effectuer le transfer
-      const transfer = await stripe.transfers.create({
-        amount: Math.round(amount * 100), // Convertir en centimes
-        currency: currency.toLowerCase(),
-        destination: user.stripeConnectedAccountId,
-        metadata: {
-          transactionId: transactionId.toString(),
-          userId: userId.toString()
-        }
-      });
+      // Transfer en USD (devise de votre solde) vers EUR (devise du compte Connect)
+    const transfer = await stripe.transfers.create({
+      amount: Math.round(amount * 100), // Montant en centimes EUR souhaité
+      currency: targetCurrency, // 'eur' - Devise cible
+      destination: user.stripeConnectedAccountId,
+      metadata: {
+        transaction_id: transactionId.toString(),
+        user_id: userId.toString(),
+        original_amount: amount.toString(),
+        target_currency: targetCurrency
+      }
+    });
 
-      console.log(`💸 Transfer créé: ${transfer.id} vers ${user.stripeConnectedAccountId}`);
-      return transfer.id;
+      console.log(`💱 Transfer avec conversion: ${amount} ${targetCurrency} vers ${user.stripeConnectedAccountId}`);
+    return transfer.id;
 
     } catch (error) {
       console.error('Erreur transfer vers voyageur:', error);
