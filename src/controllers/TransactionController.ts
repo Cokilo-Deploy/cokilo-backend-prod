@@ -433,6 +433,11 @@ export class TransactionController {
         const { StripeConnectService } = require('../services/StripeConnectService');
         
         // Si ce transfer échoue, toute la fonction échoue (pas de try/catch)
+        console.log('🔍 Debug parameters avant transfer:');
+console.log('- traveler.id:', traveler.id);
+console.log('- travelerAmount:', transaction.travelerAmount);
+console.log('- currency:', transaction.currency);
+console.log('- transaction.id:', transaction.id);
         const transferId = await StripeConnectService.transferToTraveler(
           traveler.id,
           parseFloat(transaction.travelerAmount.toString()),
