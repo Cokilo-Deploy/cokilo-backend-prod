@@ -383,6 +383,8 @@ export class TransactionController {
       });
     }
      console.log('✅ Vérification code livraison...');
+console.log('Code reçu:', deliveryCode);
+console.log('Code attendu:', transaction.deliveryCode);
 
     if (!deliveryCode || transaction.deliveryCode !== deliveryCode) {
       return res.status(400).json({
@@ -390,12 +392,16 @@ export class TransactionController {
         error: 'Code de livraison incorrect',
       });
     }
+    console.log('✅ Code valide, suite du traitement...');
 
     if (transaction.stripePaymentIntentId) {
+      console.log('✅ Payment Intent trouvé:', transaction.stripePaymentIntentId);
+  console.log('✅ Début capture payment...');
       const captureResult = await PaymentService.capturePayment(transaction.stripePaymentIntentId);
-      
+       console.log('✅ Capture terminée');
       const { WalletService } = require('../services/walletService');
       const traveler = transaction.traveler;
+      console.log('✅ Traveler récupéré:', traveler?.id);
       await traveler.reload(); // Recharger les données depuis la DB
 
 console.log('👤 Voyageur rechargé:', traveler.id);
@@ -445,6 +451,7 @@ console.log('🏦 ConnectedAccountId:', traveler.stripeConnectedAccountId);
           console.log(`💰 Fallback: ${transaction.travelerAmount}€ transféré vers le wallet du voyageur ${transaction.travelerId}`);
         }
       } else {
+        console.log('❌ Pas de stripePaymentIntentId');
         // Flux manuel via wallet pour l'Algérie
         await WalletService.creditWallet(
           transaction.travelerId,
