@@ -441,7 +441,7 @@ console.log('- transaction.id:', transaction.id);
         const transferId = await StripeConnectService.transferToTraveler(
           traveler.id,
           parseFloat(transaction.travelerAmount.toString()),
-          transaction.currency,
+          'USD',
           transaction.id
         );
 
