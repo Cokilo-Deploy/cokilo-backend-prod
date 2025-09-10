@@ -83,6 +83,11 @@ export class ChatSocketServer {
 
   // Dans la méthode handleSendMessage, modifiez :
 private async handleSendMessage(socket: any, data: any) {
+  console.log('📨 Message reçu sur le serveur:', {
+    userId: socket.userId,
+    conversationId: data.conversationId,
+    content: data.content?.substring(0, 50)
+  });
   try {
     const { conversationId, content, messageType = 'text', attachmentUrl } = data;
 
@@ -110,9 +115,12 @@ private async handleSendMessage(socket: any, data: any) {
       messageType,
       attachmentUrl
     });
+    
 
     // Mettre à jour la conversation
     await conversation.update({ lastMessageAt: new Date() });
+    console.log('📤 Envoi du message à la room:', `conversation_${conversationId}`);
+    console.log('👥 Clients dans la room:', this.io.sockets.adapter.rooms.get(`conversation_${conversationId}`)?.size || 0);
 
     // Envoyer à tous les participants AVEC les métadonnées complètes
     this.io.to(`conversation_${conversationId}`).emit('new_message', {
