@@ -373,23 +373,33 @@ static async getPayoutHistory(userId: number): Promise<any[]> {
       stripeAccount: user.stripeConnectedAccountId
     });
 
-    // Transformer les données avec icône rouge
     const formattedPayouts = payouts.data.map(payout => {
       const destination = payout.destination as any;
       const fee = (payout as any).fee || 0;
+      
+      // Correction de la date d'arrivée
+      let arrivalDate;
+      if (payout.arrival_date) {
+        arrivalDate = new Date(payout.arrival_date * 1000).toISOString();
+      } else {
+        // Si pas de date d'arrivée, calculer 1-2 jours après création
+        const createdDate = new Date(payout.created * 1000);
+        createdDate.setDate(createdDate.getDate() + 1); // Ajouter 1 jour
+        arrivalDate = createdDate.toISOString();
+      }
       
       return {
         id: payout.id,
         amount: parseFloat((payout.amount / 100).toFixed(2)),
         currency: payout.currency.toUpperCase(),
-        status: StripeConnectService.mapPayoutStatus(payout.status), // Appel statique
+        status: StripeConnectService.mapPayoutStatus(payout.status),
         method: 'stripe_instant',
         type: 'debit',
-        icon: '-',
+        icon: '-',           // Icône moins
         iconColor: '#FF3B30', // Rouge
         bankAccount: `****${destination?.last4 || '****'}`,
         created_at: new Date(payout.created * 1000).toISOString(),
-        arrival_date: payout.arrival_date ? new Date(payout.arrival_date * 1000).toISOString() : new Date().toISOString(),
+        arrival_date: arrivalDate, // Date corrigée
         description: `Retrait instantané - ${(payout.amount / 100).toFixed(2)}€`,
         fee: parseFloat((fee / 100).toFixed(2)),
         net_amount: parseFloat(((payout.amount - fee) / 100).toFixed(2))
