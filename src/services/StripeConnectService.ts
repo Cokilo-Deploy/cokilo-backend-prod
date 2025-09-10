@@ -259,16 +259,21 @@ static async addExternalAccount(userId: number, bankDetails: any): Promise<void>
       return;
     }
 
+    // Mapper les champs correctement
+    const accountHolderName = bankDetails.accountName || bankDetails.accountHolderName;
+    const accountNumber = bankDetails.accountNumber;
+    const routingNumber = bankDetails.bankCode || bankDetails.routingNumber;
+
     // Valider les données bancaires
-    if (!bankDetails.accountHolderName || !bankDetails.accountNumber) {
-      throw new Error('Nom du titulaire et numéro de compte requis');
+    if (!accountHolderName || !accountNumber) {
+      throw new Error(`Données manquantes - Nom: ${accountHolderName}, Compte: ${accountNumber}`);
     }
 
     console.log(`🔍 Création external account avec:`, {
       country: bankDetails.country || 'FR',
-      accountHolderName: bankDetails.accountHolderName,
-      accountNumber: '****' + (bankDetails.accountNumber || '').slice(-4),
-      routingNumber: bankDetails.routingNumber || bankDetails.bankCode
+      accountHolderName: accountHolderName,
+      accountNumber: '****' + (accountNumber || '').slice(-4),
+      routingNumber: routingNumber
     });
 
     // Ajouter le nouveau compte bancaire
@@ -279,9 +284,9 @@ static async addExternalAccount(userId: number, bankDetails: any): Promise<void>
           object: 'bank_account',
           country: bankDetails.country || 'FR',
           currency: 'eur',
-          account_holder_name: bankDetails.accountHolderName,
-          account_number: bankDetails.accountNumber,
-          routing_number: bankDetails.routingNumber || bankDetails.bankCode
+          account_holder_name: accountHolderName,
+          account_number: accountNumber,
+          routing_number: routingNumber
         }
       }
     );
