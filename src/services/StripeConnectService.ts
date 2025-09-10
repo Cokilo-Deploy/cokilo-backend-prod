@@ -355,4 +355,72 @@ static async createPayout(userId: number, amount: number): Promise<string> {
     throw new Error('Impossible de traiter le retrait');
   }
 }
+/**
+ * Récupérer l'historique des payouts pour un utilisateur EU
+ */
+static async getPayoutHistory(userId: number): Promise<any[]> {
+  try {
+    const user = await User.findByPk(userId);
+    if (!user?.stripeConnectedAccountId) {
+      throw new Error('Compte Connect non trouvé');
+    }
+
+    console.log(`📊 Récupération historique payouts pour user ${userId}`);
+
+    // Récupérer les payouts du compte Connect
+    const payouts = await stripe.payouts.list({
+      limit: 50, // Derniers 50 payouts
+    }, {
+      stripeAccount: user.stripeConnectedAccountId
+    });
+
+    // Transformer les données Stripe en format compatible avec l'app
+    const formattedPayouts = payouts.data.map(payout => {
+      const destination = payout.destination as any;
+      const fee = (payout as any).fee || 0;
+      
+      return {
+        id: payout.id,
+        amount: payout.amount / 100, // Convertir centimes en euros
+        currency: payout.currency.toUpperCase(),
+        status: this.mapPayoutStatus(payout.status),
+        method: 'stripe_instant',
+        bankAccount: `****${destination?.last4 || '****'}`,
+        created_at: new Date(payout.created * 1000).toISOString(),
+        arrival_date: payout.arrival_date ? new Date(payout.arrival_date * 1000).toISOString() : null,
+        description: `Retrait instantané - ${payout.amount / 100}€`,
+        fee: fee / 100,
+        net_amount: (payout.amount - fee) / 100
+      };
+    });
+
+    console.log(`✅ ${formattedPayouts.length} payouts récupérés pour user ${userId}`);
+    
+    return formattedPayouts;
+
+  } catch (error: any) {
+    console.error('Erreur récupération historique payouts:', error);
+    throw new Error('Impossible de récupérer l\'historique des retraits');
+  }
+}
+
+/**
+ * Mapper les statuts Stripe vers des statuts compréhensibles
+ */
+private static mapPayoutStatus(stripeStatus: string): string {
+  switch (stripeStatus) {
+    case 'paid':
+      return 'completed';
+    case 'pending':
+      return 'processing';
+    case 'in_transit':
+      return 'processing';
+    case 'canceled':
+      return 'cancelled';
+    case 'failed':
+      return 'failed';
+    default:
+      return stripeStatus;
+  }
+}
 }
