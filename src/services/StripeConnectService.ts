@@ -356,7 +356,7 @@ static async createPayout(userId: number, amount: number): Promise<string> {
   }
 }
 /**
- * Récupérer l'historique des payouts pour un utilisateur EU
+ * Récupérer l'historique des payouts (retraits) pour un utilisateur EU
  */
 static async getPayoutHistory(userId: number): Promise<any[]> {
   try {
@@ -367,30 +367,32 @@ static async getPayoutHistory(userId: number): Promise<any[]> {
 
     console.log(`📊 Récupération historique payouts pour user ${userId}`);
 
-    // Récupérer les payouts du compte Connect
     const payouts = await stripe.payouts.list({
-      limit: 50, // Derniers 50 payouts
+      limit: 50,
     }, {
       stripeAccount: user.stripeConnectedAccountId
     });
 
-    // Transformer les données Stripe en format compatible avec l'app
+    // Transformer les données avec icône rouge
     const formattedPayouts = payouts.data.map(payout => {
       const destination = payout.destination as any;
       const fee = (payout as any).fee || 0;
       
       return {
         id: payout.id,
-        amount: payout.amount / 100, // Convertir centimes en euros
+        amount: parseFloat((payout.amount / 100).toFixed(2)),
         currency: payout.currency.toUpperCase(),
-        status: this.mapPayoutStatus(payout.status),
+        status: StripeConnectService.mapPayoutStatus(payout.status), // Appel statique
         method: 'stripe_instant',
+        type: 'debit',
+        icon: '-',
+        iconColor: '#FF3B30', // Rouge
         bankAccount: `****${destination?.last4 || '****'}`,
         created_at: new Date(payout.created * 1000).toISOString(),
-        arrival_date: payout.arrival_date ? new Date(payout.arrival_date * 1000).toISOString() : null,
-        description: `Retrait instantané - ${payout.amount / 100}€`,
-        fee: fee / 100,
-        net_amount: (payout.amount - fee) / 100
+        arrival_date: payout.arrival_date ? new Date(payout.arrival_date * 1000).toISOString() : new Date().toISOString(),
+        description: `Retrait instantané - ${(payout.amount / 100).toFixed(2)}€`,
+        fee: parseFloat((fee / 100).toFixed(2)),
+        net_amount: parseFloat(((payout.amount - fee) / 100).toFixed(2))
       };
     });
 
@@ -400,14 +402,14 @@ static async getPayoutHistory(userId: number): Promise<any[]> {
 
   } catch (error: any) {
     console.error('Erreur récupération historique payouts:', error);
-    throw new Error('Impossible de récupérer l\'historique des retraits');
+    return [];
   }
 }
 
 /**
  * Mapper les statuts Stripe vers des statuts compréhensibles
  */
-private static mapPayoutStatus(stripeStatus: string): string {
+static mapPayoutStatus(stripeStatus: string): string { // Changé en static
   switch (stripeStatus) {
     case 'paid':
       return 'completed';
@@ -421,6 +423,51 @@ private static mapPayoutStatus(stripeStatus: string): string {
       return 'failed';
     default:
       return stripeStatus;
+  }
+}
+
+
+/**
+ * Récupérer l'historique des transfers reçus (gains) pour un utilisateur EU
+ */
+static async getTransferHistory(userId: number): Promise<any[]> {
+  try {
+    const user = await User.findByPk(userId);
+    if (!user?.stripeConnectedAccountId) {
+      throw new Error('Compte Connect non trouvé');
+    }
+
+    console.log(`📊 Récupération historique transfers pour user ${userId}`);
+
+    // Récupérer les transfers reçus sur le compte Connect
+    const transfers = await stripe.transfers.list({
+      destination: user.stripeConnectedAccountId,
+      limit: 50,
+    });
+
+    // Transformer les données en format avec icône verte
+    const formattedTransfers = transfers.data.map(transfer => ({
+      id: transfer.id,
+      amount: parseFloat((transfer.amount / 100).toFixed(2)),
+      currency: transfer.currency.toUpperCase(),
+      status: 'completed',
+      method: 'stripe_transfer',
+      type: 'credit',
+      icon: '+',
+      iconColor: '#34C759', // Vert
+      created_at: new Date(transfer.created * 1000).toISOString(),
+      description: `Paiement reçu - ${(transfer.amount / 100).toFixed(2)}€`,
+      transaction_id: transfer.metadata?.transaction_id || null,
+      source: 'livraison_confirmée'
+    }));
+
+    console.log(`✅ ${formattedTransfers.length} transfers récupérés pour user ${userId}`);
+    
+    return formattedTransfers;
+
+  } catch (error: any) {
+    console.error('Erreur récupération historique transfers:', error);
+    return []; // Retourner un tableau vide en cas d'erreur
   }
 }
 }
