@@ -1,8 +1,8 @@
 import { Wallet } from '../models/Wallet';
-import { User } from '../models/User'; // AJOUT
+import { User } from '../models/User';
 import { sequelize } from '../config/database';
 import { QueryTypes } from 'sequelize';
-import Stripe from 'stripe'; // AJOUT
+import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-07-30.basil',
@@ -25,7 +25,6 @@ export class WalletService {
     const transaction = await sequelize.transaction();
     
     try {
-      // CORRECTION : Utiliser user_id au lieu de wallet_id pour la table wallets
       await sequelize.query(
         'UPDATE wallets SET balance = balance + $1, updated_at = NOW() WHERE user_id = $2',
         {
@@ -34,7 +33,6 @@ export class WalletService {
         }
       );
       
-      // CORRECTION : Supprimer status et corriger la syntaxe
       await sequelize.query(
         `INSERT INTO wallet_transactions (wallet_id, transaction_id, type, amount, description, created_at)
          VALUES ($1, $2, 'credit', $3, $4, NOW())`,
@@ -53,83 +51,73 @@ export class WalletService {
     }
   }
 
-  // Dans WalletService, remplacez getWalletBalance par :
-static async getWalletBalance(userId: number): Promise<{
-  totalBalance: number;
-  availableBalance: number;
-  pendingBalance: number;
-  currency: string;
-}> {
-  try {
-    const user = await User.findByPk(userId);
-    
-    if (user?.paymentMethod === 'stripe_connect' && user.stripeConnectedAccountId) {
-      // Utilisateur EU - Récupérer le solde Stripe Connect détaillé
-      try {
-        const balance = await stripe.balance.retrieve({
-          stripeAccount: user.stripeConnectedAccountId
-        });
-        
-        const availableBalance = balance.available.find(b => b.currency === 'eur') || 
-                               balance.available.find(b => b.currency === 'usd') ||
-                               balance.available[0];
-        
-        const pendingBalance = balance.pending.find(b => b.currency === (availableBalance?.currency || 'eur')) ||
-                             balance.pending[0];
-        
-        const available = availableBalance ? (availableBalance.amount / 100) : 0;
-        const pending = pendingBalance ? (pendingBalance.amount / 100) : 0;
-        const total = available + pending;
-        
-        console.log(`💳 Solde Connect détaillé user ${userId}:`, {
-          total,
-          available,
-          pending,
-          currency: availableBalance?.currency || 'EUR'
-        });
-        
-        return {
-          totalBalance: total,
-          availableBalance: available,
-          pendingBalance: pending,
-          currency: availableBalance?.currency?.toUpperCase() || 'EUR'
-        };
-        
-      } catch (stripeError) {
-        console.error('Erreur récupération solde Connect:', stripeError);
-        return this.getVirtualWalletBalanceDetailed(userId);
-      }
-    } else {
-      // Utilisateur DZ - Wallet virtuel
-      return this.getVirtualWalletBalanceDetailed(userId);
-    }
-  } catch (error) {
-    console.error('Erreur getWalletBalance:', error);
-    return { totalBalance: 0, availableBalance: 0, pendingBalance: 0, currency: 'EUR' };
+  // Fonction originale - retourne juste le solde total
+  static async getWalletBalance(userId: number): Promise<number> {
+    const detailed = await this.getDetailedWalletBalance(userId);
+    return detailed.totalBalance;
   }
-}
 
-static async getVirtualWalletBalanceDetailed(userId: number) {
-  const result = await sequelize.query(
-    'SELECT balance FROM wallets WHERE user_id = $1',
-    {
-      bind: [userId],
-      type: QueryTypes.SELECT
+  // Nouvelle fonction détaillée
+  static async getDetailedWalletBalance(userId: number): Promise<{
+    totalBalance: number;
+    availableBalance: number;
+    pendingBalance: number;
+    currency: string;
+  }> {
+    try {
+      const user = await User.findByPk(userId);
+      
+      if (user?.paymentMethod === 'stripe_connect' && user.stripeConnectedAccountId) {
+        try {
+          const balance = await stripe.balance.retrieve({
+            stripeAccount: user.stripeConnectedAccountId
+          });
+          
+          const availableBalance = balance.available.find(b => b.currency === 'eur') || 
+                                 balance.available.find(b => b.currency === 'usd') ||
+                                 balance.available[0];
+          
+          const pendingBalance = balance.pending.find(b => b.currency === (availableBalance?.currency || 'eur')) ||
+                               balance.pending[0];
+          
+          const available = availableBalance ? (availableBalance.amount / 100) : 0;
+          const pending = pendingBalance ? (pendingBalance.amount / 100) : 0;
+          const total = available + pending;
+          
+          console.log(`💳 Solde Connect détaillé user ${userId}:`, {
+            total,
+            available,
+            pending,
+            currency: availableBalance?.currency || 'EUR'
+          });
+          
+          return {
+            totalBalance: total,
+            availableBalance: available,
+            pendingBalance: pending,
+            currency: availableBalance?.currency?.toUpperCase() || 'EUR'
+          };
+          
+        } catch (stripeError) {
+          console.error('Erreur récupération solde Connect:', stripeError);
+          return this.getVirtualWalletBalance(userId);
+        }
+      } else {
+        return this.getVirtualWalletBalance(userId);
+      }
+    } catch (error) {
+      console.error('Erreur getDetailedWalletBalance:', error);
+      return { totalBalance: 0, availableBalance: 0, pendingBalance: 0, currency: 'EUR' };
     }
-  ) as any[];
-  
-  const balance = result[0]?.balance || 0;
-  
-  return {
-    totalBalance: balance,
-    availableBalance: balance, // Pour wallet virtuel, tout est disponible
-    pendingBalance: 0,
-    currency: 'EUR'
-  };
-}
+  }
 
-  static async getVirtualWalletBalance(userId: number): Promise<number> {
-    // Logique actuelle pour le wallet virtuel
+  // Fonction pour wallet virtuel en format détaillé
+  static async getVirtualWalletBalance(userId: number): Promise<{
+    totalBalance: number;
+    availableBalance: number;
+    pendingBalance: number;
+    currency: string;
+  }> {
     const result = await sequelize.query(
       'SELECT balance FROM wallets WHERE user_id = $1',
       {
@@ -138,13 +126,18 @@ static async getVirtualWalletBalanceDetailed(userId: number) {
       }
     ) as any[];
     
-    const virtualBalance = result[0]?.balance || 0;
-    console.log(`💰 Solde wallet virtuel pour user ${userId}: ${virtualBalance}`);
-    return virtualBalance;
+    const balance = result[0]?.balance || 0;
+    console.log(`💰 Solde wallet virtuel pour user ${userId}: ${balance}`);
+    
+    return {
+      totalBalance: balance,
+      availableBalance: balance,
+      pendingBalance: 0,
+      currency: 'EUR'
+    };
   }
 
   static async getWalletHistory(userId: number) {
-    // CORRECTION : Utiliser user_id dans la condition WHERE
     const result = await sequelize.query(
       `SELECT wt.*, t.id as transaction_number
        FROM wallet_transactions wt
