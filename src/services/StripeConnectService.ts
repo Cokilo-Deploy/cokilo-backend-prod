@@ -239,6 +239,8 @@ export class StripeConnectService {
  */
 static async addExternalAccount(userId: number, bankDetails: any): Promise<void> {
   try {
+    console.log(`🔍 Debug bankDetails reçus:`, bankDetails);
+    
     const user = await User.findByPk(userId);
     if (!user?.stripeConnectedAccountId) {
       throw new Error('Compte Connect non trouvé');
@@ -250,10 +252,24 @@ static async addExternalAccount(userId: number, bankDetails: any): Promise<void>
     const account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
     const existingAccounts = account.external_accounts?.data || [];
     
+    console.log(`📋 Comptes existants: ${existingAccounts.length}`);
+    
     if (existingAccounts.length > 0) {
       console.log(`ℹ️ User ${userId} a déjà un compte bancaire configuré`);
-      return; // Il a déjà un compte, pas besoin d'en ajouter
+      return;
     }
+
+    // Valider les données bancaires
+    if (!bankDetails.accountHolderName || !bankDetails.accountNumber) {
+      throw new Error('Nom du titulaire et numéro de compte requis');
+    }
+
+    console.log(`🔍 Création external account avec:`, {
+      country: bankDetails.country || 'FR',
+      accountHolderName: bankDetails.accountHolderName,
+      accountNumber: '****' + (bankDetails.accountNumber || '').slice(-4),
+      routingNumber: bankDetails.routingNumber || bankDetails.bankCode
+    });
 
     // Ajouter le nouveau compte bancaire
     const externalAccount = await stripe.accounts.createExternalAccount(
@@ -272,9 +288,14 @@ static async addExternalAccount(userId: number, bankDetails: any): Promise<void>
 
     console.log(`✅ Compte bancaire ajouté: ${externalAccount.id}`);
 
-  } catch (error) {
-    console.error('Erreur ajout compte bancaire:', error);
-    throw new Error('Impossible d\'ajouter le compte bancaire');
+  } catch (error: any) {
+    console.error('❌ Erreur détaillée ajout compte bancaire:', {
+      message: error.message,
+      type: error.type,
+      code: error.code,
+      param: error.param
+    });
+    throw new Error('Impossible d\'ajouter le compte bancaire: ' + error.message);
   }
 }
 
