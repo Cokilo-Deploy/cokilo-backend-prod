@@ -76,9 +76,7 @@ export class WalletService {
           return connectBalance;
           
         } catch (stripeError) {
-          console.error('Erreur récupération solde Connect, fallback wallet virtuel:', stripeError);
-          // Fallback vers wallet virtuel en cas d'erreur Stripe
-          return this.getVirtualWalletBalance(userId);
+          throw new Error('Impossible de récupérer le solde. Veuillez réessayer.');
         }
       } else {
         // Utilisateur DZ - Wallet virtuel classique
