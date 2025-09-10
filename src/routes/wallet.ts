@@ -24,16 +24,39 @@ router.get('/balance', authMiddleware, async (req, res) => {
   }
 });
 
-// Obtenir l'historique des transactions
+// Dans routes/wallet.ts, modifiez la route /history
 router.get('/history', authMiddleware, async (req, res) => {
   try {
     const userId = (req as any).user.id;
-    const history = await WalletService.getWalletHistory(userId);
+    const user = (req as any).user;
     
-    res.json({
-      success: true,
-      data: { transactions: history }
-    });
+    if (user.paymentMethod === 'stripe_connect' && user.stripeConnectedAccountId) {
+      // Pour les EU : séparer les gains (transfers reçus) des retraits (payouts)
+      const { StripeConnectService } = require('../services/StripeConnectService');
+      
+      // Gains = transfers reçus sur le compte Connect
+      const transfers = await StripeConnectService.getTransferHistory(userId);
+      
+      res.json({
+        success: true,
+        data: { 
+          transactions: transfers, // Seulement les gains
+          type: 'stripe_connect'
+        }
+      });
+    } else {
+      // Pour les DZ : historique wallet classique
+      const history = await WalletService.getWalletHistory(userId);
+      
+      res.json({
+        success: true,
+        data: { 
+          transactions: history,
+          type: 'manual'
+        }
+      });
+    }
+    
   } catch (error) {
     console.error('Erreur récupération historique:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
