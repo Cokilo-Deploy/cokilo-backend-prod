@@ -121,12 +121,38 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
 router.get('/withdrawals', authMiddleware, async (req, res) => {
   try {
     const userId = (req as any).user.id;
-    const withdrawals = await WithdrawalService.getWithdrawalHistory(userId);
+    const user = (req as any).user;
     
-    res.json({
-      success: true,
-      data: { withdrawals }
-    });
+    if (user.paymentMethod === 'stripe_connect' && user.stripeConnectedAccountId) {
+      // UTILISATEUR EU - Historique Stripe Connect
+      console.log(`🇪🇺 Récupération historique Stripe Connect pour user ${userId}`);
+      
+      const { StripeConnectService } = require('../services/StripeConnectService');
+      const stripeHistory = await StripeConnectService.getPayoutHistory(userId);
+      
+      res.json({
+        success: true,
+        data: { 
+          withdrawals: stripeHistory,
+          type: 'stripe_connect'
+        }
+      });
+      
+    } else {
+      // UTILISATEUR DZ - Historique manuel
+      console.log(`🇩🇿 Récupération historique manuel pour user ${userId}`);
+      
+      const withdrawals = await WithdrawalService.getWithdrawalHistory(userId);
+      
+      res.json({
+        success: true,
+        data: { 
+          withdrawals,
+          type: 'manual'
+        }
+      });
+    }
+    
   } catch (error) {
     console.error('Erreur historique retraits:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
