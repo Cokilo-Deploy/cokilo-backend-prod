@@ -6,7 +6,6 @@ import { ChatConversation } from './ChatConversation';
 import { ChatMessage } from './ChatMessage';
 import { Review } from './Review';
 
-
 // ======= RELATIONS EXISTANTES =======
 
 // Relations User -> Trip
@@ -127,16 +126,52 @@ Review.belongsTo(User, {
   as: 'reviewee'
 });
 
-
-
 // ======= SYNCHRONISATION DES MODÈLES =======
 
 export const syncModels = async () => {
   try {
     console.log('Modèles chat importés:', ChatConversation.name, ChatMessage.name);
     
-    // Désactiver complètement la synchronisation - les tables existent déjà
-    console.log('✅ Mode production - utilisation des tables existantes sans synchronisation');
+    // CORRECTION: Tester les associations
+    try {
+      const testQuery = await ChatConversation.findOne({
+        include: [
+          { 
+            model: User, 
+            as: 'user1', 
+            attributes: ['id', 'firstName', 'lastName'],
+            required: false
+          },
+          { 
+            model: User, 
+            as: 'user2', 
+            attributes: ['id', 'firstName', 'lastName'],
+            required: false
+          },
+          {
+            model: Transaction,
+            as: 'transaction',
+            attributes: ['id', 'packageDescription'],
+            required: false
+          }
+        ],
+        limit: 1
+      });
+      
+      console.log('✅ Test associations chat réussi');
+      if (testQuery) {
+        console.log('📋 Exemple conversation trouvée avec utilisateurs:', {
+          id: testQuery.id,
+          user1: testQuery.user1 ? `${testQuery.user1.firstName} ${testQuery.user1.lastName}` : 'N/A',
+          user2: testQuery.user2 ? `${testQuery.user2.firstName} ${testQuery.user2.lastName}` : 'N/A'
+        });
+      }
+    } catch (associationError: any) {
+      console.warn('⚠️ Erreur test associations:', associationError.message);
+    }
+    
+    // Mode production - utilisation des tables existantes sans synchronisation
+    console.log('✅ Mode production - utilisation des tables existantes');
     
   } catch (error) {
     console.error('❌ Erreur synchronisation modèles:', error);
@@ -152,4 +187,5 @@ export {
   Transaction,
   ChatConversation,
   ChatMessage,
- };
+  Review
+};

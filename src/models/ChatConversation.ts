@@ -13,10 +13,10 @@ interface ChatConversationAttributes {
   updatedAt?: Date;
 }
 
-interface ChatConversationCreationAttributes extends Optional<ChatConversationAttributes, 
+interface ChatConversationCreationAttributes extends Optional<ChatConversationAttributes,
   'id' | 'status' | 'isArchived'> {}
 
-class ChatConversation extends Model<ChatConversationAttributes, ChatConversationCreationAttributes> 
+class ChatConversation extends Model<ChatConversationAttributes, ChatConversationCreationAttributes>
   implements ChatConversationAttributes {
   public id!: number;
   public transactionId?: number;
@@ -29,11 +29,38 @@ class ChatConversation extends Model<ChatConversationAttributes, ChatConversatio
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 
-  // AJOUTEZ CES LIGNES - Relations Sequelize
+  // Relations Sequelize
   public readonly user1?: any;
   public readonly user2?: any;
   public readonly transaction?: any;
   public readonly lastMessage?: any;
+
+  // NOUVELLE MÉTHODE: Pour définir les associations
+  static associate(models: any) {
+    // Association avec User pour user1
+    ChatConversation.belongsTo(models.User, {
+      foreignKey: 'user1Id',
+      as: 'user1'
+    });
+
+    // Association avec User pour user2
+    ChatConversation.belongsTo(models.User, {
+      foreignKey: 'user2Id',
+      as: 'user2'
+    });
+
+    // Association avec Transaction
+    ChatConversation.belongsTo(models.Transaction, {
+      foreignKey: 'transactionId',
+      as: 'transaction'
+    });
+
+    // Association avec ChatMessage pour les messages
+    ChatConversation.hasMany(models.ChatMessage, {
+      foreignKey: 'conversationId',
+      as: 'messages'
+    });
+  }
 }
 
 ChatConversation.init({
@@ -74,7 +101,6 @@ ChatConversation.init({
     type: DataTypes.STRING,
     defaultValue: 'active',
   },
-   
   isArchived: {
     type: DataTypes.BOOLEAN,
     defaultValue: false,

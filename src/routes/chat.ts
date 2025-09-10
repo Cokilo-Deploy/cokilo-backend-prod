@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { ChatConversation, ChatMessage } from '../models';
+import { ChatConversation, ChatMessage, User, Transaction } from '../models';
 import { authMiddleware } from '../middleware/auth';
 import { Op } from 'sequelize';
 import multer from 'multer';
@@ -121,6 +121,8 @@ router.post('/conversations', async (req: Request, res: Response) => {
 });
 
 // Récupérer les conversations de l'utilisateur
+// Récupérer les conversations de l'utilisateur
+// Récupérer les conversations de l'utilisateur
 router.get('/conversations', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
@@ -132,13 +134,52 @@ router.get('/conversations', async (req: Request, res: Response) => {
           { user2Id: userId }
         ]
       },
+      include: [
+        {
+          model: User,
+          as: 'user1',
+          attributes: ['id', 'firstName', 'lastName', 'avatar']
+        },
+        {
+          model: User,
+          as: 'user2', 
+          attributes: ['id', 'firstName', 'lastName', 'avatar']
+        },
+        {
+          model: Transaction,
+          as: 'transaction',
+          required: false,
+          attributes: ['id', 'packageDescription', 'status']
+        }
+      ],
       order: [['lastMessageAt', 'DESC']],
       limit: 20
     });
 
+    // Transformer les données pour identifier l'autre utilisateur
+    const conversationsWithOtherUser = conversations.map(conv => {
+      const otherUser = conv.user1Id === userId ? conv.user2 : conv.user1;
+      const unreadCount = 0; // TODO: Calculer les messages non lus
+      
+      return {
+        id: conv.id,
+        transactionId: conv.transactionId,
+        otherUser: {
+          id: otherUser?.id,
+          firstName: otherUser?.firstName,
+          lastName: otherUser?.lastName,
+          avatar: otherUser?.avatar
+        },
+        transaction: conv.transaction,
+        lastMessageAt: conv.lastMessageAt,
+        unreadCount,
+        createdAt: conv.createdAt
+      };
+    });
+
     res.json({
       success: true,
-      conversations
+      conversations: conversationsWithOtherUser
     });
 
   } catch (error) {
