@@ -231,4 +231,102 @@ export class StripeConnectService {
     throw error;
   }
 }
+
+// Dans StripeConnectService, ajoutez ces deux fonctions :
+
+/**
+ * Ajouter un compte bancaire externe au compte Connect
+ */
+static async addExternalAccount(userId: number, bankDetails: any): Promise<void> {
+  try {
+    const user = await User.findByPk(userId);
+    if (!user?.stripeConnectedAccountId) {
+      throw new Error('Compte Connect non trouvé');
+    }
+
+    console.log(`🏦 Ajout compte bancaire pour user ${userId}`);
+
+    // Vérifier s'il a déjà un compte bancaire
+    const account = await stripe.accounts.retrieve(user.stripeConnectedAccountId);
+    const existingAccounts = account.external_accounts?.data || [];
+    
+    if (existingAccounts.length > 0) {
+      console.log(`ℹ️ User ${userId} a déjà un compte bancaire configuré`);
+      return; // Il a déjà un compte, pas besoin d'en ajouter
+    }
+
+    // Ajouter le nouveau compte bancaire
+    const externalAccount = await stripe.accounts.createExternalAccount(
+      user.stripeConnectedAccountId,
+      {
+        external_account: {
+          object: 'bank_account',
+          country: bankDetails.country || 'FR',
+          currency: 'eur',
+          account_holder_name: bankDetails.accountHolderName,
+          account_number: bankDetails.accountNumber,
+          routing_number: bankDetails.routingNumber || bankDetails.bankCode
+        }
+      }
+    );
+
+    console.log(`✅ Compte bancaire ajouté: ${externalAccount.id}`);
+
+  } catch (error) {
+    console.error('Erreur ajout compte bancaire:', error);
+    throw new Error('Impossible d\'ajouter le compte bancaire');
+  }
+}
+
+/**
+ * Créer un payout instantané vers le compte bancaire de l'utilisateur
+ */
+static async createPayout(userId: number, amount: number): Promise<string> {
+  try {
+    const user = await User.findByPk(userId);
+    if (!user?.stripeConnectedAccountId) {
+      throw new Error('Compte Connect non trouvé');
+    }
+
+    console.log(`💸 Création payout ${amount}€ pour user ${userId}`);
+
+    // Vérifier le solde disponible
+    const balance = await stripe.balance.retrieve({
+      stripeAccount: user.stripeConnectedAccountId
+    });
+
+    const availableBalance = balance.available.find(b => b.currency === 'eur') || 
+                           balance.available.find(b => b.currency === 'usd') ||
+                           balance.available[0];
+
+    const availableAmount = availableBalance ? (availableBalance.amount / 100) : 0;
+
+    if (availableAmount < amount) {
+      throw new Error(`Solde insuffisant. Disponible: ${availableAmount}€`);
+    }
+
+    // Créer le payout
+    const payout = await stripe.payouts.create({
+      amount: Math.round(amount * 100), // En centimes
+      currency: 'eur',
+      metadata: {
+        user_id: userId.toString(),
+        withdrawal_amount: amount.toString()
+      }
+    }, {
+      stripeAccount: user.stripeConnectedAccountId
+    });
+
+    console.log(`✅ Payout créé: ${payout.id} - ${amount}€`);
+    
+    return payout.id;
+
+  } catch (error: any) { // Changé ici : ajouté ": any"
+    console.error('Erreur création payout:', error);
+    if (error?.message?.includes('insufficient')) {
+      throw new Error('Solde insuffisant pour ce retrait');
+    }
+    throw new Error('Impossible de traiter le retrait');
+  }
+}
 }

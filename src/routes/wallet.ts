@@ -44,22 +44,70 @@ router.get('/history', authMiddleware, async (req, res) => {
 router.post('/withdraw', authMiddleware, async (req, res) => {
   try {
     const userId = (req as any).user.id;
+    const user = (req as any).user;
     const { amount, bankDetails } = req.body;
     
-    if (!amount || !bankDetails) {
+    if (!amount) {
       return res.status(400).json({
         success: false,
-        error: 'Montant et coordonnées bancaires requis'
+        error: 'Montant requis'
+      });
+    }
+
+    // Vérifier le type d'utilisateur
+    if (user.paymentMethod === 'stripe_connect' && user.stripeConnectedAccountId) {
+      // UTILISATEUR EU - Payout Stripe instantané
+      console.log(`🇪🇺 Retrait instantané EU pour user ${userId}: ${amount}€`);
+      
+      if (!bankDetails) {
+        return res.status(400).json({
+          success: false,
+          error: 'Coordonnées bancaires requises pour le premier retrait'
+        });
+      }
+
+      const { StripeConnectService } = require('../services/StripeConnectService');
+      
+      // Ajouter les coordonnées bancaires au compte Connect s'il n'en a pas
+      await StripeConnectService.addExternalAccount(userId, bankDetails);
+      
+      // Effectuer le payout instantané
+      const payoutId = await StripeConnectService.createPayout(userId, amount);
+      
+      res.json({
+        success: true,
+        message: 'Retrait effectué avec succès. L\'argent arrivera dans 1-2 jours ouvrés.',
+        data: { 
+          payoutId,
+          type: 'instant',
+          estimatedArrival: '1-2 jours ouvrés'
+        }
+      });
+
+    } else {
+      // UTILISATEUR DZ - Système manuel existant
+      console.log(`🇩🇿 Retrait manuel DZ pour user ${userId}: ${amount}€`);
+      
+      if (!bankDetails) {
+        return res.status(400).json({
+          success: false,
+          error: 'Coordonnées bancaires requises'
+        });
+      }
+      
+      const withdrawal = await WithdrawalService.requestWithdrawal(userId, amount, bankDetails);
+      
+      res.json({
+        success: true,
+        message: 'Demande de retrait créée avec succès. Vous recevrez votre argent dans 5-7 jours.',
+        data: { 
+          withdrawal,
+          type: 'manual',
+          estimatedArrival: '5-7 jours'
+        }
       });
     }
     
-    const withdrawal = await WithdrawalService.requestWithdrawal(userId, amount, bankDetails);
-    
-    res.json({
-      success: true,
-      message: 'Demande de retrait créée avec succès',
-      data: { withdrawal }
-    });
   } catch (error: any) {
     console.error('Erreur demande retrait:', error);
     res.status(400).json({ 
