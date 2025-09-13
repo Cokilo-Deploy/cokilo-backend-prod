@@ -269,7 +269,7 @@ router.get('/conversations/:conversationId/messages', async (req: Request, res: 
     const messages = await ChatMessage.findAll({
       where: { conversationId },
       order: [['createdAt', 'ASC']],
-      limit: 50
+      
     });
 
     res.json({
