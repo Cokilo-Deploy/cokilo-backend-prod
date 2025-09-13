@@ -115,6 +115,8 @@ private async handleSendMessage(socket: any, data: any) {
       messageType,
       attachmentUrl
     });
+
+     console.log('💾 Message sauvegardé en base:', message.id); 
     
 
     // Mettre à jour la conversation
