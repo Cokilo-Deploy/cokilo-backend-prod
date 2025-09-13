@@ -51,13 +51,14 @@ router.get('/test', (req: Request, res: Response) => {
 
 // Upload d'image
 router.post('/upload', upload.single('image'), (req: Request, res: Response) => {
+  console.log('📸 Upload reçu:', req.file); // AJOUTEZ CE LOG
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Aucune image uploadée' });
     }
 
     const imageUrl = `/uploads/chat/${req.file.filename}`;
-    
+     console.log('📸 Image sauvegardée:', imageUrl);
     res.json({
       success: true,
       url: imageUrl,
