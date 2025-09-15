@@ -11,6 +11,7 @@ import { TripCapacityService } from '../services/TripCapacityService';
 import { CurrencyService } from '../services/CurrencyService';
 import { StripeConnectService } from '../services/StripeConnectService';
 import { WalletService } from '../services/walletService';
+import { NotificationService } from '../services/NotificationService';
 
 // AJOUT - Service de conversion
 const { convertTransactions } = require('../services/CurrencyService');
@@ -201,6 +202,8 @@ export class TransactionController {
       await TripCapacityService.reserveCapacity(tripId, weight);
       await TripCapacityService.updateTripVisibility();
 
+      await NotificationService.notifyReservationCreated(transaction);
+
       return res.status(201).json({
         success: true,
         data: {
@@ -270,6 +273,9 @@ export class TransactionController {
         await transaction.update({
           status: TransactionStatus.PAYMENT_ESCROWED,
         });
+
+        await NotificationService.notifyPaymentConfirmed(transaction);
+
         console.log('✅ Paiement confirmé, statut mis à jour → PAYMENT_ESCROWED');
       }
 
@@ -322,6 +328,8 @@ export class TransactionController {
         status: TransactionStatus.PACKAGE_PICKED_UP,
         pickedUpAt: new Date(),
       });
+
+      await NotificationService.notifyPickupReady(transaction);
 
       const io = require('../socket/socketInstance').getIO();
       if (io) {
@@ -451,6 +459,8 @@ console.log('- transaction.id:', transaction.id);
           paymentReleasedAt: new Date(),
           stripeTransferId: transferId
         });
+
+        await NotificationService.notifyDeliveryConfirmed(transaction);
 
         console.log(`💳 Transfer automatique réussi ${transaction.travelerAmount}€ vers Stripe Connect ${traveler.id}`);
 
@@ -700,6 +710,8 @@ console.log('- transaction.id:', transaction.id);
         status: TransactionStatus.CANCELLED,
         internalNotes: `Annulée par ${cancelledBy}`
       });
+
+      await NotificationService.notifyTransactionCancelled(transaction, cancelledBy as 'sender' | 'traveler');
 
       await TripCapacityService.updateTripVisibility();
 
