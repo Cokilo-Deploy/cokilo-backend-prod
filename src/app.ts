@@ -19,6 +19,8 @@ import { verificationRouter } from './routes/verification';
 import { QueryTypes } from 'sequelize';
 import stripeConnectRoutes from './routes/stripeConnect';
 import stripeConnectWebhookRoutes from './routes/webhooks'; 
+import  NotificationRoutes from'./routes/notification';
+
 
 
 
@@ -75,6 +77,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/verification', verificationRouter);
 app.use('/api/stripe-connect', stripeConnectRoutes);
 app.use('/api/webhooks', stripeConnectWebhookRoutes); 
+app.use('/api/notifications', NotificationRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -187,6 +190,28 @@ await sequelize.query(`
     processed_at TIMESTAMP WITHOUT TIME ZONE,
     notes TEXT
   );
+`);
+// Table notifications
+await sequelize.query(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    id SERIAL PRIMARY KEY,
+    "userId" INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    body TEXT NOT NULL,
+    data JSONB DEFAULT '{}',
+    "isRead" BOOLEAN DEFAULT false,
+    "readAt" TIMESTAMP WITH TIME ZONE,
+    "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  );
+`);
+
+// Ajout des colonnes manquantes dans users
+await sequelize.query(`
+  ALTER TABLE users 
+  ADD COLUMN IF NOT EXISTS "pushToken" TEXT,
+  ADD COLUMN IF NOT EXISTS "deviceType" VARCHAR(20) DEFAULT 'unknown';
 `);
   
 // Dans votre bloc de création de tables existant dans src/app.ts, ajoutez :
