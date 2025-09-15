@@ -48,6 +48,12 @@ interface UserAttributes {
   lastLoginAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
+
+  // Nouveaux champs pour les notifications push
+  pushToken?: string;        // Token FCM pour les notifications push
+  deviceType?: string;       // 'ios' | 'android' | 'web'
+  
+
 }
 
 interface UserCreationAttributes extends Optional<UserAttributes, 
@@ -100,6 +106,10 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
   public profileName?: string;
+
+  public pushToken?: string;
+  public deviceType?: string;  
+  
 
   public canViewTrips(): boolean {
     return this.isActive && this.verificationStatus !== UserVerificationStatus.SUSPENDED;
@@ -348,6 +358,17 @@ User.init({
     allowNull: true,
     field: 'stripe_terms_accepted_at'
   },
+
+  pushToken: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  deviceType: {
+    type: DataTypes.STRING(20),
+    allowNull: true,
+    defaultValue: 'unknown'
+  },
+  
   
   
 }, {

@@ -51,6 +51,7 @@
     "expo-image-picker": "^16.1.4",
     "express": "^5.1.0",
     "express-rate-limit": "^8.0.1",
+    "firebase-admin": "^13.5.0",
     "helmet": "^8.1.0",
     "ioredis": "^5.7.0",
     "joi": "^18.0.0",
