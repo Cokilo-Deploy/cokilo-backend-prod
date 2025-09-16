@@ -197,6 +197,10 @@ router.post('/conversations/:conversationId/messages', async (req: Request, res:
     const conversationId = parseInt(req.params.conversationId);
     const { content, messageType = 'text', attachmentUrl } = req.body;
 
+    console.log('DEBUG - userId:', userId, typeof userId);
+    console.log('DEBUG - conversationId:', conversationId, typeof conversationId);
+    console.log('DEBUG - conversationId isNaN:', isNaN(conversationId));
+
     if (!content?.trim() && !attachmentUrl) {
       return res.status(400).json({ error: 'Message vide' });
     }
