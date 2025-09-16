@@ -26,4 +26,7 @@ router.delete('/:id', NotificationController.deleteNotification);
 // GET /api/notifications/unread-count - Nombre de notifications non lues
 router.get('/unread-count', NotificationController.getUnreadCount);
 
+// PUT /api/notifications/mark-chat-read - Marquer les notifications d'un chat comme lues
+router.put('/mark-chat-read', NotificationController.markAsRead);
+
 export default router;
