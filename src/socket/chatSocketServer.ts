@@ -6,6 +6,8 @@ import { Op } from 'sequelize';
 import { ChatConversation, ChatMessage} from '../models';
 import { User } from '../models/User';
 import { SocketChatEvents, ChatMessageType, ChatMessageStatus } from '../types/chat';
+import { NotificationService } from '../services/NotificationService';
+
 
 // Extension du type Socket pour TypeScript
 declare module 'socket.io' {
@@ -218,6 +220,27 @@ export class ChatSocketServer {
           ]
         }
       });
+
+      try {
+  const receiverId = conversation!.user1Id === socket.userId 
+    ? conversation!.user2Id 
+    : conversation!.user1Id;
+  
+  const senderName = `${socket.userInfo.firstName} ${socket.userInfo.lastName}`;
+  
+  // Import nécessaire en haut du fichier
+  const { NotificationService } = await import('../services/NotificationService');
+  
+  await NotificationService.notifyNewMessage(
+    socket.userId,
+    receiverId,
+    conversationId,
+    content?.trim() || 'Pièce jointe',
+    senderName
+  );
+} catch (notificationError) {
+  console.error('Erreur notification message:', notificationError);
+}
 
       if (!conversation) {
         socket.emit('error', { message: 'Conversation non trouvée', code: 'CONVERSATION_NOT_FOUND' });
