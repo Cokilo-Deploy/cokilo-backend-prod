@@ -166,19 +166,29 @@ export class NotificationService {
   /**
    * Créer une notification pour un nouveau message de chat
    */
-  static async notifyNewMessage(senderId: number, receiverId: number, conversationId: number, messageContent: string, senderName: string) {
-    await this.sendNotification(
-      receiverId,
-      'new_message',
-      `💬 Nouveau message de ${senderName}`,
-      messageContent.length > 50 
-        ? messageContent.substring(0, 50) + '...' 
-        : messageContent,
-      { 
-        chatId: conversationId.toString(),
-        senderId: senderId,
-        conversationId: conversationId
-      }
-    );
+  
+static async notifyNewMessage(senderId: number, receiverId: number, conversationId: number, messageContent: string, senderName: string) {
+  console.log('DEBUG NotificationService - senderId:', senderId, typeof senderId);
+  console.log('DEBUG NotificationService - receiverId:', receiverId, typeof receiverId);
+  console.log('DEBUG NotificationService - conversationId:', conversationId, typeof conversationId);
+  
+  if (isNaN(senderId) || isNaN(receiverId) || isNaN(conversationId)) {
+    console.error('ERREUR: Paramètres NaN détectés');
+    return;
   }
+  
+  await this.sendNotification(
+    receiverId,
+    'new_message',
+    `Nouveau message de ${senderName}`,
+    messageContent.length > 50 
+      ? messageContent.substring(0, 50) + '...' 
+      : messageContent,
+    { 
+      chatId: conversationId.toString(),
+      senderId: senderId,
+      conversationId: conversationId
+    }
+  );
+}
 }
