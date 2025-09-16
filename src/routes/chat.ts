@@ -242,6 +242,11 @@ router.post('/conversations/:conversationId/messages', async (req: Request, res:
       const senderUser = await User.findByPk(userId);
       if (senderUser) {
         const senderName = `${senderUser.firstName} ${senderUser.lastName}`;
+
+        console.log('🔍 Avant appel notifyNewMessage');
+console.log('🔍 receiverId:', receiverId);
+console.log('🔍 senderUser:', senderUser);
+console.log('🔍 senderName:', senderName);
         
         // Créer la notification de nouveau message
         await NotificationService.notifyNewMessage(
