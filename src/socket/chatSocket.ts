@@ -1,9 +1,9 @@
-//src/socket/chatSoket.ts
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import jwt from 'jsonwebtoken';
 import { ChatMessage, ChatConversation } from '../models';
 import { Op } from 'sequelize';
+import { User } from '../models/User';
 
 export class ChatSocketServer {
   private io: SocketIOServer;
@@ -116,6 +116,31 @@ private async handleSendMessage(socket: any, data: any) {
       messageType,
       attachmentUrl
     });
+
+    try {
+  // Déterminer le destinataire
+  const receiverId = conversation.user1Id === socket.userId 
+    ? conversation.user2Id 
+    : conversation.user1Id;
+  
+  // Récupérer le nom de l'expéditeur  
+  const senderUser = await User.findByPk(socket.userId);
+  if (senderUser) {
+    const senderName = `${senderUser.firstName} ${senderUser.lastName}`;
+    
+    // Import et appel de notification
+    const { NotificationService } = await import('../services/NotificationService');
+    await NotificationService.notifyNewMessage(
+      socket.userId,
+      receiverId,
+      conversationId,
+      content?.trim() || 'Pièce jointe',
+      senderName
+    );
+  }
+} catch (notificationError) {
+  console.error('Erreur notification message:', notificationError);
+}
 
      console.log('💾 Message sauvegardé en base:', message.id); 
     
