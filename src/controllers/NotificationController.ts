@@ -46,42 +46,53 @@ export class NotificationController {
    * PUT /api/notifications/:id/read - Marquer comme lue
    */
   static async markAsRead(req: Request, res: Response) {
-    try {
-      const user = (req as any).user;
-      const { id } = req.params;
-      
-      const notification = await Notification.findOne({
-        where: { 
-          id: Number(id), 
-          userId: user.id 
-        }
-      });
-      
-      if (!notification) {
-        return res.status(404).json({
-          success: false,
-          error: 'Notification non trouvée'
-        });
-      }
-      
-      await notification.update({ 
-        isRead: true,
-        readAt: new Date()
-      });
-      
-      return res.json({
-        success: true,
-        message: 'Notification marquée comme lue'
-      });
-      
-    } catch (error: any) {
-      console.error('❌ Erreur markAsRead:', error);
-      return res.status(500).json({
+  try {
+    const user = (req as any).user;
+    const { id } = req.params;
+    
+    // AJOUT : Validation de l'ID
+    console.log('markAsRead - ID reçu:', id, typeof id);
+    
+    const notificationId = parseInt(id);
+    if (!id || isNaN(notificationId)) {
+      return res.status(400).json({
         success: false,
-        error: 'Erreur lors de la mise à jour'
+        error: 'ID de notification invalide'
       });
     }
+    
+    const notification = await Notification.findOne({
+      where: {
+        id: notificationId, // Utiliser l'ID validé
+        userId: user.id
+      }
+    });
+    
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        error: 'Notification non trouvée'
+      });
+    }
+    
+    await notification.update({
+      isRead: true,
+      readAt: new Date()
+    });
+    
+    return res.json({
+      success: true,
+      message: 'Notification marquée comme lue'
+    });
+    
+  } catch (error: any) {
+    console.error('❌ Erreur markAsRead:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la mise à jour'
+    });
   }
+}
   
   /**
    * PUT /api/notifications/read-all - Marquer toutes comme lues
