@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth';
 import { Op } from 'sequelize';
 import multer from 'multer';
 import path from 'path';
+import { NotificationService } from '../services/NotificationService';
 
 const router = Router();
 
@@ -225,6 +226,33 @@ router.post('/conversations/:conversationId/messages', async (req: Request, res:
     await conversation.update({
       lastMessageAt: new Date()
     });
+
+    // === NOUVEAU CODE POUR LES NOTIFICATIONS ===
+    try {
+      // Déterminer qui est le destinataire
+      const receiverId = conversation.user1Id === userId 
+        ? conversation.user2Id 
+        : conversation.user1Id;
+      
+      // Récupérer le nom de l'expéditeur
+      const senderUser = await User.findByPk(userId);
+      if (senderUser) {
+        const senderName = `${senderUser.firstName} ${senderUser.lastName}`;
+        
+        // Créer la notification de nouveau message
+        await NotificationService.notifyNewMessage(
+          userId,
+          receiverId,
+          conversationId,
+          content?.trim() || 'Pièce jointe',
+          senderName
+        );
+      }
+    } catch (notificationError) {
+      // Ne pas faire échouer l'envoi du message si la notification échoue
+      console.error('Erreur notification message:', notificationError);
+    }
+    // === FIN DU NOUVEAU CODE ===
 
     res.json({
       success: true,

@@ -198,28 +198,86 @@ export class NotificationController {
   /**
    * GET /api/notifications/unread-count - Nombre non lues
    */
-  static async getUnreadCount(req: Request, res: Response) {
-    try {
-      const user = (req as any).user;
-      
-      const count = await Notification.count({
-        where: { 
-          userId: user.id,
-          isRead: false
-        }
-      });
-      
-      return res.json({
-        success: true,
-        data: { unreadCount: count }
-      });
-      
-    } catch (error: any) {
-      console.error('❌ Erreur getUnreadCount:', error);
-      return res.status(500).json({
+  // Dans votre NotificationController.ts - Modifiez seulement cette méthode
+
+static async getUnreadCount(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const { type } = req.query; // AJOUT : récupérer le paramètre type
+    
+    // AJOUT : construire la condition where dynamiquement
+    let whereCondition: any = {
+      userId: user.id,
+      isRead: false
+    };
+    
+    // AJOUT : filtrer par type si spécifié
+    if (type) {
+      whereCondition.type = type;
+    }
+    
+    const count = await Notification.count({
+      where: whereCondition // MODIFIÉ : utiliser la condition dynamique
+    });
+    
+    return res.json({
+      success: true,
+      data: { unreadCount: count }
+    });
+    
+  } catch (error: any) {
+    console.error('❌ Erreur getUnreadCount:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Erreur lors du comptage'
+    });
+  }
+}
+
+// Dans votre NotificationController.ts - AJOUTEZ cette nouvelle méthode
+
+static async markChatAsRead(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const { chatId } = req.body;
+    
+    if (!chatId) {
+      return res.status(400).json({
         success: false,
-        error: 'Erreur lors du comptage'
+        error: 'chatId requis'
       });
     }
+    
+    // Marquer toutes les notifications de type 'new_message' de ce chat comme lues
+    await Notification.update(
+      { 
+        isRead: true,
+        readAt: new Date()
+      },
+      {
+        where: {
+          userId: user.id,
+          type: 'new_message',
+          isRead: false,
+          // Utiliser une condition LIKE pour chercher dans le JSON
+          data: {
+            [Op.like]: `%"chatId":"${chatId}"%`
+          }
+        }
+      }
+    );
+    
+    return res.json({
+      success: true,
+      message: 'Notifications du chat marquées comme lues'
+    });
+    
+  } catch (error: any) {
+    console.error('❌ Erreur markChatAsRead:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Erreur serveur'
+    });
   }
+}
 }
