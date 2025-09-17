@@ -350,6 +350,18 @@ router.post('/conversations/:conversationId/read', async (req: Request, res: Res
     if (!conversation) {
       return res.status(404).json({ error: 'Conversation non trouvée' });
     }
+    const allMessages = await ChatMessage.findAll({
+      where: { conversationId: conversationId },
+      order: [['createdAt', 'DESC']],
+      limit: 5
+    });
+    console.log('DEBUG - Derniers messages de la conversation:', allMessages.map(m => ({ 
+      id: m.id, 
+      senderId: m.senderId, 
+      isRead: m.isRead,
+      content: m.content.substring(0, 20) 
+    })));
+
     const messagesToMark = await ChatMessage.findAll({
       where: {
         conversationId: conversationId,
@@ -398,6 +410,8 @@ router.get('/unread-count', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
 
+     console.log('DEBUG unread-count - userId:', userId);
+
     const unreadCount = await ChatMessage.count({
       where: {
         senderId: { [Op.ne]: userId },
@@ -414,6 +428,8 @@ router.get('/unread-count', async (req: Request, res: Response) => {
         }
       }]
     });
+
+     console.log('DEBUG unread-count - Compteur trouvé:', unreadCount);
 
     res.json({
       success: true,
