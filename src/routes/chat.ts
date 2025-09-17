@@ -322,7 +322,7 @@ router.get('/conversations/:conversationId/messages', async (req: Request, res: 
 
 // Marquer les messages comme lus
 // Ajoutez cet endpoint à votre fichier de routes existant
-// (après votre endpoint POST /conversations/:conversationId/messages)
+
 
 router.post('/conversations/:conversationId/read', async (req: Request, res: Response) => {
   try {
