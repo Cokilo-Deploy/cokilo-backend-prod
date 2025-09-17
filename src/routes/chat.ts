@@ -329,8 +329,8 @@ router.post('/conversations/:conversationId/read', async (req: Request, res: Res
     const userId = (req as any).user.id;
     const conversationId = parseInt(req.params.conversationId);
 
-    console.log('DEBUG - markAsRead userId:', userId);
-    console.log('DEBUG - markAsRead conversationId:', conversationId);
+    console.log('DEBUG - userId:', userId, typeof userId);
+    console.log('DEBUG - conversationId:', conversationId, typeof conversationId);
 
     if (isNaN(conversationId)) {
       return res.status(400).json({ error: 'ID de conversation invalide' });
@@ -350,6 +350,16 @@ router.post('/conversations/:conversationId/read', async (req: Request, res: Res
     if (!conversation) {
       return res.status(404).json({ error: 'Conversation non trouvée' });
     }
+    const messagesToMark = await ChatMessage.findAll({
+      where: {
+        conversationId: conversationId,
+        senderId: { [Op.ne]: userId },
+        isRead: false
+      }
+    });
+    console.log('DEBUG - Messages trouvés à marquer:', messagesToMark.length);
+    console.log('DEBUG - Détail messages:', messagesToMark.map(m => ({ id: m.id, senderId: m.senderId, isRead: m.isRead })));
+
 
     // Marquer tous les messages de cette conversation comme lus 
     // (sauf ceux envoyés par l'utilisateur actuel)
