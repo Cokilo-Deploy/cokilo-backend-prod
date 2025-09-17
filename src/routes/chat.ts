@@ -321,11 +321,22 @@ router.get('/conversations/:conversationId/messages', async (req: Request, res: 
 });
 
 // Marquer les messages comme lus
-router.patch('/conversations/:conversationId/read', async (req: Request, res: Response) => {
+// Ajoutez cet endpoint à votre fichier de routes existant
+// (après votre endpoint POST /conversations/:conversationId/messages)
+
+router.post('/conversations/:conversationId/read', async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
     const conversationId = parseInt(req.params.conversationId);
 
+    console.log('DEBUG - markAsRead userId:', userId);
+    console.log('DEBUG - markAsRead conversationId:', conversationId);
+
+    if (isNaN(conversationId)) {
+      return res.status(400).json({ error: 'ID de conversation invalide' });
+    }
+
+    // Vérifier que l'utilisateur fait partie de la conversation
     const conversation = await ChatConversation.findOne({
       where: {
         id: conversationId,
@@ -340,25 +351,35 @@ router.patch('/conversations/:conversationId/read', async (req: Request, res: Re
       return res.status(404).json({ error: 'Conversation non trouvée' });
     }
 
-    const updatedCount = await ChatMessage.update(
-      { isRead: true, readAt: new Date() },
+    // Marquer tous les messages de cette conversation comme lus 
+    // (sauf ceux envoyés par l'utilisateur actuel)
+    const [updatedCount] = await ChatMessage.update(
+      {
+        isRead: true,
+        readAt: new Date()
+      },
       {
         where: {
-          conversationId,
-          senderId: { [Op.ne]: userId },
-          isRead: false
+          conversationId: conversationId,
+          senderId: { [Op.ne]: userId }, // Pas les messages de l'utilisateur actuel
+          isRead: false // Seulement ceux non lus
         }
       }
     );
 
-    res.json({
-      success: true,
-      messagesMarkedAsRead: updatedCount[0]
+    console.log('DEBUG - Messages marqués comme lus:', updatedCount);
+
+    res.json({ 
+      success: true, 
+      messagesMarkedAsRead: updatedCount 
     });
 
   } catch (error) {
-    console.error('Erreur marquer messages lus:', error);
-    res.status(500).json({ error: 'Erreur serveur' });
+    console.error('Erreur mark as read:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Erreur serveur' 
+    });
   }
 });
 
