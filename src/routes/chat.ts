@@ -412,6 +412,31 @@ router.get('/unread-count', async (req: Request, res: Response) => {
 
      console.log('DEBUG unread-count - userId:', userId);
 
+     const unreadMessages = await ChatMessage.findAll({
+      where: {
+        senderId: { [Op.ne]: userId },
+        isRead: false
+      },
+      include: [{
+        model: ChatConversation,
+        as: 'conversation',
+        where: {
+          [Op.or]: [
+            { user1Id: userId },
+            { user2Id: userId }
+          ]
+        }
+      }]
+    });
+
+     console.log('DEBUG unread-count - Messages non lus trouvés:', unreadMessages.map(m => ({
+      id: m.id,
+      conversationId: m.conversationId,
+      senderId: m.senderId,
+      content: m.content.substring(0, 20),
+      isRead: m.isRead
+    })));
+
     const unreadCount = await ChatMessage.count({
       where: {
         senderId: { [Op.ne]: userId },
