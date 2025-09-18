@@ -5,6 +5,7 @@ import { Op } from 'sequelize';
 import multer from 'multer';
 import path from 'path';
 import { NotificationService } from '../services/NotificationService';
+import { Notification } from '../models/Notification';
 
 const router = Router();
 
@@ -390,6 +391,20 @@ router.post('/conversations/:conversationId/read', async (req: Request, res: Res
     );
 
     console.log('DEBUG - Messages marqués comme lus:', updatedCount);
+
+     await Notification.update(
+      { isRead: true },
+      {
+        where: {
+          userId: userId,
+          type: 'new_message',
+          isRead: false,
+          // Ajoutez une condition pour filtrer par conversation si vous avez cette info dans les notifications
+        }
+      }
+    );
+
+    console.log('DEBUG - Notifications de chat marquées comme lues');
 
     res.json({ 
       success: true, 
