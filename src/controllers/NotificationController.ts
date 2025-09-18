@@ -227,10 +227,20 @@ static async getUnreadCount(req: Request, res: Response) {
       whereCondition.type = type;
     }
     
-    const count = await Notification.count({
-      where: whereCondition // MODIFIÉ : utiliser la condition dynamique
+    const notifications = await Notification.findAll({
+      where: whereCondition
     });
     
+    console.log('DEBUG getUnreadCount - Notifications non lues:', notifications.map(n => ({
+      id: n.id,
+      type: n.type,
+      title: n.title,
+      isRead: n.isRead,
+      
+    })));
+    
+    const count = notifications.length;
+    console.log('DEBUG getUnreadCount - Compteur final:', count);
     return res.json({
       success: true,
       data: { unreadCount: count }
