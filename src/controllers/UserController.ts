@@ -250,19 +250,19 @@ static async getUserStats(req: Request, res: Response) {
     console.log('DEBUG - Test de requête...');
     
     // Remplacez par le vrai nom de votre table de voyages
-    const voyagesCreated = await Trip.count({
+    const voyagesCreated = await Trip.count({     //models/Trip
       where: { travelerId: userId } // ou createdBy, ownerId, etc.
     });
     console.log('DEBUG - Voyages trouvés:', voyagesCreated);
 
     // Remplacez par le vrai nom de votre table de transactions  
-    const colisEnvoyes = await Transaction.count({
+    const colisEnvoyes = await Transaction.count({     //models/Transaction
       where: { senderId: userId } // ou userId, createdBy, etc.
     });
     console.log('DEBUG - Colis trouvés:', colisEnvoyes);
 
     // Test 2: Compter toutes les entrées pour voir si les tables ont des données
-    const totalVoyages = Trip.count();
+    const totalVoyages = await Trip.count();
     const totalColis = await Transaction.count();
     console.log('DEBUG - Total voyages dans la DB:', totalVoyages);
     console.log('DEBUG - Total colis dans la DB:', totalColis);
