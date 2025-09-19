@@ -244,18 +244,28 @@ static async uploadAvatar(req: AuthRequest, res: Response) {
 static async getUserStats(req: Request, res: Response) {
   try {
     const userId = (req as any).user.id;
-    console.log('DEBUG - Récupération stats pour user:', userId);
+    console.log('DEBUG - User ID reçu:', userId);
 
-    // Remplacez par vos vrais noms de modèles/tables
+    // Test 1: Vérifier si l'utilisateur a des données
+    console.log('DEBUG - Test de requête...');
+    
+    // Remplacez par le vrai nom de votre table de voyages
     const voyagesCreated = await Trip.count({
-      where: { travelerId: userId }
+      where: { travelerId: userId } // ou createdBy, ownerId, etc.
     });
+    console.log('DEBUG - Voyages trouvés:', voyagesCreated);
 
+    // Remplacez par le vrai nom de votre table de transactions  
     const colisEnvoyes = await Transaction.count({
-      where: { senderId: userId } // Ajustez selon votre structure
+      where: { senderId: userId } // ou userId, createdBy, etc.
     });
+    console.log('DEBUG - Colis trouvés:', colisEnvoyes);
 
-    console.log('DEBUG - Stats calculées:', { voyagesCreated, colisEnvoyes });
+    // Test 2: Compter toutes les entrées pour voir si les tables ont des données
+    const totalVoyages = Trip.count();
+    const totalColis = await Transaction.count();
+    console.log('DEBUG - Total voyages dans la DB:', totalVoyages);
+    console.log('DEBUG - Total colis dans la DB:', totalColis);
 
     res.json({
       success: true,
@@ -264,7 +274,7 @@ static async getUserStats(req: Request, res: Response) {
     });
 
   } catch (error) {
-    console.error('Erreur récupération stats:', error);
+    console.error('Erreur complète:', error);
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la récupération des statistiques'
