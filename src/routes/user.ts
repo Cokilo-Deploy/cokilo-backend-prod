@@ -10,5 +10,6 @@ router.put('/profile', authMiddleware, UserController.updateProfile);
 router.get('/:userId/info', UserController.getUserInfo);
 router.get('/:userId/reviews', ReviewController.getUserReviews); // Ajout de cette route
 router.post('/avatar', authMiddleware, uploadAvatar.single('avatar'), UserController.uploadAvatar);
+router.get('/stats', authMiddleware, UserController.getUserStats);
 
 export default router;

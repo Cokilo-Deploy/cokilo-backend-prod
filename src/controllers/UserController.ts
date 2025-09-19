@@ -4,6 +4,7 @@ import { User } from '../models/User';
 import { getUserAccessInfo } from '../utils/userAccess';
 import { Op } from 'sequelize';
 import { Review } from '../models/Review';
+import { Transaction, Trip } from '../models';
 
 interface AuthRequest extends Request {
   user?: User;
@@ -237,6 +238,37 @@ static async uploadAvatar(req: AuthRequest, res: Response) {
   } catch (error: any) {
      console.error('Erreur upload avatar:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+}
+// Dans controllers/UserController.ts, ajoutez cette méthode
+static async getUserStats(req: Request, res: Response) {
+  try {
+    const userId = (req as any).user.id;
+    console.log('DEBUG - Récupération stats pour user:', userId);
+
+    // Remplacez par vos vrais noms de modèles/tables
+    const voyagesCreated = await Trip.count({
+      where: { travelerId: userId }
+    });
+
+    const colisEnvoyes = await Transaction.count({
+      where: { senderId: userId } // Ajustez selon votre structure
+    });
+
+    console.log('DEBUG - Stats calculées:', { voyagesCreated, colisEnvoyes });
+
+    res.json({
+      success: true,
+      voyagesCreated,
+      colisEnvoyes
+    });
+
+  } catch (error) {
+    console.error('Erreur récupération stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la récupération des statistiques'
+    });
   }
 }
 }
