@@ -1,3 +1,4 @@
+//src/routes/trips.ts
 import express from 'express';
 import { TripController } from '../controllers/TripController';
 import { optionalAuthMiddleware, authMiddleware } from '../middleware/auth';

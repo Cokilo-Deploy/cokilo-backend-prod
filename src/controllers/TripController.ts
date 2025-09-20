@@ -1,3 +1,4 @@
+// src/controllers/TripController.ts - Version simplifiée (utilisateurs connectés uniquement)
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
 import { Trip } from '../models/Trip';
@@ -6,69 +7,69 @@ import { User } from '../models/User';
 import { getUserAccessInfo } from '../utils/userAccess';
 import { TripCapacityService } from '../services/TripCapacityService';
 import { CurrencyService } from '../services/CurrencyService';
-import { log } from 'console';
+import { translationService } from '../services/TranslationService';
+import { sendLocalizedResponse } from '../utils/responseHelpers';
 
 export class TripController {
 
-  // Dans TripController backend
-static async convertTripsForUser(trips: any[], userCurrency: string) {
-  try {
-    console.log('=== CONVERSION TRIPS ===');
-    console.log('User currency:', userCurrency);
-    console.log('Nombre de trips à convertir:', trips.length);
-    
-    if (trips.length === 0) return [];
-    
-    console.log('Premier trip avant conversion:', {
-      id: trips[0].id,
-      pricePerKg: trips[0].pricePerKg,
-      title: trips[0].title
-    });
-
-    const rates = await CurrencyService.getExchangeRates();
-    console.log('Taux de change récupérés:', Object.keys(rates).length + ' devises');
-    
-    const convertedTrips = trips.map(trip => {
-      const originalPrice = parseFloat(trip.pricePerKg) || 0;
+  // Fonction existante - conservée intacte
+  static async convertTripsForUser(trips: any[], userCurrency: string) {
+    try {
+      console.log('=== CONVERSION TRIPS ===');
+      console.log('User currency:', userCurrency);
+      console.log('Nombre de trips à convertir:', trips.length);
       
-      let convertedPrice;
-      if (userCurrency === 'EUR') {
-        convertedPrice = originalPrice;
-        console.log(`Trip ${trip.id}: EUR - pas de conversion (${originalPrice})`);
-      } else {
-        convertedPrice = CurrencyService.convertPrice(originalPrice, 'EUR', userCurrency, rates);
-        console.log(`Trip ${trip.id}: ${originalPrice} EUR -> ${convertedPrice} ${userCurrency}`);
-      }
+      if (trips.length === 0) return [];
       
-      return {
-        ...trip,
-        originalPricePerKg: originalPrice,
-        pricePerKg: convertedPrice,
-        displayCurrency: userCurrency,
-        currencySymbol: CurrencyService.getCurrencySymbol(userCurrency)
-      };
-    });
-
-    if (convertedTrips.length > 0) {
-      console.log('Premier trip après conversion:', {
-        pricePerKg: convertedTrips[0].pricePerKg,
-        displayCurrency: convertedTrips[0].displayCurrency,
-        currencySymbol: convertedTrips[0].currencySymbol
+      console.log('Premier trip avant conversion:', {
+        id: trips[0].id,
+        pricePerKg: trips[0].pricePerKg,
+        title: trips[0].title
       });
-    }
 
-    return convertedTrips;
-  } catch (error) {
-    console.error('Erreur conversion trips:', error);
-    // En cas d'erreur, retourner les trips sans conversion
-    return trips.map(trip => ({
-      ...trip,
-      originalPricePerKg: trip.pricePerKg,
-      displayCurrency: 'EUR',
-      currencySymbol: '€'
-    }));
+      const rates = await CurrencyService.getExchangeRates();
+      console.log('Taux de change récupérés:', Object.keys(rates).length + ' devises');
+      
+      const convertedTrips = trips.map(trip => {
+        const originalPrice = parseFloat(trip.pricePerKg) || 0;
+        
+        let convertedPrice;
+        if (userCurrency === 'EUR') {
+          convertedPrice = originalPrice;
+          console.log(`Trip ${trip.id}: EUR - pas de conversion (${originalPrice})`);
+        } else {
+          convertedPrice = CurrencyService.convertPrice(originalPrice, 'EUR', userCurrency, rates);
+          console.log(`Trip ${trip.id}: ${originalPrice} EUR -> ${convertedPrice} ${userCurrency}`);
+        }
+        
+        return {
+          ...trip,
+          originalPricePerKg: originalPrice,
+          pricePerKg: convertedPrice,
+          displayCurrency: userCurrency,
+          currencySymbol: CurrencyService.getCurrencySymbol(userCurrency)
+        };
+      });
+
+      if (convertedTrips.length > 0) {
+        console.log('Premier trip après conversion:', {
+          pricePerKg: convertedTrips[0].pricePerKg,
+          displayCurrency: convertedTrips[0].displayCurrency,
+          currencySymbol: convertedTrips[0].currencySymbol
+        });
+      }
+
+      return convertedTrips;
+    } catch (error) {
+      console.error('Erreur conversion trips:', error);
+      return trips.map(trip => ({
+        ...trip,
+        originalPricePerKg: trip.pricePerKg,
+        displayCurrency: 'EUR',
+        currencySymbol: '€'
+      }));
+    }
   }
-}
 
   static async getAvailableTrips(req: Request, res: Response) {
     try {
@@ -95,100 +96,113 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
           const reservedWeight = await TripCapacityService.calculateReservedWeight(trip.id);
           const availableWeight = trip.capacityKg - reservedWeight;
           
-          return {
+          const tripData = {
             ...trip.toJSON(),
             reservedWeight,
             availableWeight,
             capacityPercentage: Math.round((reservedWeight / trip.capacityKg) * 100),
             isOwnTrip: false
           };
+
+          // Ajouter les traductions
+          return translationService.formatTripForAPI(tripData, user);
         })
       );
 
-      // Filtrer après calcul pour ne garder que les voyages avec capacité disponible
       const availableTrips = tripsWithCapacity.filter(trip => trip.availableWeight > 0);
-
-      // NOUVELLE LIGNE : Conversion devise
       const convertedTrips = await TripController.convertTripsForUser(availableTrips, user.currency);
 
-      res.json({
-        success: true,
-        data: { trips: convertedTrips }
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.trips_loaded',
+        { trips: convertedTrips },
+        200,
+        user
+      );
 
     } catch (error) {
       console.error('Erreur récupération voyages:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Erreur récupération voyages'
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.error_loading_trips',
+        null,
+        500,
+        (req as any).user
+      );
     }
   }
 
   static async getAllTrips(req: Request, res: Response) {
-  try {
-    const user = (req as any).user;
-    
-    const forcedCurrency = req.headers['x-force-currency'] as string;
-    const userCurrency = forcedCurrency || user.currency;
-    
-    console.log('DEVISE UTILISÉE:', {
-      userCurrencyFromDB: user.currency,
-      forcedCurrency,
-      finalCurrency: userCurrency
-    });
+    try {
+      const user = (req as any).user;
+      
+      const forcedCurrency = req.headers['x-force-currency'] as string;
+      const userCurrency = forcedCurrency || user.currency;
+      
+      console.log('DEVISE UTILISÉE:', {
+        userCurrencyFromDB: user.currency,
+        forcedCurrency,
+        finalCurrency: userCurrency
+      });
 
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const offset = (page - 1) * limit;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const offset = (page - 1) * limit;
 
-    const whereClause = {
-      status: TripStatus.PUBLISHED,
-      travelerId: { [Op.not]: user.id }
-    };
+      const whereClause = {
+        status: TripStatus.PUBLISHED,
+        travelerId: { [Op.not]: user.id }
+      };
 
-    const paginatedTrips = await Trip.findAll({
-      where: whereClause,
-      include: [{
-        model: User,
-        as: 'traveler',
-        attributes: ['id', 'firstName', 'lastName', 'profileName', 'rating']
-      }],
-      order: [['createdAt', 'DESC']],
-      limit,
-      offset
-    });
+      const paginatedTrips = await Trip.findAll({
+        where: whereClause,
+        include: [{
+          model: User,
+          as: 'traveler',
+          attributes: ['id', 'firstName', 'lastName', 'profileName', 'rating']
+        }],
+        order: [['createdAt', 'DESC']],
+        limit,
+        offset
+      });
 
-    console.log('Trips récupérés avant conversion:', paginatedTrips.length);
+      console.log('Trips récupérés avant conversion:', paginatedTrips.length);
 
-    // JUSTE CONVERTIR EN PLAIN OBJECTS - RIEN D'AUTRE
-    const plainTrips = paginatedTrips.map(trip => trip.toJSON());
+      const plainTrips = paginatedTrips.map(trip => {
+        const tripData = trip.toJSON();
+        return translationService.formatTripForAPI(tripData, user);
+      });
 
-    const convertedTrips = await TripController.convertTripsForUser(plainTrips, userCurrency);
+      const convertedTrips = await TripController.convertTripsForUser(plainTrips, userCurrency);
+      const totalTrips = await Trip.count({ where: whereClause });
 
-    const totalTrips = await Trip.count({ where: whereClause });
+      return sendLocalizedResponse(
+        res,
+        'msg.trips_loaded',
+        {
+          trips: convertedTrips,
+          pagination: {
+            currentPage: page,
+            totalPages: Math.ceil(totalTrips / limit),
+            totalTrips,
+            limit
+          }
+        },
+        200,
+        user
+      );
 
-    res.json({
-      success: true,
-      data: {
-        trips: convertedTrips,
-        pagination: {
-          currentPage: page,
-          totalPages: Math.ceil(totalTrips / limit),
-          totalTrips,
-          limit
-        }
-      }
-    });
-
-  } catch (error: any) {
-    console.error('Erreur récupération voyages:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erreur lors de la récupération des voyages'
-    });
+    } catch (error: any) {
+      console.error('Erreur récupération voyages:', error);
+      return sendLocalizedResponse(
+        res,
+        'msg.error_loading_trips',
+        null,
+        500,
+        (req as any).user
+      );
+    }
   }
-}
 
   static async searchTrips(req: Request, res: Response) {
     try {
@@ -225,7 +239,7 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
           },
         ],
         order: [['departureDate', 'ASC']],
-        limit: 100, // Augmenter pour compenser le filtrage
+        limit: 100,
       });
 
       const tripsWithCapacity = await Promise.all(
@@ -233,17 +247,18 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
           const reservedWeight = await TripCapacityService.calculateReservedWeight(trip.id);
           const availableWeight = trip.capacityKg - reservedWeight;
           
-          return {
+          const tripData = {
             ...trip.toJSON(),
             reservedWeight,
             availableWeight,
             capacityPercentage: Math.round((reservedWeight / trip.capacityKg) * 100),
             isOwnTrip: false
           };
+
+          return translationService.formatTripForAPI(tripData, user);
         })
       );
 
-      // Filtrer après calcul et appliquer le filtre de poids si spécifié
       let availableTrips = tripsWithCapacity.filter(trip => trip.availableWeight > 0);
 
       if (maxWeight) {
@@ -252,25 +267,42 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
         );
       }
 
-      // NOUVELLE LIGNE : Conversion devise
       const convertedTrips = await TripController.convertTripsForUser(availableTrips.slice(0, 50), user.currency);
 
-      res.json({
-        success: true,
-        data: { trips: convertedTrips },
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.trips_loaded',
+        { trips: convertedTrips },
+        200,
+        user
+      );
+
     } catch (error: any) {
       console.error('Erreur recherche voyages:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Erreur lors de la recherche',
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.error_loading_trips',
+        null,
+        500,
+        (req as any).user
+      );
     }
   }
 
   static async createTrip(req: Request, res: Response) {
     try {
       const user = (req as any).user;
+
+      if (!user.canCreateTrip()) {
+        return sendLocalizedResponse(
+          res,
+          'msg.identity_verification_required',
+          null,
+          403,
+          user
+        );
+      }
+
       const {
         title,
         description,
@@ -322,18 +354,28 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
 
       await user.increment('totalTrips');
 
-      res.status(201).json({
-        success: true,
-        data: { trip },
-        userAccess: getUserAccessInfo(user),
-        message: 'Voyage créé avec succès',
-      });
+      const formattedTrip = translationService.formatTripForAPI(trip.toJSON(), user);
+
+      return sendLocalizedResponse(
+        res,
+        'msg.trip_created',
+        { 
+          trip: formattedTrip,
+          userAccess: getUserAccessInfo(user)
+        },
+        201,
+        user
+      );
+
     } catch (error: any) {
       console.error('Erreur création voyage:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Erreur création voyage',
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.error_creating_trip',
+        null,
+        500,
+        (req as any).user
+      );
     }
   }
 
@@ -353,10 +395,13 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
       });
 
       if (!trip) {
-        return res.status(404).json({
-          success: false,
-          error: 'Voyage non trouvé',
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.trip_not_found',
+          null,
+          404,
+          user
+        );
       }
 
       const reservedWeight = await TripCapacityService.calculateReservedWeight(trip.id);
@@ -370,19 +415,26 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
         isOwnTrip: trip.travelerId === user.id
       };
 
-      // NOUVELLE LIGNE : Conversion devise pour trip unique
-      const convertedTrips = await TripController.convertTripsForUser([tripWithCapacity], user.currency);
+      const formattedTrip = translationService.formatTripForAPI(tripWithCapacity, user);
+      const convertedTrips = await TripController.convertTripsForUser([formattedTrip], user.currency);
 
-      res.json({
-        success: true,
-        data: { trip: convertedTrips[0] },
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.trip_loaded',
+        { trip: convertedTrips[0] },
+        200,
+        user
+      );
+
     } catch (error: any) {
       console.error('Erreur récupération voyage:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Erreur récupération voyage',
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.error_loading_trip',
+        null,
+        500,
+        (req as any).user
+      );
     }
   }
 
@@ -395,10 +447,13 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
       });
 
       if (!trip) {
-        return res.status(404).json({
-          success: false,
-          error: 'Voyage non trouvé ou non autorisé',
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.trip_not_found',
+          null,
+          404,
+          user
+        );
       }
 
       await trip.update(req.body);
@@ -407,17 +462,25 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
         await TripCapacityService.updateTripVisibility();
       }
 
-      res.json({
+      const formattedTrip = translationService.formatTripForAPI(trip.toJSON(), user);
+
+      return res.status(200).json({
         success: true,
-        data: { trip },
-        message: 'Voyage mis à jour',
+        message: translationService.t('msg.trip_updated', user, undefined, 'Voyage mis à jour'),
+        data: { trip: formattedTrip },
+        locale: user?.language || 'fr',
+        currency: user.currency
       });
+
     } catch (error: any) {
       console.error('Erreur mise à jour voyage:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Erreur mise à jour voyage',
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.error_loading_trip',
+        null,
+        500,
+        (req as any).user
+      );
     }
   }
 
@@ -430,23 +493,33 @@ static async convertTripsForUser(trips: any[], userCurrency: string) {
       });
 
       if (!trip) {
-        return res.status(404).json({
-          success: false,
-          error: 'Voyage non trouvé ou non autorisé',
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.trip_not_found',
+          null,
+          404,
+          user
+        );
       }
 
       await trip.update({ status: TripStatus.CANCELLED });
-      res.json({
+
+      return res.status(200).json({
         success: true,
-        message: 'Voyage supprimé',
+        message: translationService.t('msg.trip_deleted', user, undefined, 'Voyage supprimé'),
+        locale: user?.language || 'fr',
+        currency: user.currency
       });
+
     } catch (error: any) {
       console.error('Erreur suppression voyage:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Erreur suppression voyage',
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.error_loading_trip',
+        null,
+        500,
+        (req as any).user
+      );
     }
   }
 }
