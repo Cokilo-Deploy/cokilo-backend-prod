@@ -25,9 +25,14 @@ export const sendLocalizedResponse = (
   const locale = translationService.getLocaleForContext(user, acceptLanguage);
   const currency = user?.currency || 'EUR';
   
+  console.log('=== RESPONSE HELPERS ===');
+  console.log('Accept-Language:', acceptLanguage);
+  console.log('Locale détecté:', locale);
+  console.log('Message key:', messageKey);
+  
   return res.status(statusCode).json({
     success: statusCode < 400,
-    message: translationService.t(messageKey, user),
+    message: translationService.t(messageKey, user, undefined, acceptLanguage),
     messageKey: String(messageKey),
     data,
     locale,
