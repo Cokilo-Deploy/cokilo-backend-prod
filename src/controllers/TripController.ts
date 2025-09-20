@@ -135,6 +135,8 @@ export class TripController {
   static async getAllTrips(req: Request, res: Response) {
     try {
       const user = (req as any).user;
+
+       const acceptLanguage = req.headers['accept-language'] as string;
       
       const forcedCurrency = req.headers['x-force-currency'] as string;
       const userCurrency = forcedCurrency || user.currency;
@@ -170,7 +172,7 @@ export class TripController {
 
       const plainTrips = paginatedTrips.map(trip => {
         const tripData = trip.toJSON();
-        return translationService.formatTripForAPI(tripData, user);
+        return translationService.formatTripForAPI(tripData, user, acceptLanguage);
       });
 
       const convertedTrips = await TripController.convertTripsForUser(plainTrips, userCurrency);
@@ -189,7 +191,8 @@ export class TripController {
           }
         },
         200,
-        user
+        user,
+        req
       );
 
     } catch (error: any) {

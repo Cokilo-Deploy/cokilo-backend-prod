@@ -97,7 +97,7 @@ export class TransactionController {
             client_secret: paymentIntent.client_secret,
             clientSecret: paymentIntent.client_secret,
             paymentIntentId: transaction.stripePaymentIntentId,
-            message: translationService.t('msg.payment_intent_retrieved', user, undefined, 'Payment intent récupéré'),
+            message: translationService.t('msg.payment_intent_retrieved', user,  'Payment intent récupéré'),
             locale: user?.language || 'fr'
           });
         } catch (stripeError) {
@@ -130,7 +130,7 @@ export class TransactionController {
         client_secret: paymentData.clientSecret,
         clientSecret: paymentData.clientSecret,
         paymentIntentId: paymentData.paymentIntentId,
-        message: translationService.t('msg.payment_intent_created', user, undefined, 'Payment intent créé'),
+        message: translationService.t('msg.payment_intent_created', user,  'Payment intent créé'),
         locale: user?.language || 'fr'
       });
 
