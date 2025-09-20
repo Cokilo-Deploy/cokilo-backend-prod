@@ -1,4 +1,4 @@
-// src/config/translations.ts
+// src/config/translations.ts - Version complète
 import { AppTranslations } from '../types/translations';
 
 export const translations: AppTranslations = {
@@ -331,7 +331,7 @@ export const translations: AppTranslations = {
     it: 'Vedi dettagli'
   },
 
-  // Messages
+  // Messages existants
   'msg.trip_created': {
     fr: 'Voyage créé avec succès',
     en: 'Trip created successfully',
@@ -478,6 +478,252 @@ export const translations: AppTranslations = {
     de: 'Fehler beim Erstellen der Buchung',
     es: 'Error al crear la reserva',
     it: 'Errore nella creazione della prenotazione'
+  },
+
+  // NOUVELLES CLÉS - Messages d'erreur de transaction
+  'msg.invalid_transaction_id': {
+    fr: 'ID de transaction invalide',
+    en: 'Invalid transaction ID',
+    de: 'Ungültige Transaktions-ID',
+    es: 'ID de transacción inválido',
+    it: 'ID transazione non valido'
+  },
+  'msg.transaction_already_processed': {
+    fr: 'Cette transaction a déjà été traitée',
+    en: 'This transaction has already been processed',
+    de: 'Diese Transaktion wurde bereits bearbeitet',
+    es: 'Esta transacción ya ha sido procesada',
+    it: 'Questa transazione è già stata elaborata'
+  },
+  'msg.description_too_short': {
+    fr: 'La description doit contenir au moins 10 caractères',
+    en: 'Description must contain at least 10 characters',
+    de: 'Die Beschreibung muss mindestens 10 Zeichen enthalten',
+    es: 'La descripción debe contener al menos 10 caracteres',
+    it: 'La descrizione deve contenere almeno 10 caratteri'
+  },
+  'msg.insufficient_capacity': {
+    fr: 'Capacité insuffisante pour ce voyage',
+    en: 'Insufficient capacity for this trip',
+    de: 'Unzureichende Kapazität für diese Reise',
+    es: 'Capacidad insuficiente para este viaje',
+    it: 'Capacità insufficiente per questo viaggio'
+  },
+  'msg.no_payment_intent': {
+    fr: 'Aucun payment intent associé',
+    en: 'No payment intent associated',
+    de: 'Keine Zahlungsabsicht zugeordnet',
+    es: 'No hay intención de pago asociada',
+    it: 'Nessuna intenzione di pagamento associata'
+  },
+  'msg.cannot_cancel_paid_transaction': {
+    fr: 'Cette réservation ne peut plus être annulée car le paiement a été effectué',
+    en: 'This booking can no longer be cancelled as payment has been made',
+    de: 'Diese Buchung kann nicht mehr storniert werden, da die Zahlung erfolgt ist',
+    es: 'Esta reserva ya no se puede cancelar ya que se ha realizado el pago',
+    it: 'Questa prenotazione non può più essere cancellata poiché il pagamento è stato effettuato'
+  },
+
+  // NOUVELLES CLÉS - Messages de succès de paiement
+  'msg.payment_intent_created': {
+    fr: 'Intention de paiement créée avec succès',
+    en: 'Payment intent created successfully',
+    de: 'Zahlungsabsicht erfolgreich erstellt',
+    es: 'Intención de pago creada exitosamente',
+    it: 'Intenzione di pagamento creata con successo'
+  },
+  'msg.payment_intent_retrieved': {
+    fr: 'Intention de paiement récupérée',
+    en: 'Payment intent retrieved',
+    de: 'Zahlungsabsicht abgerufen',
+    es: 'Intención de pago recuperada',
+    it: 'Intenzione di pagamento recuperata'
+  },
+  'msg.payment_confirmed': {
+    fr: 'Paiement confirmé avec succès',
+    en: 'Payment confirmed successfully',
+    de: 'Zahlung erfolgreich bestätigt',
+    es: 'Pago confirmado exitosamente',
+    it: 'Pagamento confermato con successo'
+  },
+  'msg.error_creating_payment': {
+    fr: 'Erreur lors de la création du paiement',
+    en: 'Error creating payment',
+    de: 'Fehler beim Erstellen der Zahlung',
+    es: 'Error al crear el pago',
+    it: 'Errore nella creazione del pagamento'
+  },
+  'msg.error_confirming_payment': {
+    fr: 'Erreur lors de la confirmation du paiement',
+    en: 'Error confirming payment',
+    de: 'Fehler bei der Zahlungsbestätigung',
+    es: 'Error al confirmar el pago',
+    it: 'Errore nella conferma del pagamento'
+  },
+
+  // NOUVELLES CLÉS - Messages de transaction
+  'msg.transaction_loaded': {
+    fr: 'Transaction chargée avec succès',
+    en: 'Transaction loaded successfully',
+    de: 'Transaktion erfolgreich geladen',
+    es: 'Transacción cargada exitosamente',
+    it: 'Transazione caricata con successo'
+  },
+  'msg.transaction_cancelled': {
+    fr: 'Réservation annulée avec succès',
+    en: 'Booking cancelled successfully',
+    de: 'Buchung erfolgreich storniert',
+    es: 'Reserva cancelada exitosamente',
+    it: 'Prenotazione cancellata con successo'
+  },
+
+  // NOUVELLES CLÉS - Messages de voyage (update/delete)
+  'msg.trip_updated': {
+    fr: 'Voyage mis à jour avec succès',
+    en: 'Trip updated successfully',
+    de: 'Reise erfolgreich aktualisiert',
+    es: 'Viaje actualizado exitosamente',
+    it: 'Viaggio aggiornato con successo'
+  },
+  'msg.trip_deleted': {
+    fr: 'Voyage supprimé avec succès',
+    en: 'Trip deleted successfully',
+    de: 'Reise erfolgreich gelöscht',
+    es: 'Viaje eliminado exitosamente',
+    it: 'Viaggio eliminato con successo'
+  },
+
+  // NOUVELLES CLÉS - Messages d'erreur additionnels
+  'msg.error_loading_transaction': {
+    fr: 'Erreur lors du chargement de la transaction',
+    en: 'Error loading transaction',
+    de: 'Fehler beim Laden der Transaktion',
+    es: 'Error al cargar la transacción',
+    it: 'Errore nel caricamento della transazione'
+  },
+  'msg.error_updating_trip': {
+    fr: 'Erreur lors de la mise à jour du voyage',
+    en: 'Error updating trip',
+    de: 'Fehler beim Aktualisieren der Reise',
+    es: 'Error al actualizar el viaje',
+    it: 'Errore nell\'aggiornamento del viaggio'
+  },
+  'msg.error_deleting_trip': {
+    fr: 'Erreur lors de la suppression du voyage',
+    en: 'Error deleting trip',
+    de: 'Fehler beim Löschen der Reise',
+    es: 'Error al eliminar el viaje',
+    it: 'Errore nell\'eliminazione del viaggio'
+  },
+
+  // NOUVELLES CLÉS - Messages d'autorisation et permissions
+  'msg.permission_denied': {
+    fr: 'Permission refusée',
+    en: 'Permission denied',
+    de: 'Berechtigung verweigert',
+    es: 'Permiso denegado',
+    it: 'Permesso negato'
+  },
+  'msg.access_forbidden': {
+    fr: 'Accès interdit',
+    en: 'Access forbidden',
+    de: 'Zugriff verboten',
+    es: 'Acceso prohibido',
+    it: 'Accesso vietato'
+  },
+
+  // NOUVELLES CLÉS - Messages pour codes de validation
+  'msg.invalid_delivery_code': {
+    fr: 'Code de livraison invalide',
+    en: 'Invalid delivery code',
+    de: 'Ungültiger Liefercode',
+    es: 'Código de entrega inválido',
+    it: 'Codice di consegna non valido'
+  },
+  'msg.code_verification_failed': {
+    fr: 'Échec de la vérification du code',
+    en: 'Code verification failed',
+    de: 'Code-Verifizierung fehlgeschlagen',
+    es: 'Falló la verificación del código',
+    it: 'Verifica del codice fallita'
+  },
+
+  // NOUVELLES CLÉS - Messages pour statuts de livraison
+  'msg.delivery_confirmed': {
+    fr: 'Livraison confirmée avec succès',
+    en: 'Delivery confirmed successfully',
+    de: 'Lieferung erfolgreich bestätigt',
+    es: 'Entrega confirmada exitosamente',
+    it: 'Consegna confermata con successo'
+  },
+  'msg.pickup_confirmed': {
+    fr: 'Récupération confirmée avec succès',
+    en: 'Pickup confirmed successfully',
+    de: 'Abholung erfolgreich bestätigt',
+    es: 'Recogida confirmada exitosamente',
+    it: 'Ritiro confermato con successo'
+  },
+
+  // NOUVELLES CLÉS - Messages pour validation
+  'msg.invalid_data': {
+    fr: 'Données invalides',
+    en: 'Invalid data',
+    de: 'Ungültige Daten',
+    es: 'Datos inválidos',
+    it: 'Dati non validi'
+  },
+  'msg.missing_required_fields': {
+    fr: 'Champs obligatoires manquants',
+    en: 'Missing required fields',
+    de: 'Fehlende Pflichtfelder',
+    es: 'Campos obligatorios faltantes',
+    it: 'Campi obbligatori mancanti'
+  },
+
+  // NOUVELLES CLÉS - Messages pour capacité
+  'msg.capacity_updated': {
+    fr: 'Capacité mise à jour',
+    en: 'Capacity updated',
+    de: 'Kapazität aktualisiert',
+    es: 'Capacidad actualizada',
+    it: 'Capacità aggiornata'
+  },
+  'msg.capacity_exceeded': {
+    fr: 'Capacité dépassée',
+    en: 'Capacity exceeded',
+    de: 'Kapazität überschritten',
+    es: 'Capacidad excedida',
+    it: 'Capacità superata'
+  },
+
+  // NOUVELLES CLÉS - Messages génériques
+  'msg.operation_successful': {
+    fr: 'Opération réussie',
+    en: 'Operation successful',
+    de: 'Operation erfolgreich',
+    es: 'Operación exitosa',
+    it: 'Operazione riuscita'
+  },
+  'msg.operation_failed': {
+    fr: 'Échec de l\'opération',
+    en: 'Operation failed',
+    de: 'Operation fehlgeschlagen',
+    es: 'Operación fallida',
+    it: 'Operazione fallita'
+  },
+  'msg.data_not_found': {
+    fr: 'Données non trouvées',
+    en: 'Data not found',
+    de: 'Daten nicht gefunden',
+    es: 'Datos no encontrados',
+    it: 'Dati non trovati'
+  },
+  'msg.server_error': {
+    fr: 'Erreur serveur',
+    en: 'Server error',
+    de: 'Serverfehler',
+    es: 'Error del servidor',
+    it: 'Errore del server'
   },
 
   // Forms

@@ -1,8 +1,8 @@
-// src/utils/responseHelpers.ts - Version corrigée
+// 3. CORRIGER src/utils/responseHelpers.ts - Version propre
 import { Response } from 'express';
-import { translationService } from '../services/TranslationService';
 import { AppTranslations } from '../types/translations';
 import { User } from '../models/User';
+import { translationService } from '../services/TranslationService';
 
 interface LocalizedResponse {
   success: boolean;
@@ -18,15 +18,14 @@ export const sendLocalizedResponse = (
   messageKey: keyof AppTranslations,
   data?: any,
   statusCode: number = 200,
-  user?: User,
-  guestCountry?: string
+  user?: User
 ): Response<LocalizedResponse> => {
-  const locale = translationService.getLocaleForContext(user, guestCountry);
-  const currency = user?.currency || 'EUR'; // Ta logique existante
+  const locale = user?.language || 'fr';
+  const currency = user?.currency || 'EUR';
   
   return res.status(statusCode).json({
     success: statusCode < 400,
-    message: translationService.t(messageKey, user, guestCountry),
+    message: translationService.t(messageKey, user),
     messageKey: String(messageKey),
     data,
     locale,
@@ -38,10 +37,7 @@ export const sendLocalizedError = (
   res: Response,
   messageKey: keyof AppTranslations,
   statusCode: number = 400,
-  user?: User,
-  guestCountry?: string
+  user?: User
 ): Response<LocalizedResponse> => {
-  return sendLocalizedResponse(res, messageKey, null, statusCode, user, guestCountry);
+  return sendLocalizedResponse(res, messageKey, null, statusCode, user);
 };
-
-export { translationService } from '../services/TranslationService';
