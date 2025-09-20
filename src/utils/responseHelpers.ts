@@ -18,9 +18,11 @@ export const sendLocalizedResponse = (
   messageKey: keyof AppTranslations,
   data?: any,
   statusCode: number = 200,
-  user?: User
+  user?: User,
+  req?: any
 ): Response<LocalizedResponse> => {
-  const locale = user?.language || 'fr';
+  const acceptLanguage = req?.headers['accept-language'] as string;
+  const locale = translationService.getLocaleForContext(user, acceptLanguage);
   const currency = user?.currency || 'EUR';
   
   return res.status(statusCode).json({
@@ -32,6 +34,7 @@ export const sendLocalizedResponse = (
     currency
   });
 };
+
 
 export const sendLocalizedError = (
   res: Response,
