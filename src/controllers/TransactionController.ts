@@ -1,4 +1,4 @@
-// src/controllers/TransactionController.ts
+// src/controllers/TransactionController.ts - Version simplifiée (utilisateurs connectés uniquement)
 import { Request, Response } from 'express';
 import { Op } from 'sequelize';
 import { Transaction } from '../models/Transaction';
@@ -12,8 +12,9 @@ import { CurrencyService } from '../services/CurrencyService';
 import { StripeConnectService } from '../services/StripeConnectService';
 import { WalletService } from '../services/walletService';
 import { NotificationService } from '../services/NotificationService';
+import { translationService } from '../services/TranslationService';
+import { sendLocalizedResponse } from '../utils/responseHelpers';
 
-// AJOUT - Service de conversion
 const { convertTransactions } = require('../services/CurrencyService');
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
@@ -50,7 +51,13 @@ export class TransactionController {
 
       const txId = Number(id);
       if (!Number.isFinite(txId)) {
-        return res.status(400).json({ success: false, error: 'ID de transaction invalide' });
+        return sendLocalizedResponse(
+          res,
+          'msg.invalid_transaction_id',
+          null,
+          400,
+          user
+        );
       }
 
       console.log('🔄 Création Payment Intent pour transaction:', txId);
@@ -60,17 +67,23 @@ export class TransactionController {
       });
 
       if (!transaction) {
-        return res.status(404).json({
-          success: false,
-          error: 'Transaction non trouvée',
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.transaction_not_found',
+          null,
+          404,
+          user
+        );
       }
 
       if (transaction.status !== TransactionStatus.PAYMENT_PENDING) {
-        return res.status(400).json({
-          success: false,
-          error: 'Cette transaction a déjà été traitée',
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.transaction_already_processed',
+          null,
+          400,
+          user
+        );
       }
 
       if (transaction.stripePaymentIntentId) {
@@ -84,6 +97,8 @@ export class TransactionController {
             client_secret: paymentIntent.client_secret,
             clientSecret: paymentIntent.client_secret,
             paymentIntentId: transaction.stripePaymentIntentId,
+            message: translationService.t('msg.payment_intent_retrieved', user, undefined, 'Payment intent récupéré'),
+            locale: user?.language || 'fr'
           });
         } catch (stripeError) {
           console.log('⚠️ Payment Intent invalide côté Stripe; création d@un nouveau…');
@@ -105,9 +120,6 @@ export class TransactionController {
 
       await transaction.update({
         stripePaymentIntentId: paymentData.paymentIntentId,
-      });
-
-      await transaction.update({
         status: TransactionStatus.PAYMENT_ESCROWED,
       });
 
@@ -118,21 +130,25 @@ export class TransactionController {
         client_secret: paymentData.clientSecret,
         clientSecret: paymentData.clientSecret,
         paymentIntentId: paymentData.paymentIntentId,
+        message: translationService.t('msg.payment_intent_created', user, undefined, 'Payment intent créé'),
+        locale: user?.language || 'fr'
       });
+
     } catch (error: any) {
       console.error('❌ Erreur création Payment Intent:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Erreur lors de la création du paiement',
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.error_creating_payment',
+        null,
+        500,
+        (req as any).user
+      );
     }
   }
 
   static async createTransaction(req: Request, res: Response) {
     try {
       console.log('🔍 === DEBUT createTransaction ===');
-      console.log('🔍 User reçu:', (req as any).user);
-      console.log('🔍 Body reçu:', req.body);
       
       const user = (req as any).user;
       const { tripId, weight, description, itemType, specialInstructions } = req.body;
@@ -141,10 +157,13 @@ export class TransactionController {
 
       if (!description || description.trim().length < 10) {
         console.log('❌ Description trop courte');
-        return res.status(400).json({
-          success: false,
-          error: 'La description doit contenir au moins 10 caractères',
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.description_too_short',
+          null,
+          400,
+          user
+        );
       }
 
       console.log('🔍 Recherche du voyage tripId:', tripId);
@@ -154,24 +173,24 @@ export class TransactionController {
       
       if (!trip) {
         console.log('❌ Voyage non trouvé');
-        return res.status(400).json({
-          success: false,
-          error: 'Voyage non trouvé',
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.trip_not_found',
+          null,
+          400,
+          user
+        );
       }
-
-      console.log('🔍 Voyage details:', {
-        id: trip.id,
-        travelerId: trip.travelerId,
-        pricePerKg: trip.pricePerKg
-      });
 
       const isAvailable = await TripCapacityService.checkAvailability(tripId, weight);
       if (!isAvailable) {
-        return res.status(400).json({
-          success: false,
-          error: 'Capacité insuffisante pour ce voyage'
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.insufficient_capacity',
+          null,
+          400,
+          user
+        );
       }
 
       const amount = parseFloat((Number(weight) * Number(trip.pricePerKg)).toFixed(2));
@@ -194,40 +213,46 @@ export class TransactionController {
         pickupAddress: '',
         deliveryAddress: '',
         packageValue: 0,
-        
         pickupCode: generateRandomCode(),
         deliveryCode: generateRandomCode(),
       });
 
       await TripCapacityService.reserveCapacity(tripId, weight);
       await TripCapacityService.updateTripVisibility();
-
       await NotificationService.notifyReservationCreated(transaction);
 
-      return res.status(201).json({
-        success: true,
-        data: {
-          transaction: {
-            id: transaction.id,
-            amount: transaction.amount,
-            status: transaction.status,
-          },
+      const formattedTransaction = translationService.formatTransactionForAPI(
+        {
+          id: transaction.id,
+          amount: transaction.amount,
+          status: transaction.status,
+        },
+        user
+      );
+
+      return sendLocalizedResponse(
+        res,
+        'msg.booking_confirmed',
+        {
+          transaction: formattedTransaction,
           payment: {
             clientSecret: 'test_client_secret',
             paymentIntentId: 'test_payment_intent',
           },
         },
-        message: 'Transaction créée avec succès.',
-      });
+        201,
+        user
+      );
 
     } catch (error: any) {
       console.error('❌ ERREUR DÉTAILLÉE createTransaction:', error);
-      console.error('❌ Stack trace:', error.stack);
-      return res.status(500).json({
-        success: false,
-        error: 'Erreur création transaction',
-        details: error.message
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.error_creating_booking',
+        { details: error.message },
+        500,
+        (req as any).user
+      );
     }
   }
 
@@ -236,12 +261,17 @@ export class TransactionController {
       const idFromParams = Number(req.params.id);
       const idFromBody = Number(req.body?.transactionId);
       const transactionId = Number.isFinite(idFromParams) ? idFromParams : idFromBody;
-
       const { paymentMethodId } = req.body;
       const user = (req as any).user;
 
       if (!Number.isFinite(transactionId)) {
-        return res.status(400).json({ success: false, error: 'ID de transaction invalide' });
+        return sendLocalizedResponse(
+          res,
+          'msg.invalid_transaction_id',
+          null,
+          400,
+          user
+        );
       }
 
       console.log('🔄 Confirmation paiement pour transaction:', transactionId);
@@ -251,17 +281,23 @@ export class TransactionController {
       });
 
       if (!transaction) {
-        return res.status(404).json({
-          success: false,
-          error: 'Transaction non trouvée',
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.transaction_not_found',
+          null,
+          404,
+          user
+        );
       }
 
       if (!transaction.stripePaymentIntentId) {
-        return res.status(400).json({
-          success: false,
-          error: 'Aucun payment intent associé',
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.no_payment_intent',
+          null,
+          400,
+          user
+        );
       }
 
       const paymentResult = await PaymentService.confirmPayment(
@@ -275,21 +311,34 @@ export class TransactionController {
         });
 
         await NotificationService.notifyPaymentConfirmed(transaction);
-
         console.log('✅ Paiement confirmé, statut mis à jour → PAYMENT_ESCROWED');
       }
 
-      return res.json({
-        success: true,
-        data: paymentResult,
-        message: 'Paiement confirmé avec succès',
-      });
+      const formattedResult = {
+        ...paymentResult,
+        statusTranslated: translationService.translateTransactionStatus(
+          TransactionStatus.PAYMENT_ESCROWED,
+          user
+        )
+      };
+
+      return sendLocalizedResponse(
+        res,
+        'msg.payment_confirmed',
+        formattedResult,
+        200,
+        user
+      );
+
     } catch (error: any) {
       console.error('❌ Erreur confirmation paiement:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Erreur lors de la confirmation du paiement',
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.error_confirming_payment',
+        null,
+        500,
+        (req as any).user
+      );
     }
   }
 
@@ -298,12 +347,17 @@ export class TransactionController {
       const idFromParams = Number(req.params.id);
       const idFromBody = Number(req.body?.transactionId);
       const transactionId = Number.isFinite(idFromParams) ? idFromParams : idFromBody;
-
       const { pickupCode } = req.body;
       const user = (req as any).user;
 
       if (!Number.isFinite(transactionId)) {
-        return res.status(400).json({ success: false, error: 'ID de transaction invalide' });
+        return sendLocalizedResponse(
+          res,
+          'msg.invalid_transaction_id',
+          null,
+          400,
+          user
+        );
       }
 
       const transaction = await Transaction.findOne({
@@ -311,17 +365,23 @@ export class TransactionController {
       });
 
       if (!transaction) {
-        return res.status(404).json({
-          success: false,
-          error: 'Transaction non trouvée',
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.transaction_not_found',
+          null,
+          404,
+          user
+        );
       }
 
       if (!pickupCode || transaction.pickupCode !== pickupCode) {
-        return res.status(400).json({
-          success: false,
-          error: 'Code de récupération incorrect',
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.invalid_pickup_code',
+          null,
+          400,
+          user
+        );
       }
 
       await transaction.update({
@@ -339,197 +399,180 @@ export class TransactionController {
         });
       }
 
-      return res.json({
-        success: true,
-        message: 'Récupération confirmée',
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.package_picked_up',
+        null,
+        200,
+        user
+      );
+
     } catch (error: any) {
       console.error('❌ Erreur confirmation récupération:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Erreur',
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.error_confirming_pickup',
+        null,
+        500,
+        (req as any).user
+      );
     }
   }
 
   static async confirmDelivery(req: Request, res: Response) {
-  try {
-    console.log('🔄 VERSION: Stripe Connect Logic v2.0 - Sep 09 2025');
-    const idFromParams = Number(req.params.id);
-    const idFromBody = Number(req.body?.transactionId);
-    const transactionId = Number.isFinite(idFromParams) ? idFromParams : idFromBody;
-    console.log('✅ ID parsed:', transactionId);
-
-    const { deliveryCode } = req.body;
-    console.log('✅ DeliveryCode:', deliveryCode);
-    const user = (req as any).user;
-    console.log('✅ User:', user?.id);
-
-    if (!Number.isFinite(transactionId)) {
-      console.log('❌ ID invalide');
-      return res.status(400).json({ success: false, error: 'ID de transaction invalide' });
-    }
-
-    console.log('🔄 Confirmation livraison pour transaction:', transactionId);
-    console.log('✅ Recherche transaction...');
-
-    const transaction = await Transaction.findOne({
-      where: {
-        id: transactionId,
-        [Op.or]: [{ senderId: user.id }, { travelerId: user.id }],
-      },
-      include: [{ model: User, as: 'traveler' }]
-    });
-    console.log('✅ Transaction trouvée:', !!transaction);
-
-    if (!transaction) {
-      console.log('❌ Transaction non trouvée');
-      return res.status(404).json({
-        success: false,
-        error: 'Transaction non trouvée',
-      });
-    }
-
-    console.log('✅ Vérification code livraison...');
-    console.log('Code reçu:', deliveryCode);
-    console.log('Code attendu:', transaction.deliveryCode);
-
-    if (!deliveryCode || transaction.deliveryCode !== deliveryCode) {
-      console.log('❌ Code de livraison incorrect');
-      return res.status(400).json({
-        success: false,
-        error: 'Code de livraison incorrect',
-      });
-    }
-    console.log('✅ Code valide, suite du traitement...');
-
-    if (transaction.stripePaymentIntentId) {
-      console.log('✅ Payment Intent trouvé:', transaction.stripePaymentIntentId);
-      
-      try {
-        console.log('✅ Début capture payment...');
-        const captureResult = await PaymentService.capturePayment(transaction.stripePaymentIntentId);
-        console.log('✅ Capture terminée');
-      } catch (captureError: any) {
-        if (captureError.message.includes('already been captured')) {
-          console.log('ℹ️ PaymentIntent déjà capturé, continue...');
-        } else {
-          throw captureError;
-        }
-      }
-
-      const { WalletService } = require('../services/walletService');
-      const traveler = transaction.traveler;
-      console.log('✅ Traveler récupéré:', traveler?.id);
-      await traveler.reload();
-
-      console.log('👤 Voyageur rechargé:', traveler.id);
-      console.log('💳 PaymentMethod:', traveler.paymentMethod);
-      console.log('🏦 ConnectedAccountId:', traveler.stripeConnectedAccountId);
-
-      // Logique de paiement hybride : EU (Stripe Connect obligatoire) vs DZ (Wallet)
-      if (traveler.paymentMethod === 'stripe_connect' && traveler.stripeConnectedAccountId) {
-        // Utilisateur européen - Stripe Connect OBLIGATOIRE (sans fallback)
-        console.log('🇪🇺 Utilisateur EU - Transfer Stripe Connect OBLIGATOIRE');
-        
-        const balance = await stripe.balance.retrieve();
-        console.log('💰 Balance Stripe disponible:', {
-          available: balance.available,
-          pending: balance.pending
-        });
-        
-        const { StripeConnectService } = require('../services/StripeConnectService');
-        
-        // Si ce transfer échoue, toute la fonction échoue (pas de try/catch)
-        console.log('🔍 Debug parameters avant transfer:');
-console.log('- traveler.id:', traveler.id);
-console.log('- travelerAmount:', transaction.travelerAmount);
-console.log('- currency:', transaction.currency);
-console.log('- transaction.id:', transaction.id);
-        const transferId = await StripeConnectService.transferToTraveler(
-          traveler.id,
-          parseFloat(transaction.travelerAmount.toString()),
-          'USD',
-          transaction.id
-        );
-
-        await transaction.update({
-          status: TransactionStatus.PAYMENT_RELEASED,
-          deliveredAt: new Date(),
-          paymentReleasedAt: new Date(),
-          stripeTransferId: transferId
-        });
-
-        await NotificationService.notifyDeliveryConfirmed(transaction);
-
-        console.log(`💳 Transfer automatique réussi ${transaction.travelerAmount}€ vers Stripe Connect ${traveler.id}`);
-
-      } else {
-        // Utilisateur algérien - Wallet manuel (logique existante)
-        console.log('🇩🇿 Utilisateur DZ - Wallet manuel');
-        await WalletService.creditWallet(
-          transaction.travelerId,
-          parseFloat(transaction.travelerAmount.toString()),
-          transaction.id,
-          `Paiement livraison confirmée #${transaction.id}`
-        );
-
-        await transaction.update({
-          status: TransactionStatus.PAYMENT_RELEASED,
-          deliveredAt: new Date(),
-          paymentReleasedAt: new Date(),
-        });
-
-        console.log(`💰 ${transaction.travelerAmount}€ transféré vers le wallet du voyageur ${transaction.travelerId}`);
-      }
-    } else {
-      console.log('❌ Pas de stripePaymentIntentId');
-      return res.status(400).json({
-        success: false,
-        error: 'Transaction sans paiement Stripe'
-      });
-    }
-
-    // WebSocket avec gestion d'erreur
     try {
-      const io = require('../socket/socketInstance').getIO();
-      if (io) {
-        io.to(`user_${transaction.senderId}`).emit('transaction_updated', {
-          transactionId: transaction.id,
-          status: TransactionStatus.PAYMENT_RELEASED
-        });
-        io.to(`user_${transaction.travelerId}`).emit('payment_received', {
-          transactionId: transaction.id,
-          amount: transaction.travelerAmount
-        });
-        console.log('✅ Notifications WebSocket envoyées');
+      console.log('🔄 VERSION: Stripe Connect Logic v2.0 - Sep 09 2025');
+      const idFromParams = Number(req.params.id);
+      const idFromBody = Number(req.body?.transactionId);
+      const transactionId = Number.isFinite(idFromParams) ? idFromParams : idFromBody;
+      const { deliveryCode } = req.body;
+      const user = (req as any).user;
+
+      if (!Number.isFinite(transactionId)) {
+        return sendLocalizedResponse(
+          res,
+          'msg.invalid_transaction_id',
+          null,
+          400,
+          user
+        );
       }
-    } catch (socketError) {
-      console.log('⚠️ WebSocket non disponible, continue sans notifications');
+
+      const transaction = await Transaction.findOne({
+        where: {
+          id: transactionId,
+          [Op.or]: [{ senderId: user.id }, { travelerId: user.id }],
+        },
+        include: [{ model: User, as: 'traveler' }]
+      });
+
+      if (!transaction) {
+        return sendLocalizedResponse(
+          res,
+          'msg.transaction_not_found',
+          null,
+          404,
+          user
+        );
+      }
+
+      if (!deliveryCode || transaction.deliveryCode !== deliveryCode) {
+        return sendLocalizedResponse(
+          res,
+          'msg.invalid_pickup_code',
+          null,
+          400,
+          user
+        );
+      }
+
+      if (transaction.stripePaymentIntentId) {
+        console.log('✅ Payment Intent trouvé:', transaction.stripePaymentIntentId);
+        
+        try {
+          console.log('✅ Début capture payment...');
+          const captureResult = await PaymentService.capturePayment(transaction.stripePaymentIntentId);
+          console.log('✅ Capture terminée');
+        } catch (captureError: any) {
+          if (captureError.message.includes('already been captured')) {
+            console.log('ℹ️ PaymentIntent déjà capturé, continue...');
+          } else {
+            throw captureError;
+          }
+        }
+
+        const traveler = transaction.traveler;
+        await traveler.reload();
+
+        if (traveler.paymentMethod === 'stripe_connect' && traveler.stripeConnectedAccountId) {
+          console.log('🇪🇺 Utilisateur EU - Transfer Stripe Connect OBLIGATOIRE');
+          
+          const transferId = await StripeConnectService.transferToTraveler(
+            traveler.id,
+            parseFloat(transaction.travelerAmount.toString()),
+            'USD',
+            transaction.id
+          );
+
+          await transaction.update({
+            status: TransactionStatus.PAYMENT_RELEASED,
+            deliveredAt: new Date(),
+            paymentReleasedAt: new Date(),
+            stripeTransferId: transferId
+          });
+
+          console.log(`💳 Transfer automatique réussi ${transaction.travelerAmount}€ vers Stripe Connect ${traveler.id}`);
+
+        } else {
+          console.log('🇩🇿 Utilisateur DZ - Wallet manuel');
+          await WalletService.creditWallet(
+            transaction.travelerId,
+            parseFloat(transaction.travelerAmount.toString()),
+            transaction.id,
+            `Paiement livraison confirmée #${transaction.id}`
+          );
+
+          await transaction.update({
+            status: TransactionStatus.PAYMENT_RELEASED,
+            deliveredAt: new Date(),
+            paymentReleasedAt: new Date(),
+          });
+
+          console.log(`💰 ${transaction.travelerAmount}€ transféré vers le wallet du voyageur ${transaction.travelerId}`);
+        }
+      } else {
+        return sendLocalizedResponse(
+          res,
+          'msg.no_payment_intent',
+          null,
+          400,
+          user
+        );
+      }
+
+      await NotificationService.notifyDeliveryConfirmed(transaction);
+
+      try {
+        const io = require('../socket/socketInstance').getIO();
+        if (io) {
+          io.to(`user_${transaction.senderId}`).emit('transaction_updated', {
+            transactionId: transaction.id,
+            status: TransactionStatus.PAYMENT_RELEASED
+          });
+          io.to(`user_${transaction.travelerId}`).emit('payment_received', {
+            transactionId: transaction.id,
+            amount: transaction.travelerAmount
+          });
+        }
+      } catch (socketError) {
+        console.log('⚠️ WebSocket non disponible, continue sans notifications');
+      }
+
+      return sendLocalizedResponse(
+        res,
+        'msg.package_delivered',
+        null,
+        200,
+        user
+      );
+
+    } catch (error: any) {
+      console.error('❌ Erreur confirmation livraison:', error);
+      return sendLocalizedResponse(
+        res,
+        'msg.error_confirming_pickup',
+        null,
+        500,
+        (req as any).user
+      );
     }
-
-    console.log('✅ Envoi réponse succès à l\'app mobile');
-    return res.json({
-      success: true,
-      message: 'Livraison confirmée et paiement transféré',
-    });
-
-  } catch (error: any) {
-    console.error('❌ Erreur confirmation livraison:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Erreur lors de la confirmation de livraison',
-    });
   }
-}
-  // FONCTION MODIFIÉE - avec conversion de devise
+
   static async getMyTransactions(req: Request, res: Response) {
     try {
       console.log('🔍 DEBUT getMyTransactions');
-    const user = (req as any).user;
-    console.log('🔍 User:', user.id);
+      const user = (req as any).user;
       
-      // RÉCUPÉRATION DU HEADER DE DEVISE FORCÉE
       const forcedCurrency = req.headers['x-force-currency'] as string;
       const userCurrency = forcedCurrency || user.currency || 'DZD';
       
@@ -539,79 +582,58 @@ console.log('- transaction.id:', transaction.id);
         finalCurrency: userCurrency
       });
 
+      const senderTransactions = await Transaction.findAll({
+        where: { senderId: user.id },
+        order: [['createdAt', 'DESC']],
+      });
 
-      console.log('🔍 Récupération sender transactions...');
-    const senderTransactions = await Transaction.findAll({
-      where: { senderId: user.id },
-      order: [['createdAt', 'DESC']],
-    });
-
-      console.log('🔍 Sender transactions:', senderTransactions.length);
-
-    console.log('🔍 Récupération traveler transactions...');
-    const travelerTransactions = await Transaction.findAll({
-      where: { travelerId: user.id },
-      order: [['createdAt', 'DESC']],
-    });
-
-    console.log('🔍 Traveler transactions:', travelerTransactions.length);
+      const travelerTransactions = await Transaction.findAll({
+        where: { travelerId: user.id },
+        order: [['createdAt', 'DESC']],
+      });
 
       const allUserTransactions = [...senderTransactions, ...travelerTransactions];
-      console.log('🔍 Total transactions:', allUserTransactions.length);
       const uniqueTransactions = allUserTransactions.filter((transaction, index, array) =>
         array.findIndex((t) => t.id === transaction.id) === index
       );
-      console.log('🔍 Unique transactions:', uniqueTransactions.length);
 
       uniqueTransactions.sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
-
-      console.log('🔍 AVANT CONVERSION - Début section conversion');
-    console.log('Transactions récupérées avant conversion:', uniqueTransactions.length);
-    console.log('=== CONVERSION TRANSACTIONS ===');
-    console.log('User currency:', userCurrency);
-      
-      if (uniqueTransactions.length > 0) {
-        console.log('Première transaction avant conversion:', {
-          id: uniqueTransactions[0].id,
-          amount: uniqueTransactions[0].amount,
-          packageDescription: uniqueTransactions[0].packageDescription?.substring(0, 50)
-        });
-      }
+      let formattedTransactions = uniqueTransactions.map(transaction => {
+        return translationService.formatTransactionForAPI(transaction.toJSON(), user);
+      });
 
       let convertedTransactions;
       if (userCurrency !== 'EUR') {
-        convertedTransactions = await convertTransactions(uniqueTransactions, userCurrency);
+        convertedTransactions = await convertTransactions(formattedTransactions, userCurrency);
       } else {
-        convertedTransactions = uniqueTransactions.map(transaction => ({
-          ...transaction.toJSON(),
+        convertedTransactions = formattedTransactions.map(transaction => ({
+          ...transaction,
           displayCurrency: 'EUR',
           currencySymbol: '€'
         }));
       }
 
-      if (convertedTransactions.length > 0) {
-        console.log('Première transaction après conversion:', {
-          amount: convertedTransactions[0].amount,
-          displayCurrency: convertedTransactions[0].displayCurrency,
-          currencySymbol: convertedTransactions[0].currencySymbol
-        });
-      }
+      return sendLocalizedResponse(
+        res,
+        'msg.transactions_loaded',
+        { transactions: convertedTransactions },
+        200,
+        user
+      );
 
-      console.log('📊 Transactions converties:', convertedTransactions.length);
-
-      return res.json({
-        success: true,
-        data: {
-          transactions: convertedTransactions,
-        },
-      });
     } catch (error: any) {
-    console.error('❌ Erreur getMyTransactions:', error);
-    return res.status(500).json({ success: false, error: 'Erreur' });
-  }
+      console.error('❌ Erreur getMyTransactions:', error);
+      return sendLocalizedResponse(
+        res,
+        'msg.error_loading_transactions',
+        null,
+        500,
+        (req as any).user
+      );
+    }
   }
 
   static async getTransactionDetails(req: Request, res: Response) {
@@ -621,7 +643,13 @@ console.log('- transaction.id:', transaction.id);
 
       const txId = Number(id);
       if (!Number.isFinite(txId)) {
-        return res.status(400).json({ success: false, error: 'ID de transaction invalide' });
+        return sendLocalizedResponse(
+          res,
+          'msg.invalid_transaction_id',
+          null,
+          400,
+          user
+        );
       }
 
       const transaction = await Transaction.findOne({
@@ -632,35 +660,49 @@ console.log('- transaction.id:', transaction.id);
       });
 
       if (!transaction) {
-        return res.status(404).json({
-          success: false,
-          error: 'Transaction non trouvée',
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.transaction_not_found',
+          null,
+          404,
+          user
+        );
       }
 
-      // CONVERSION DE DEVISE POUR LE DÉTAIL AUSSI
+      let formattedTransaction = translationService.formatTransactionForAPI(transaction.toJSON(), user);
+
       const forcedCurrency = req.headers['x-force-currency'] as string;
       const userCurrency = forcedCurrency || user.currency || 'DZD';
       
       let convertedTransaction;
       if (userCurrency !== 'EUR') {
-        const converted = await CurrencyService.convertTransactions([transaction], userCurrency);
+        const converted = await CurrencyService.convertTransactions([formattedTransaction], userCurrency);
         convertedTransaction = converted[0];
       } else {
         convertedTransaction = {
-          ...transaction.toJSON(),
+          ...formattedTransaction,
           displayCurrency: 'EUR',
           currencySymbol: '€'
         };
       }
 
-      return res.json({
-        success: true,
-        data: { transaction: convertedTransaction },
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.transaction_loaded',
+        { transaction: convertedTransaction },
+        200,
+        user
+      );
+
     } catch (error: any) {
       console.error('❌ Erreur getTransactionDetails:', error);
-      return res.status(500).json({ success: false, error: 'Erreur' });
+      return sendLocalizedResponse(
+        res,
+        'msg.error_loading_transactions',
+        null,
+        500,
+        (req as any).user
+      );
     }
   }
 
@@ -671,10 +713,14 @@ console.log('- transaction.id:', transaction.id);
 
       const txId = Number(id);
       if (!Number.isFinite(txId)) {
-        return res.status(400).json({ success: false, error: 'ID de transaction invalide' });
+        return sendLocalizedResponse(
+          res,
+          'msg.invalid_transaction_id',
+          null,
+          400,
+          user
+        );
       }
-
-      console.log('🚫 Tentative d\'annulation transaction:', txId, 'par user:', user.id);
 
       const transaction = await Transaction.findOne({
         where: { 
@@ -684,17 +730,23 @@ console.log('- transaction.id:', transaction.id);
       });
 
       if (!transaction) {
-        return res.status(404).json({
-          success: false,
-          error: 'Transaction non trouvée'
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.transaction_not_found',
+          null,
+          404,
+          user
+        );
       }
 
       if (transaction.status !== TransactionStatus.PAYMENT_PENDING) {
-        return res.status(400).json({
-          success: false,
-          error: 'Cette réservation ne peut plus être annulée car le paiement a été effectué'
-        });
+        return sendLocalizedResponse(
+          res,
+          'msg.cannot_cancel_paid_transaction',
+          null,
+          400,
+          user
+        );
       }
 
       let cancelledBy = 'unknown';
@@ -712,22 +764,25 @@ console.log('- transaction.id:', transaction.id);
       });
 
       await NotificationService.notifyTransactionCancelled(transaction, cancelledBy as 'sender' | 'traveler');
-
       await TripCapacityService.updateTripVisibility();
 
-      console.log('✅ Transaction annulée:', txId);
-
-      return res.json({
-        success: true,
-        message: 'Réservation annulée avec succès'
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.transaction_cancelled',
+        null,
+        200,
+        user
+      );
 
     } catch (error: any) {
       console.error('❌ Erreur annulation transaction:', error);
-      return res.status(500).json({
-        success: false,
-        error: 'Erreur lors de l\'annulation'
-      });
+      return sendLocalizedResponse(
+        res,
+        'msg.error_loading_transactions',
+        null,
+        500,
+        (req as any).user
+      );
     }
   }
 }
