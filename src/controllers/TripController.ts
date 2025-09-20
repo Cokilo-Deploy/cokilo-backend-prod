@@ -133,6 +133,9 @@ export class TripController {
   }
 
   static async getAllTrips(req: Request, res: Response) {
+    const acceptLanguage = req.headers['accept-language'] as string;
+console.log('=== DEBUT getAllTrips ===');
+console.log('Accept-Language header:', acceptLanguage);
     try {
       const user = (req as any).user;
 
