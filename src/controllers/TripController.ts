@@ -466,7 +466,7 @@ export class TripController {
 
       return res.status(200).json({
         success: true,
-        message: translationService.t('msg.trip_updated', user, undefined, 'Voyage mis à jour'),
+        message: translationService.t('msg.trip_updated', user,  'Voyage mis à jour'),
         data: { trip: formattedTrip },
         locale: user?.language || 'fr',
         currency: user.currency
@@ -506,7 +506,7 @@ export class TripController {
 
       return res.status(200).json({
         success: true,
-        message: translationService.t('msg.trip_deleted', user, undefined, 'Voyage supprimé'),
+        message: translationService.t('msg.trip_deleted', user,  'Voyage supprimé'),
         locale: user?.language || 'fr',
         currency: user.currency
       });
