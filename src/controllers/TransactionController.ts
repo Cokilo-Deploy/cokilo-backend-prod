@@ -15,7 +15,7 @@ import { NotificationService } from '../services/NotificationService';
 import { translationService } from '../services/TranslationService';
 import { sendLocalizedResponse } from '../utils/responseHelpers';
 
-const { convertTransactions } = require('../services/CurrencyService');
+
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-07-30.basil',
@@ -610,7 +610,7 @@ let formattedTransactions = uniqueTransactions.map(transaction => {
 
       let convertedTransactions;
       if (userCurrency !== 'EUR') {
-        convertedTransactions = await convertTransactions(formattedTransactions, userCurrency);
+        convertedTransactions = await CurrencyService.convertTransactions(formattedTransactions, userCurrency);
       } else {
         convertedTransactions = formattedTransactions.map(transaction => ({
           ...transaction,
