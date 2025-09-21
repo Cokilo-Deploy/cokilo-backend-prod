@@ -221,14 +221,16 @@ export class TransactionController {
       await TripCapacityService.updateTripVisibility();
       await NotificationService.notifyReservationCreated(transaction);
 
-      const formattedTransaction = translationService.formatTransactionForAPI(
-        {
-          id: transaction.id,
-          amount: transaction.amount,
-          status: transaction.status,
-        },
-        user
-      );
+      const acceptLanguage = req.headers['accept-language'] as string;
+const formattedTransaction = translationService.formatTransactionForAPI(
+  {
+    id: transaction.id,
+    amount: transaction.amount,
+    status: transaction.status,
+  },
+  user,
+  acceptLanguage
+);
 
       return sendLocalizedResponse(
         res,
@@ -601,9 +603,10 @@ export class TransactionController {
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
-      let formattedTransactions = uniqueTransactions.map(transaction => {
-        return translationService.formatTransactionForAPI(transaction.toJSON(), user);
-      });
+      const acceptLanguage = req.headers['accept-language'] as string;
+let formattedTransactions = uniqueTransactions.map(transaction => {
+  return translationService.formatTransactionForAPI(transaction.toJSON(), user, acceptLanguage);
+});
 
       let convertedTransactions;
       if (userCurrency !== 'EUR') {
@@ -669,7 +672,8 @@ export class TransactionController {
         );
       }
 
-      let formattedTransaction = translationService.formatTransactionForAPI(transaction.toJSON(), user);
+      const acceptLanguage = req.headers['accept-language'] as string;
+let formattedTransaction = translationService.formatTransactionForAPI(transaction.toJSON(), user, acceptLanguage);
 
       const forcedCurrency = req.headers['x-force-currency'] as string;
       const userCurrency = forcedCurrency || user.currency || 'DZD';
