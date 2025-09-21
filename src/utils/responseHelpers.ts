@@ -21,18 +21,17 @@ export const sendLocalizedResponse = (
   user?: User,
   req?: any
 ): Response<LocalizedResponse> => {
-  const acceptLanguage = req?.headers['accept-language'] as string;
-  const locale = translationService.getLocaleForContext(user, acceptLanguage);
+  
+  const locale = translationService.getLocaleForContext(user);
   const currency = user?.currency || 'EUR';
   
   console.log('=== RESPONSE HELPERS ===');
-  console.log('Accept-Language:', acceptLanguage);
   console.log('Locale détecté:', locale);
   console.log('Message key:', messageKey);
   
   return res.status(statusCode).json({
     success: statusCode < 400,
-    message: translationService.t(messageKey, user, undefined, acceptLanguage),
+    message: translationService.t(messageKey, user, undefined),
     messageKey: String(messageKey),
     data,
     locale,

@@ -20,8 +20,8 @@ export class TranslationService {
     return TranslationService.instance;
   }
 
-  public t(key: keyof AppTranslations, user?: User, fallback?: string, acceptLanguage?: string): string {
-  const locale = this.getLocaleForContext(user, acceptLanguage);
+  public t(key: keyof AppTranslations, user?: User, fallback?: string): string {
+  const locale = this.getLocaleForContext(user);
 
   const translation = this.translations[key];
   if (!translation) {
@@ -39,10 +39,10 @@ export class TranslationService {
 }
 
 
-  public getLocaleForContext(user?: User, acceptLanguage?: string): string {
+  public getLocaleForContext(user?: User): string {
   console.log('=== GET LOCALE FOR CONTEXT ===');
   console.log('user?.language:', user?.language);
-  console.log('acceptLanguage:', acceptLanguage);
+  
   
   // Priorité 1: Si l'utilisateur a défini une langue manuellement
   if (user?.language && this.isValidLocale(user.language)) {
@@ -50,43 +50,16 @@ export class TranslationService {
     return user.language;
   }
   
-  // Priorité 2: Détecter depuis Accept-Language header
-  if (acceptLanguage) {
-    console.log('About to call detectLanguageFromHeader...');
-    const detected = this.detectLanguageFromHeader(acceptLanguage);
-    console.log('Detected language:', detected);
-    return detected;
-  }
+  
   
   console.log('Using default locale:', this.defaultLocale);
   return this.defaultLocale;
 }
 
-private detectLanguageFromHeader(acceptLanguage: string): string {
-  console.log('=== DETECT LANGUAGE ===');
-  console.log('Input acceptLanguage:', acceptLanguage);
-  console.log('Supported locales:', this.supportedLocales);
-  
-  const languages = acceptLanguage.toLowerCase().split(',');
-  console.log('Split languages:', languages);
-  
-  for (const lang of languages) {
-    const code = lang.trim().split(';')[0].split('-')[0];
-    console.log('Testing code:', code);
-    console.log('Is supported?', this.supportedLocales.includes(code));
-    
-    if (this.supportedLocales.includes(code)) {
-      console.log('Found supported language:', code);
-      return code;
-    }
-  }
-  
-  console.log('No supported language found, returning default:', this.defaultLocale);
-  return this.defaultLocale;
-}
 
-  public translateTransactionStatus(status: string, user?: User, acceptLanguage?: string): string {
-  const locale = this.getLocaleForContext(user, acceptLanguage);
+
+  public translateTransactionStatus(status: string, user?: User): string {
+  const locale = this.getLocaleForContext(user);
   const key = `transaction.status.${status}` as keyof AppTranslations;
   const translation = this.translations[key];
   
@@ -97,8 +70,8 @@ private detectLanguageFromHeader(acceptLanguage: string): string {
          status;
 }
 
-  public translatePackageType(packageType: string, user?: User, acceptLanguage?: string): string {
-  const locale = this.getLocaleForContext(user, acceptLanguage);
+  public translatePackageType(packageType: string, user?: User): string {
+  const locale = this.getLocaleForContext(user);
   const key = `package.type.${packageType}` as keyof AppTranslations;
   const translation = this.translations[key];
   
@@ -109,8 +82,8 @@ private detectLanguageFromHeader(acceptLanguage: string): string {
          packageType;
 }
 
-  public translateTransportMode(transportMode: string, user?: User, acceptLanguage?: string): string {
-  const locale = this.getLocaleForContext(user, acceptLanguage);
+  public translateTransportMode(transportMode: string, user?: User): string {
+  const locale = this.getLocaleForContext(user);
   const key = `transport.${transportMode}` as keyof AppTranslations;
   const translation = this.translations[key];
   
@@ -122,8 +95,8 @@ private detectLanguageFromHeader(acceptLanguage: string): string {
 }
 
 
-  public translateTripStatus(status: string, user?: User, acceptLanguage?: string): string {
-  const locale = this.getLocaleForContext(user, acceptLanguage);
+  public translateTripStatus(status: string, user?: User): string {
+  const locale = this.getLocaleForContext(user);
   const key = `trip.status.${status}` as keyof AppTranslations;
   const translation = this.translations[key];
   
@@ -134,24 +107,24 @@ private detectLanguageFromHeader(acceptLanguage: string): string {
          status;
 }
 
-  public formatTransactionForAPI(transaction: any, user?: User, acceptLanguage?: string): any {
-  const locale = this.getLocaleForContext(user, acceptLanguage);
+  public formatTransactionForAPI(transaction: any, user?: User): any {
+  const locale = this.getLocaleForContext(user);
   
   return {
     ...transaction,
-    statusTranslated: this.translateTransactionStatus(transaction.status, user, acceptLanguage),
-    packageTypeTranslated: this.translatePackageType(transaction.packageType, user, acceptLanguage),
+    statusTranslated: this.translateTransactionStatus(transaction.status, user),
+    packageTypeTranslated: this.translatePackageType(transaction.packageType, user),
     locale
   };
 }
 
-  public formatTripForAPI(trip: any, user?: User, acceptLanguage?: string): any {
-  const locale = this.getLocaleForContext(user, acceptLanguage); // AJOUTER acceptLanguage ici
+  public formatTripForAPI(trip: any, user?: User): any {
+  const locale = this.getLocaleForContext(user); 
   
   return {
     ...trip,
-    statusTranslated: this.translateTripStatus(trip.status, user, acceptLanguage),
-    transportModeTranslated: this.translateTransportMode(trip.transportMode, user, acceptLanguage),
+    statusTranslated: this.translateTripStatus(trip.status, user),
+    transportModeTranslated: this.translateTransportMode(trip.transportMode, user),
     locale
   };
 }
