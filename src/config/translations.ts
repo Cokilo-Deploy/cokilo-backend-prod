@@ -726,6 +726,14 @@ export const translations: AppTranslations = {
     it: 'Errore del server'
   },
 
+  'msg.language_updated': {
+  fr: 'Langue mise à jour avec succès',
+  en: 'Language updated successfully',
+  de: 'Sprache erfolgreich aktualisiert',
+  es: 'Idioma actualizado exitosamente',
+  it: 'Lingua aggiornata con successo'
+},
+
   // Forms
   'form.package_description': {
     fr: 'Description du colis',

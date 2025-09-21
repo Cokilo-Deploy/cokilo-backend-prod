@@ -151,5 +151,7 @@ export interface AppTranslations {
   'form.delivery_address': TranslationKey;
   'form.pickup_notes': TranslationKey;
   'form.delivery_notes': TranslationKey;
+
+  'msg.language_updated': TranslationKey;
 }
 
