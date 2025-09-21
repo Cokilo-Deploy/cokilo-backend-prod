@@ -40,18 +40,25 @@ export class TranslationService {
 
 
   public getLocaleForContext(user?: User, acceptLanguage?: string): string {
+  console.log('=== GET LOCALE FOR CONTEXT ===');
+  console.log('user?.language:', user?.language);
+  console.log('acceptLanguage:', acceptLanguage);
+  
   // Priorité 1: Si l'utilisateur a défini une langue manuellement
   if (user?.language && this.isValidLocale(user.language)) {
+    console.log('Using user language:', user.language);
     return user.language;
   }
   
   // Priorité 2: Détecter depuis Accept-Language header
   if (acceptLanguage) {
+    console.log('About to call detectLanguageFromHeader...');
     const detected = this.detectLanguageFromHeader(acceptLanguage);
+    console.log('Detected language:', detected);
     return detected;
   }
   
-  // Priorité 3: Langue par défaut
+  console.log('Using default locale:', this.defaultLocale);
   return this.defaultLocale;
 }
 
