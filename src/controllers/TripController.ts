@@ -133,13 +133,13 @@ export class TripController {
   }
 
   static async getAllTrips(req: Request, res: Response) {
-    const acceptLanguage = req.headers['accept-language'] as string;
+    
 console.log('=== DEBUT getAllTrips ===');
-console.log('Accept-Language header:', acceptLanguage);
+
     try {
       const user = (req as any).user;
 
-       const acceptLanguage = req.headers['accept-language'] as string;
+       
       
       const forcedCurrency = req.headers['x-force-currency'] as string;
       const userCurrency = forcedCurrency || user.currency;
@@ -175,7 +175,7 @@ console.log('Accept-Language header:', acceptLanguage);
 
       const plainTrips = paginatedTrips.map(trip => {
         const tripData = trip.toJSON();
-        return translationService.formatTripForAPI(tripData, user, acceptLanguage);
+        return translationService.formatTripForAPI(tripData, user);
       });
 
       const convertedTrips = await TripController.convertTripsForUser(plainTrips, userCurrency);

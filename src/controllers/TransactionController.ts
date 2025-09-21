@@ -221,7 +221,7 @@ export class TransactionController {
       await TripCapacityService.updateTripVisibility();
       await NotificationService.notifyReservationCreated(transaction);
 
-      const acceptLanguage = req.headers['accept-language'] as string;
+     
 const formattedTransaction = translationService.formatTransactionForAPI(
   {
     id: transaction.id,
@@ -229,7 +229,7 @@ const formattedTransaction = translationService.formatTransactionForAPI(
     status: transaction.status,
   },
   user,
-  acceptLanguage
+  
 );
 
       return sendLocalizedResponse(
@@ -603,21 +603,21 @@ const formattedTransaction = translationService.formatTransactionForAPI(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
 
-      const acceptLanguage = req.headers['accept-language'] as string;
-let formattedTransactions = uniqueTransactions.map(transaction => {
-  return translationService.formatTransactionForAPI(transaction.toJSON(), user, acceptLanguage);
-});
-
       let convertedTransactions;
-      if (userCurrency !== 'EUR') {
-        convertedTransactions = await CurrencyService.convertTransactions(formattedTransactions, userCurrency);
-      } else {
-        convertedTransactions = formattedTransactions.map(transaction => ({
-          ...transaction,
-          displayCurrency: 'EUR',
-          currencySymbol: '€'
-        }));
-      }
+if (userCurrency !== 'EUR') {
+  convertedTransactions = await CurrencyService.convertTransactions(uniqueTransactions, userCurrency);
+} else {
+  convertedTransactions = uniqueTransactions.map(transaction => ({
+    ...transaction.toJSON(),
+    displayCurrency: 'EUR',
+    currencySymbol: '€'
+  }));
+}
+
+// PUIS appliquez les traductions APRÈS la conversion :
+const formattedTransactions = convertedTransactions.map(transaction => {
+  return translationService.formatTransactionForAPI(transaction, user);
+});
 
       return sendLocalizedResponse(
         res,
@@ -672,8 +672,8 @@ let formattedTransactions = uniqueTransactions.map(transaction => {
         );
       }
 
-      const acceptLanguage = req.headers['accept-language'] as string;
-let formattedTransaction = translationService.formatTransactionForAPI(transaction.toJSON(), user, acceptLanguage);
+      
+let formattedTransaction = translationService.formatTransactionForAPI(transaction.toJSON(), user);
 
       const forcedCurrency = req.headers['x-force-currency'] as string;
       const userCurrency = forcedCurrency || user.currency || 'DZD';
