@@ -56,15 +56,25 @@ export class TranslationService {
 }
 
 private detectLanguageFromHeader(acceptLanguage: string): string {
+  console.log('=== DETECT LANGUAGE ===');
+  console.log('Input acceptLanguage:', acceptLanguage);
+  console.log('Supported locales:', this.supportedLocales);
+  
   const languages = acceptLanguage.toLowerCase().split(',');
+  console.log('Split languages:', languages);
   
   for (const lang of languages) {
     const code = lang.trim().split(';')[0].split('-')[0];
+    console.log('Testing code:', code);
+    console.log('Is supported?', this.supportedLocales.includes(code));
+    
     if (this.supportedLocales.includes(code)) {
+      console.log('Found supported language:', code);
       return code;
     }
   }
   
+  console.log('No supported language found, returning default:', this.defaultLocale);
   return this.defaultLocale;
 }
 
