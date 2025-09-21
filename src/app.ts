@@ -20,6 +20,7 @@ import { QueryTypes } from 'sequelize';
 import stripeConnectRoutes from './routes/stripeConnect';
 import stripeConnectWebhookRoutes from './routes/webhooks'; 
 import  NotificationRoutes from'./routes/notification';
+import { userLanguageRouter } from './routes/userLanguage';
 
 
 
@@ -78,6 +79,7 @@ app.use('/api/verification', verificationRouter);
 app.use('/api/stripe-connect', stripeConnectRoutes);
 app.use('/api/webhooks', stripeConnectWebhookRoutes); 
 app.use('/api/notifications', NotificationRoutes);
+app.use('/api/user', userLanguageRouter);
 
 // Health check
 app.get('/health', (req, res) => {
