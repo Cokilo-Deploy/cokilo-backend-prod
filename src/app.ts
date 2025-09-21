@@ -21,6 +21,7 @@ import stripeConnectRoutes from './routes/stripeConnect';
 import stripeConnectWebhookRoutes from './routes/webhooks'; 
 import  NotificationRoutes from'./routes/notification';
 import { userLanguageRouter } from './routes/userLanguage';
+import supportRoutes from './routes/support'
 
 
 
@@ -35,6 +36,7 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 // Middlewares existants
 app.use('/api/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // NOUVEAU: Servir les fichiers statiques (uploads)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -80,6 +82,7 @@ app.use('/api/stripe-connect', stripeConnectRoutes);
 app.use('/api/webhooks', stripeConnectWebhookRoutes); 
 app.use('/api/notifications', NotificationRoutes);
 app.use('/api/user', userLanguageRouter);
+app.use('/api', supportRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
