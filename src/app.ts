@@ -82,7 +82,7 @@ app.use('/api/stripe-connect', stripeConnectRoutes);
 app.use('/api/webhooks', stripeConnectWebhookRoutes); 
 app.use('/api/notifications', NotificationRoutes);
 app.use('/api/user', userLanguageRouter);
-app.use('/api', supportRoutes);
+
 
 // Health check
 app.get('/health', (req, res) => {
