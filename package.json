@@ -47,6 +47,7 @@
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "nodemailer": "^6.9.8",
+    "@types/nodemailer": "^6.4.14",
     "pg": "^8.16.3",
     "react-native-mime-types": "^2.5.0",
     "sequelize": "^6.37.7",
