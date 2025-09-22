@@ -1,6 +1,7 @@
 // routes/support.ts (ou dans votre fichier de routes existant)
 import express, { Request, Response } from 'express';
 import nodemailer from 'nodemailer';
+import { getEmailConfig } from '../config/emailConfig';
 
 const router = express.Router();
 
@@ -14,20 +15,26 @@ interface ContactFormData {
 }
 
 // Configuration du transporteur email depuis les variables d'environnement
-const emailTransporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: process.env.SMTP_SECURE === 'true',
-  auth: {
-    user: process.env.SMTP_USER!,
-    pass: process.env.SMTP_PASS!,
-  },
-});
+const createEmailTransporter = () => {
+  const config = getEmailConfig();
+  
+  return nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: {
+      user: config.user,
+      pass: config.pass,
+    },
+  });
+};
 
 // Route pour envoyer un message de support
 router.post('/support/contact', async (req: Request, res: Response) => {
   try {
     const { name, email, subject, message, userAgent }: ContactFormData = req.body;
+    const emailConfig = getEmailConfig();
+    const emailTransporter = createEmailTransporter();
     
     // Validation des données
     if (!name || !email || !subject || !message) {
@@ -99,8 +106,8 @@ router.post('/support/contact', async (req: Request, res: Response) => {
 
     // Configuration de l'email
     const mailOptions: nodemailer.SendMailOptions = {
-      from: `"${process.env.SMTP_FROM_NAME || 'CoKilo Support'}" <${process.env.SMTP_USER}>`,
-      to: process.env.SUPPORT_EMAIL,
+      from: `"${emailConfig.fromName}" <${emailConfig.user}>`,
+      to: emailConfig.supportEmail,
       replyTo: email, // Permet de répondre directement à l'utilisateur
       subject: `[Support CoKilo] ${subject}`,
       html: emailContent,
@@ -111,9 +118,9 @@ router.post('/support/contact', async (req: Request, res: Response) => {
 
     // Email de confirmation à l'utilisateur
     const confirmationEmail: nodemailer.SendMailOptions = {
-      from: `"${process.env.SMTP_FROM_NAME || 'CoKilo Support'}" <${process.env.SMTP_USER}>`,
+      from: `"${emailConfig.fromName}" <${emailConfig.user}>`,
       to: email,
-      subject: `${process.env.SUPPORT_CONFIRMATION_SUBJECT || 'Votre message a été reçu - CoKilo Support'}`,
+      subject: emailConfig.confirmationSubject,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #007bff; padding: 20px; text-align: center;">
