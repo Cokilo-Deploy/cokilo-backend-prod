@@ -21,7 +21,7 @@ import stripeConnectRoutes from './routes/stripeConnect';
 import stripeConnectWebhookRoutes from './routes/webhooks'; 
 import  NotificationRoutes from'./routes/notification';
 import { userLanguageRouter } from './routes/userLanguage';
-import supportRoutes from './routes/support'
+
 
 
 
