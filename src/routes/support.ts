@@ -25,7 +25,7 @@ const emailTransporter = nodemailer.createTransport({
   },
 });
 
-router.post('/support/contact', async (req: Request, res: Response) => {
+router.post('/contact', async (req: Request, res: Response) => {
   try {
     const { name, email, subject, message, userAgent }: ContactFormData = req.body;
     
