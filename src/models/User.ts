@@ -386,7 +386,7 @@ User.init({
 verificationCodeExpires: {
   type: DataTypes.DATE,
   allowNull: true,
-  field: 'verificationcodexpires'
+  field: 'verificationcodeexpires'
 },
   
   
