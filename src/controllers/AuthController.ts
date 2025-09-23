@@ -4,7 +4,7 @@ import { User } from '../models/User';
 import { getUserAccessInfo } from '../utils/userAccess';
 import { ExtendedRegistrationService } from '../services/ExtendedRegistrationService';
 import axios from 'axios';
-import bcrypt from 'bcryptjs/umd/types';
+const bcrypt = require('bcryptjs');
 import { EmailVerificationService } from '../services/EmailVerificationService';
 
 export class AuthController {
