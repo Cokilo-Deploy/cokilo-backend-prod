@@ -381,10 +381,12 @@ User.init({
   verificationCode: {
   type: DataTypes.STRING(6),
   allowNull: true,
+  field: 'verificationcode'
 },
 verificationCodeExpires: {
   type: DataTypes.DATE,
   allowNull: true,
+  field: 'verificationcodexpires'
 },
   
   
