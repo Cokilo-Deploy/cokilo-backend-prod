@@ -1,3 +1,4 @@
+//src/controllers/AuthController.ts
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
@@ -194,7 +195,7 @@ export class AuthController {
       firstName,
       lastName,
       email,
-      password: hashedPassword,
+      password: password,
       currency: detectedCurrency,
       emailVerifiedAt: undefined,  // Non vérifié
       verificationCode,
@@ -250,6 +251,7 @@ export class AuthController {
       console.log('🔍 === DEBUT LOGIN ===');
       const { email, password } = req.body;
       console.log('📧 Email recherché:', email);
+    console.log('🔑 Mot de passe reçu (longueur):', password?.length);
 
       const user = await User.findOne({ where: { email } });
       if (!user) {
@@ -260,13 +262,14 @@ export class AuthController {
         });
       }
 
-      console.log('✅ Utilisateur trouvé:', {
+       console.log('✅ Utilisateur trouvé:', {
       id: user.id,
       email: user.email,
       emailVerifiedAt: user.emailVerifiedAt,
-      hasPassword: !!user.password
+      hasPassword: !!user.password,
+      passwordLength: user.password?.length,
+      passwordStart: user.password?.substring(0, 10) + '...'
     });
-
       console.log('🔑 Vérification mot de passe...');
       const isValidPassword = await user.validatePassword(password);
       console.log('🔑 Mot de passe valide?', isValidPassword);
