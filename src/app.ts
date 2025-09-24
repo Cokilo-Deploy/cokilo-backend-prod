@@ -36,7 +36,7 @@ const PORT = parseInt(process.env.PORT || '3000', 10);
 
 
 // Health check
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
