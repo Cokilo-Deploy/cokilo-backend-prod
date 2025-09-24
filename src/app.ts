@@ -34,6 +34,16 @@ const app = express();
 const server = http.createServer(app);
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    socketio: 'Active'
+  });
+});
+
 // Middlewares existants
 app.use('/api/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
 app.use(express.json());
