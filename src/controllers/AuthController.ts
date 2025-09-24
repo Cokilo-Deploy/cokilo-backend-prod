@@ -159,15 +159,18 @@ export class AuthController {
   // Méthode pour l'ancien format d'inscription (rétrocompatibilité)
   static async registerSimple(req: Request, res: Response) {
   try {
+    console.log('📥 Données reçues:', req.body);
     const { firstName, lastName, email, password } = req.body;
     
     // Vos validations existantes...
     if (!firstName || !lastName || !email || !password) {
+       console.log('❌ Champs manquants');
       return res.status(400).json({
         success: false,
         error: 'Tous les champs sont requis'
       });
     }
+    console.log('✅ Validation passée, recherche utilisateur existant...');
     
     // Vérifier si l'email existe déjà
     const existingUser = await User.findOne({ where: { email } });
@@ -233,6 +236,7 @@ export class AuthController {
     });
 
   } catch (error: any) {
+    console.error('💥 Erreur inscription simple:', error);
     console.error('Erreur inscription simple:', error);
     res.status(400).json({
       success: false,
