@@ -247,23 +247,45 @@ export class AuthController {
 
   static async login(req: Request, res: Response) {
     try {
+      console.log('🔍 === DEBUT LOGIN ===');
       const { email, password } = req.body;
+      console.log('📧 Email recherché:', email);
 
       const user = await User.findOne({ where: { email } });
       if (!user) {
+        console.log('❌ Utilisateur non trouvé pour:', email);
         return res.status(401).json({
           success: false,
           error: 'Email ou mot de passe incorrect'
         });
       }
 
+      console.log('✅ Utilisateur trouvé:', {
+      id: user.id,
+      email: user.email,
+      emailVerifiedAt: user.emailVerifiedAt,
+      hasPassword: !!user.password
+    });
+
+      console.log('🔑 Vérification mot de passe...');
       const isValidPassword = await user.validatePassword(password);
+      console.log('🔑 Mot de passe valide?', isValidPassword);
       if (!isValidPassword) {
+        console.log('❌ Mot de passe incorrect');
         return res.status(401).json({
           success: false,
           error: 'Email ou mot de passe incorrect'
         });
       }
+
+      // Vérifier si l'email est vérifié
+    if (!user.emailVerifiedAt) {
+      console.log('❌ Email non vérifié');
+      return res.status(401).json({
+        success: false,
+        error: 'Veuillez vérifier votre email avant de vous connecter'
+      });
+    }
 
       const jwtSecret = process.env.JWT_SECRET || 'fallback-secret';
       const token = jwt.sign({ userId: user.id }, jwtSecret, { expiresIn: '7d' });
@@ -289,7 +311,10 @@ export class AuthController {
         message: 'Connexion réussie'
       });
 
+      console.log('🔍 === FIN LOGIN REUSSI ===');
+
     } catch (error) {
+       console.error('💥 Erreur login:', error);
       console.error('Erreur connexion:', error);
       res.status(500).json({  
         success: false,
