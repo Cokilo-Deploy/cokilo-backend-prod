@@ -159,58 +159,90 @@ export class AuthController {
 
   // Méthode pour l'ancien format d'inscription (rétrocompatibilité)
   static async registerSimple(req: Request, res: Response) {
-  const startTime = Date.now();
-  
   try {
-    console.log(`[${Date.now() - startTime}ms] Début registerSimple`);
+    console.log('📥 Données reçues:', req.body);
     const { firstName, lastName, email, password } = req.body;
     
+    // Vos validations existantes...
     if (!firstName || !lastName || !email || !password) {
-      return res.status(400).json({ success: false, error: 'Champs requis' });
+       console.log('❌ Champs manquants');
+      return res.status(400).json({
+        success: false,
+        error: 'Tous les champs sont requis'
+      });
     }
-
-    console.log(`[${Date.now() - startTime}ms] Recherche utilisateur existant...`);
+    console.log('✅ Validation passée, recherche utilisateur existant...');
+    
+    // Vérifier si l'email existe déjà
     const existingUser = await User.findOne({ where: { email } });
-    console.log(`[${Date.now() - startTime}ms] Recherche terminée, existe: ${!!existingUser}`);
-
     if (existingUser) {
-      return res.status(400).json({ success: false, error: 'Email déjà utilisé' });
+      return res.status(400).json({
+        success: false,
+        error: 'Cet email est déjà utilisé'
+      });
     }
 
-    console.log(`[${Date.now() - startTime}ms] Détection IP...`);
+    // Détection de devise et hashage du mot de passe
     const detectedCurrency = await AuthController.detectCurrencyFromIP(req);
-    console.log(`[${Date.now() - startTime}ms] IP détectée: ${detectedCurrency}`);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
-    console.log(`[${Date.now() - startTime}ms] Génération code vérification...`);
+    // Générer le code de vérification
     const verificationCode = EmailVerificationService.generateVerificationCode();
     const codeExpiration = EmailVerificationService.getCodeExpiration();
 
-    console.log(`[${Date.now() - startTime}ms] Création utilisateur...`);
+    // Créer l'utilisateur (NON VÉRIFIÉ)
     const user = await User.create({
-      firstName, lastName, email, 
-      password, // Le hook va hasher
+      firstName,
+      lastName,
+      email,
+      password: password,
       currency: detectedCurrency,
+      emailVerifiedAt: undefined,  // Non vérifié
       verificationCode,
       verificationCodeExpires: codeExpiration
     });
-    console.log(`[${Date.now() - startTime}ms] Utilisateur créé: ${user.id}`);
 
-    console.log(`[${Date.now() - startTime}ms] Envoi email...`);
+    // Envoyer le code par email
     const emailSent = await EmailVerificationService.sendVerificationCode(
-      email, firstName, verificationCode
+      email,
+      firstName,
+      verificationCode
     );
-    console.log(`[${Date.now() - startTime}ms] Email envoyé: ${emailSent}`);
 
-    // Réponse immédiate sans attendre l'email
+    if (!emailSent) {
+      // Supprimer l'utilisateur si l'email n'a pas pu être envoyé
+      await user.destroy();
+      return res.status(500).json({
+        success: false,
+        error: 'Erreur lors de l\'envoi du code de vérification'
+      });
+    }
+
+    // Réponse SANS token (utilisateur doit vérifier son email)
     res.status(201).json({
       success: true,
-      data: { user: { id: user.id, firstName, lastName, email }, requiresVerification: true },
-      message: 'Compte créé'
+      data: {
+        user: {
+          id: user.id,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          email: user.email,
+          verificationStatus: user.verificationStatus,
+          currency: detectedCurrency
+        },
+        requiresVerification: true,  // Indique qu'une vérification est nécessaire
+        detectedCurrency
+      },
+      message: 'Compte créé. Vérifiez votre email pour l\'activer.'
     });
 
   } catch (error: any) {
-    console.error(`[${Date.now() - startTime}ms] Erreur:`, error.message);
-    res.status(400).json({ success: false, error: error.message });
+    console.error('💥 Erreur inscription simple:', error);
+    console.error('Erreur inscription simple:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message || 'Erreur lors de l\'inscription'
+    });
   }
 }
 
