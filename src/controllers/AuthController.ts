@@ -4,7 +4,6 @@ import { User } from '../models/User';
 import { getUserAccessInfo } from '../utils/userAccess';
 import { ExtendedRegistrationService } from '../services/ExtendedRegistrationService';
 import axios from 'axios';
-import bcrypt from 'bcryptjs/umd/types';
 
 export class AuthController {
   
@@ -157,65 +156,72 @@ export class AuthController {
 
   // Méthode pour l'ancien format d'inscription (rétrocompatibilité)
   static async registerSimple(req: Request, res: Response) {
-  try {
-    const { firstName, lastName, email, password } = req.body;
-    
-    // Vos validations existantes...
-    
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
-      return res.status(400).json({
+    try {
+      const { email, password, firstName, lastName, phone } = req.body;
+
+      const existingUser = await User.findOne({ where: { email } });
+      if (existingUser) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email déjà utilisé'
+        });
+      }
+
+      // Détecter automatiquement la devise et le pays
+      const detectedCurrency = await AuthController.detectCurrencyFromIP(req);
+      const detectedCountry = await AuthController.detectCountryFromIP(req);
+      
+      console.log('Devise détectée pour nouvel utilisateur:', detectedCurrency);
+      console.log('Pays détecté pour nouvel utilisateur:', detectedCountry);
+
+      const user = await User.create({
+        email,
+        password,
+        firstName,
+        lastName,
+        phone,
+        currency: detectedCurrency,
+        country: detectedCountry,
+        paymentMethod: 'manual', // Par défaut pour l'ancien format
+        stripeTermsAccepted: false
+      });
+
+      console.log('UTILISATEUR CREE avec devise:', user.currency);
+
+      const jwtSecret = process.env.JWT_SECRET || 'fallback-secret';
+      const token = jwt.sign({ userId: user.id }, jwtSecret, { expiresIn: '7d' });
+
+      const userAccess = getUserAccessInfo(user);
+
+      res.status(201).json({
+        success: true,
+        data: {
+          token,
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            verificationStatus: user.verificationStatus,
+            currency: user.currency,
+            country: user.country,
+            paymentMethod: user.paymentMethod
+          },
+          detectedCurrency,
+          detectedCountry
+        },
+        userAccess,
+        message: 'Compte créé avec succès'
+      });
+
+    } catch (error) {
+      console.error('Erreur inscription simple:', error);
+      res.status(500).json({
         success: false,
-        error: 'Cet email est déjà utilisé'
+        error: 'Erreur lors de l\'inscription'
       });
     }
-
-    const detectedCurrency = await AuthController.detectCurrencyFromIP(req);
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    // Créer utilisateur normalement
-    const user = await User.create({
-      firstName,
-      lastName,
-      email,
-      password: hashedPassword,
-      currency: detectedCurrency,
-      // Pas besoin de code de vérification pour l'instant
-    });
-
-    // Générer JWT normalement
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET!,
-      { expiresIn: '7d' }
-    );
-
-    // Réponse normale - pas de vérification email pour l'instant
-    res.status(201).json({
-      success: true,
-      data: {
-        token,
-        user: {
-          id: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          verificationStatus: user.verificationStatus,
-          currency: detectedCurrency
-        },
-        detectedCurrency
-      },
-      message: 'Inscription réussie'
-    });
-
-  } catch (error: any) {
-    console.error('Erreur inscription simple:', error);
-    res.status(400).json({
-      success: false,
-      error: error.message || 'Erreur lors de l\'inscription'
-    });
   }
-}
 
   static async login(req: Request, res: Response) {
     try {
@@ -304,75 +310,4 @@ export class AuthController {
       });
     }
   }
-  // Ajoutez ces deux méthodes dans votre AuthController
-static async verifyEmail(req: Request, res: Response) {
-  try {
-    const { userId, verificationCode } = req.body;
-
-    if (!userId || !verificationCode) {
-      return res.status(400).json({
-        success: false,
-        error: 'Code de vérification requis'
-      });
-    }
-
-    const user = await User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: 'Utilisateur non trouvé'
-      });
-    }
-
-    if (user.emailVerifiedAt) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email déjà vérifié'
-      });
-    }
-
-    // Ici vous ajouterez la logique de vérification du code
-    // Pour l'instant, marquez juste comme vérifié
-    await user.update({
-      emailVerifiedAt: new Date()
-    });
-
-    res.json({
-      success: true,
-      message: 'Email vérifié avec succès'
-    });
-
-  } catch (error: any) {
-    console.error('Erreur vérification email:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erreur lors de la vérification'
-    });
-  }
-}
-
-static async resendVerification(req: Request, res: Response) {
-  try {
-    const { userId } = req.body;
-
-    const user = await User.findByPk(userId);
-    if (!user || user.emailVerifiedAt) {
-      return res.status(400).json({
-        success: false,
-        error: 'Utilisateur non trouvé ou déjà vérifié'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Code renvoyé'
-    });
-
-  } catch (error: any) {
-    res.status(500).json({
-      success: false,
-      error: 'Erreur lors du renvoi du code'
-    });
-  }
-}
 }
