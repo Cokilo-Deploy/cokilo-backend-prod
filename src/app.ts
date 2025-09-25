@@ -12,7 +12,7 @@ import { authMiddleware } from './middleware/auth';
 import walletRoutes from './routes/wallet';
 import webhookRoutes from './routes/webhooks';
 import chatRouter from './routes/chat';
-import http from 'http';
+import http, { Server } from 'http';
 import { ChatSocketServer } from './socket/chatSocket';
 import userRoutes from './routes/user';
 import { verificationRouter } from './routes/verification';
@@ -44,6 +44,26 @@ app.use('/api/notifications', NotificationRoutes);
 app.use('/api/user', userLanguageRouter);
 app.use('/api/support', supportRoutes);
 
+const startServer = async (PORT: number, p0: string, p1: () => void) => {
+  try {
+    // AJOUTER : Connexion à la base de données
+    await connectDB();
+    console.log('Base de données connectée');
+    
+    // AJOUTER : Synchronisation des modèles  
+    await syncModels();
+    console.log('Modèles synchronisés');
+    
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Serveur minimal sur le port ${PORT}`);
+    });
+    
+  } catch (error) {
+    console.error('Erreur démarrage serveur:', error);
+    process.exit(1);
+  }
+};
+
 app.get('/', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
@@ -52,6 +72,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+startServer (PORT, '0.0.0.0', () => {
   console.log(`Serveur minimal sur le port ${PORT}`);
 });
