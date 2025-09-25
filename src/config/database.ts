@@ -45,8 +45,7 @@ const sequelize = new Sequelize({
   }
 });
 
-// Supprimez le test de connexion Pool qui cause le timeout
-// db.connect() - SUPPRIMÉ
+
 
 // Gardez seulement le test Sequelize
 // Dans config/database.ts
