@@ -159,30 +159,44 @@ export class AuthController {
  // Dans AuthController.ts - Méthode registerSimple modifiée
 static async registerSimple(req: Request, res: Response) {
   try {
+    console.log('🚀 === DEBUT REGISTER SIMPLE ===');
+    console.log('📥 Données reçues:', req.body);
+    
     const { firstName, lastName, email, password } = req.body;
     
     if (!firstName || !lastName || !email || !password) {
+      console.log('❌ Validation échouée - champs manquants');
       return res.status(400).json({
         success: false,
         error: 'Tous les champs sont requis'
       });
     }
 
+    console.log('✅ Validation passée');
+    console.log('🔍 Recherche utilisateur existant pour:', email);
+    
     const existingUser = await User.findOne({ where: { email } });
+    console.log('✅ Recherche terminée - utilisateur existe:', !!existingUser);
+    
     if (existingUser) {
+      console.log('❌ Email déjà utilisé');
       return res.status(400).json({
         success: false,
         error: 'Cet email est déjà utilisé'
       });
     }
 
+    console.log('🌍 Détection IP en cours...');
     const detectedCurrency = await AuthController.detectCurrencyFromIP(req);
+    console.log('✅ IP détectée - devise:', detectedCurrency);
     
-    // Générer le code de vérification
+    console.log('🔑 Génération code de vérification...');
     const verificationCode = EmailVerificationService.generateVerificationCode();
     const codeExpiration = EmailVerificationService.getCodeExpiration();
+    console.log('✅ Code généré:', verificationCode);
+    console.log('⏰ Expiration:', codeExpiration);
 
-    // Créer l'utilisateur (NON VÉRIFIÉ)
+    console.log('👤 Création utilisateur en cours...');
     const user = await User.create({
       firstName,
       lastName,
@@ -193,15 +207,29 @@ static async registerSimple(req: Request, res: Response) {
       verificationCode,
       verificationCodeExpires: codeExpiration
     });
+    console.log('✅ Utilisateur créé avec ID:', user.id);
+    console.log('📋 Détails utilisateur:', {
+      id: user.id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      currency: user.currency
+    });
 
-    // Envoyer le code par email
+    console.log('📧 Envoi email de vérification...');
+    console.log('📧 Destinataire:', email);
+    console.log('📧 Nom:', firstName);
+    console.log('📧 Code à envoyer:', verificationCode);
+    
     const emailSent = await EmailVerificationService.sendVerificationCode(
       email,
       firstName,
       verificationCode
     );
+    console.log('📧 Résultat envoi email:', emailSent);
 
     if (!emailSent) {
+      console.log('❌ Échec envoi email - suppression utilisateur');
       await user.destroy();
       return res.status(500).json({
         success: false,
@@ -209,6 +237,7 @@ static async registerSimple(req: Request, res: Response) {
       });
     }
 
+    console.log('✅ Processus terminé avec succès');
     res.status(201).json({
       success: true,
       data: {
@@ -224,8 +253,15 @@ static async registerSimple(req: Request, res: Response) {
       message: 'Compte créé. Vérifiez votre email pour l\'activer.'
     });
 
+    console.log('🚀 === FIN REGISTER SIMPLE REUSSI ===');
+
   } catch (error: any) {
-    console.error('Erreur inscription simple:', error);
+    console.error('💥 === ERREUR REGISTER SIMPLE ===');
+    console.error('💥 Type erreur:', error.name);
+    console.error('💥 Message:', error.message);
+    console.error('💥 Stack:', error.stack);
+    console.error('💥 Erreur complète:', error);
+    
     res.status(400).json({
       success: false,
       error: error.message || 'Erreur lors de l\'inscription'
