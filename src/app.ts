@@ -93,36 +93,42 @@ let chatSocketServer: ChatSocketServer;
 
 const startServer = async () => {
   try {
-    console.log('Démarrage du serveur...');
+    console.log('1. Démarrage du serveur...');
     
-    // Connexion à la base de données
+    console.log('2. Tentative de connexion à la base de données...');
     await connectDB();
-    console.log('Base de données connectée');
+    console.log('3. Base de données connectée avec succès');
 
-    // Synchronisation des modèles
+    console.log('4. Synchronisation des modèles...');
     await syncModels();
-    console.log('Modèles synchronisés');
+    console.log('5. Modèles synchronisés avec succès');
 
-    // Créer les dossiers uploads si nécessaires
+    console.log('6. Création dossiers uploads...');
     const uploadsDir = path.join(__dirname, '../uploads/chat');
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
-      console.log('Dossier uploads/chat créé');
+      console.log('7. Dossier uploads/chat créé');
+    } else {
+      console.log('7. Dossier uploads/chat existe déjà');
     }
 
-    // Initialiser Socket.IO
+    console.log('8. Initialisation Socket.IO...');
     chatSocketServer = new ChatSocketServer(server);
-    console.log('Socket.IO Chat Server initialisé');
+    console.log('9. Socket.IO Chat Server initialisé');
     
-    // Démarrer le serveur
+    console.log('10. Démarrage du serveur HTTP...');
     server.listen(PORT, '0.0.0.0', () => {
-      console.log(`Serveur démarré sur le port ${PORT}`);
-      console.log(`Fichiers statiques: /uploads`);
-      console.log(`WebSocket Chat: ws://localhost:${PORT}`);
+      console.log('11. ✅ SERVEUR DÉMARRÉ AVEC SUCCÈS');
+      console.log(`✅ Port: ${PORT}`);
+      console.log(`✅ Fichiers statiques: /uploads`);
+      console.log(`✅ WebSocket Chat actif`);
     });
 
-  } catch (error) {
-    console.error('Erreur lors du démarrage:', error);
+  } catch (error:any) {
+    console.error('💥 ERREUR CRITIQUE AU DÉMARRAGE:', error);
+    console.error('💥 Type:', error.name);
+    console.error('💥 Message:', error.message);
+    console.error('💥 Stack:', error.stack);
     process.exit(1);
   }
 };
