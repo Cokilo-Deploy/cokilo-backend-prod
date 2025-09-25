@@ -49,10 +49,20 @@ const sequelize = new Sequelize({
 // db.connect() - SUPPRIMÉ
 
 // Gardez seulement le test Sequelize
+// Dans config/database.ts
 export const connectDB = async () => {
   try {
-    await sequelize.authenticate();
-    console.log('Base de données connectée');
+    console.log('Tentative d\'authentification DB...');
+    
+    // Ajouter un timeout de 30 secondes
+    const authPromise = sequelize.authenticate();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Timeout connexion DB (30s)')), 30000)
+    );
+    
+    await Promise.race([authPromise, timeoutPromise]);
+    console.log('Authentification DB réussie');
+    
   } catch (error) {
     console.error('Erreur connexion DB:', error);
     throw error;
