@@ -1,12 +1,10 @@
-//src/controllers/AuthController.ts
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User';
 import { getUserAccessInfo } from '../utils/userAccess';
 import { ExtendedRegistrationService } from '../services/ExtendedRegistrationService';
 import axios from 'axios';
-const bcrypt = require('bcryptjs');
-import { EmailVerificationService } from '../services/EmailVerificationService';
+import bcrypt from 'bcryptjs/umd/types';
 
 export class AuthController {
   
@@ -160,20 +158,10 @@ export class AuthController {
   // Méthode pour l'ancien format d'inscription (rétrocompatibilité)
   static async registerSimple(req: Request, res: Response) {
   try {
-    console.log('📥 Données reçues:', req.body);
     const { firstName, lastName, email, password } = req.body;
     
     // Vos validations existantes...
-    if (!firstName || !lastName || !email || !password) {
-       console.log('❌ Champs manquants');
-      return res.status(400).json({
-        success: false,
-        error: 'Tous les champs sont requis'
-      });
-    }
-    console.log('✅ Validation passée, recherche utilisateur existant...');
     
-    // Vérifier si l'email existe déjà
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(400).json({
@@ -182,46 +170,31 @@ export class AuthController {
       });
     }
 
-    // Détection de devise et hashage du mot de passe
     const detectedCurrency = await AuthController.detectCurrencyFromIP(req);
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Générer le code de vérification
-    const verificationCode = EmailVerificationService.generateVerificationCode();
-    const codeExpiration = EmailVerificationService.getCodeExpiration();
-
-    // Créer l'utilisateur (NON VÉRIFIÉ)
+    // Créer utilisateur normalement
     const user = await User.create({
       firstName,
       lastName,
       email,
-      password: password,
+      password: hashedPassword,
       currency: detectedCurrency,
-      emailVerifiedAt: undefined,  // Non vérifié
-      verificationCode,
-      verificationCodeExpires: codeExpiration
+      // Pas besoin de code de vérification pour l'instant
     });
 
-    // Envoyer le code par email
-    const emailSent = await EmailVerificationService.sendVerificationCode(
-      email,
-      firstName,
-      verificationCode
+    // Générer JWT normalement
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET!,
+      { expiresIn: '7d' }
     );
 
-    if (!emailSent) {
-      // Supprimer l'utilisateur si l'email n'a pas pu être envoyé
-      await user.destroy();
-      return res.status(500).json({
-        success: false,
-        error: 'Erreur lors de l\'envoi du code de vérification'
-      });
-    }
-
-    // Réponse SANS token (utilisateur doit vérifier son email)
+    // Réponse normale - pas de vérification email pour l'instant
     res.status(201).json({
       success: true,
       data: {
+        token,
         user: {
           id: user.id,
           firstName: user.firstName,
@@ -230,14 +203,12 @@ export class AuthController {
           verificationStatus: user.verificationStatus,
           currency: detectedCurrency
         },
-        requiresVerification: true,  // Indique qu'une vérification est nécessaire
         detectedCurrency
       },
-      message: 'Compte créé. Vérifiez votre email pour l\'activer.'
+      message: 'Inscription réussie'
     });
 
   } catch (error: any) {
-    console.error('💥 Erreur inscription simple:', error);
     console.error('Erreur inscription simple:', error);
     res.status(400).json({
       success: false,
@@ -248,47 +219,23 @@ export class AuthController {
 
   static async login(req: Request, res: Response) {
     try {
-      console.log('🔍 === DEBUT LOGIN ===');
       const { email, password } = req.body;
-      console.log('📧 Email recherché:', email);
-    console.log('🔑 Mot de passe reçu (longueur):', password?.length);
 
       const user = await User.findOne({ where: { email } });
       if (!user) {
-        console.log('❌ Utilisateur non trouvé pour:', email);
         return res.status(401).json({
           success: false,
           error: 'Email ou mot de passe incorrect'
         });
       }
 
-       console.log('✅ Utilisateur trouvé:', {
-      id: user.id,
-      email: user.email,
-      emailVerifiedAt: user.emailVerifiedAt,
-      hasPassword: !!user.password,
-      passwordLength: user.password?.length,
-      passwordStart: user.password?.substring(0, 10) + '...'
-    });
-      console.log('🔑 Vérification mot de passe...');
       const isValidPassword = await user.validatePassword(password);
-      console.log('🔑 Mot de passe valide?', isValidPassword);
       if (!isValidPassword) {
-        console.log('❌ Mot de passe incorrect');
         return res.status(401).json({
           success: false,
           error: 'Email ou mot de passe incorrect'
         });
       }
-
-      // Vérifier si l'email est vérifié
-    if (!user.emailVerifiedAt) {
-      console.log('❌ Email non vérifié');
-      return res.status(401).json({
-        success: false,
-        error: 'Veuillez vérifier votre email avant de vous connecter'
-      });
-    }
 
       const jwtSecret = process.env.JWT_SECRET || 'fallback-secret';
       const token = jwt.sign({ userId: user.id }, jwtSecret, { expiresIn: '7d' });
@@ -314,10 +261,7 @@ export class AuthController {
         message: 'Connexion réussie'
       });
 
-      console.log('🔍 === FIN LOGIN REUSSI ===');
-
     } catch (error) {
-       console.error('💥 Erreur login:', error);
       console.error('Erreur connexion:', error);
       res.status(500).json({  
         success: false,
@@ -387,47 +331,14 @@ static async verifyEmail(req: Request, res: Response) {
       });
     }
 
-    // Valider le code avec EmailVerificationService
-    const isValid = EmailVerificationService.isCodeValid(
-      verificationCode,
-      user.verificationCode || '',
-      user.verificationCodeExpires || new Date()
-    );
-
-    if (!isValid) {
-      return res.status(400).json({
-        success: false,
-        error: 'Code de vérification invalide ou expiré'
-      });
-    }
-
-    // Marquer comme vérifié et supprimer le code
+    // Ici vous ajouterez la logique de vérification du code
+    // Pour l'instant, marquez juste comme vérifié
     await user.update({
-      emailVerifiedAt: new Date(),
-      verificationCode: undefined,
-      verificationCodeExpires: undefined
+      emailVerifiedAt: new Date()
     });
-
-    // Générer le JWT maintenant que l'email est vérifié
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET!,
-      { expiresIn: '7d' }
-    );
 
     res.json({
       success: true,
-      data: {
-        token,
-        user: {
-          id: user.id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
-          verificationStatus: user.verificationStatus,
-          currency: user.currency
-        }
-      },
       message: 'Email vérifié avec succès'
     });
 
@@ -444,59 +355,20 @@ static async resendVerification(req: Request, res: Response) {
   try {
     const { userId } = req.body;
 
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        error: 'ID utilisateur requis'
-      });
-    }
-
     const user = await User.findByPk(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        error: 'Utilisateur non trouvé'
-      });
-    }
-
-    if (user.emailVerifiedAt) {
+    if (!user || user.emailVerifiedAt) {
       return res.status(400).json({
         success: false,
-        error: 'Email déjà vérifié'
-      });
-    }
-
-    // Générer nouveau code
-    const verificationCode = EmailVerificationService.generateVerificationCode();
-    const codeExpiration = EmailVerificationService.getCodeExpiration();
-
-    // Mettre à jour l'utilisateur avec le nouveau code
-    await user.update({
-      verificationCode,
-      verificationCodeExpires: codeExpiration
-    });
-
-    // Renvoyer le code par email
-    const emailSent = await EmailVerificationService.sendVerificationCode(
-      user.email,
-      user.firstName,
-      verificationCode
-    );
-
-    if (!emailSent) {
-      return res.status(500).json({
-        success: false,
-        error: 'Erreur lors de l\'envoi du code'
+        error: 'Utilisateur non trouvé ou déjà vérifié'
       });
     }
 
     res.json({
       success: true,
-      message: 'Nouveau code de vérification envoyé'
+      message: 'Code renvoyé'
     });
 
   } catch (error: any) {
-    console.error('Erreur renvoi code:', error);
     res.status(500).json({
       success: false,
       error: 'Erreur lors du renvoi du code'
