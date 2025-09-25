@@ -3,6 +3,8 @@ import express from 'express';
 import dotenv from 'dotenv';
 import { authRouter } from './routes/auth';
 import { tripRouter } from './routes/trips';
+import { authMiddleware } from './middleware/auth';
+import transactionRouter from './routes/transactions';
 
 dotenv.config();
 
@@ -12,7 +14,7 @@ const PORT = parseInt(process.env.PORT || '8080', 10);
 app.use(express.json());
 app.use('/api/auth', authRouter);
 app.use('/api/trips', tripRouter);
-//app.use('/api/transactions', authMiddleware, transactionRouter);
+app.use('/api/transactions', authMiddleware, transactionRouter);
 //app.use('/api/wallet', walletRoutes);
 //app.use('/api/chat', chatRouter);
 //app.use('/api/users', userRoutes);
