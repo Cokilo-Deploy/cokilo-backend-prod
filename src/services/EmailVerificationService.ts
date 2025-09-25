@@ -1,5 +1,5 @@
 // src/services/EmailVerificationService.ts
-import nodemailer from 'nodemailer';
+import nodemailer = require ('nodemailer');
 
 export class EmailVerificationService {
   private static transporter = nodemailer.createTransport({
