@@ -52,11 +52,6 @@ interface UserAttributes {
   // Nouveaux champs pour les notifications push
   pushToken?: string;        // Token FCM pour les notifications push
   deviceType?: string;       // 'ios' | 'android' | 'web'
-
-  //Email validation
-  verificationCode?: string;
-  verificationCodeExpires?: Date;
-
   
 
 }
@@ -65,8 +60,7 @@ interface UserCreationAttributes extends Optional<UserAttributes,
   'id' | 'verificationStatus' | 'role' | 'isActive' | 'rating' | 'totalTrips' | 
   'totalDeliveries' | 'totalEarnings' | 'language' | 'currency' | 'timezone' | 
   'notificationsEnabled' | 'paymentMethod' | 'stripeTermsAccepted' | 'stripeTermsAcceptedAt' |
-  'addressLine1' | 'addressCity' | 'addressPostalCode' | 'dateOfBirth'|
-  'verificationCode' | 'verificationCodeExpires'> {}
+  'addressLine1' | 'addressCity' | 'addressPostalCode' | 'dateOfBirth'> {}
 
 class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: number;
@@ -115,9 +109,6 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
 
   public pushToken?: string;
   public deviceType?: string;  
-
-  public verificationCode?: string;
-  public verificationCodeExpires?: Date;
   
 
   public canViewTrips(): boolean {
@@ -377,17 +368,7 @@ User.init({
     allowNull: true,
     defaultValue: 'unknown'
   },
-
-  verificationCode: {
-  type: DataTypes.STRING(6),
-  allowNull: true,
-  field: 'verificationcode'
-},
-verificationCodeExpires: {
-  type: DataTypes.DATE,
-  allowNull: true,
-  field: 'verificationcodeexpires'
-},
+  
   
   
 }, {
