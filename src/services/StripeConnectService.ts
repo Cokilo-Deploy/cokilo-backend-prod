@@ -480,4 +480,73 @@ static async getTransferHistory(userId: number): Promise<any[]> {
     return []; // Retourner un tableau vide en cas d'erreur
   }
 }
+/**
+ * Mettre à jour un Connected Account avec les données de Stripe Identity
+ */
+static async updateConnectedAccountWithIdentityData(userId: number, verificationSessionId: string): Promise<void> {
+  try {
+    const user = await User.findByPk(userId);
+    if (!user || !user.stripeConnectedAccountId) {
+      throw new Error('Utilisateur ou compte Connect non trouvé');
+    }
+
+    // Récupérer les données vérifiées de Stripe Identity
+    const verificationSession = await stripe.identity.verificationSessions.retrieve(verificationSessionId);
+    
+    if (verificationSession.status === 'verified' && verificationSession.verified_outputs) {
+      const verifiedData = verificationSession.verified_outputs;
+      
+      // Mettre à jour le compte Connect avec les données Identity
+      const updateData: any = {
+        individual: {}
+      };
+
+      // Ajouter les données si disponibles
+      if (verifiedData.first_name) {
+        updateData.individual.first_name = verifiedData.first_name;
+      }
+      if (verifiedData.last_name) {
+        updateData.individual.last_name = verifiedData.last_name;
+      }
+      if (verifiedData.dob) {
+        updateData.individual.dob = {
+          day: verifiedData.dob.day,
+          month: verifiedData.dob.month,
+          year: verifiedData.dob.year
+        };
+      }
+      if (verifiedData.id_number) {
+        updateData.individual.id_number = verifiedData.id_number;
+      }
+
+      // Transférer le document d'identité
+      if (verificationSession.last_verification_report) {
+        const report = await stripe.identity.verificationReports.retrieve(verificationSession.last_verification_report as string);
+        
+        if (report.document) {
+          updateData.individual.verification = {
+            document: {}
+          };
+          
+          // Vérifier si les fichiers existent avant de les assigner
+          if ((report.document as any).front) {
+            updateData.individual.verification.document.front = (report.document as any).front;
+          }
+          if ((report.document as any).back) {
+            updateData.individual.verification.document.back = (report.document as any).back;
+          }
+        }
+      }
+
+      // Mettre à jour le compte Connect seulement si on a des données
+      if (Object.keys(updateData.individual).length > 0) {
+        await stripe.accounts.update(user.stripeConnectedAccountId, updateData);
+        console.log('✅ Compte Connect mis à jour avec données Identity');
+      }
+    }
+  } catch (error) {
+    console.error('❌ Erreur mise à jour compte Connect:', error);
+    throw error;
+  }
+}
 }

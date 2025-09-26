@@ -178,7 +178,7 @@ export class VerificationController {
                
               );
 
-               await this.updateConnectedAccountWithIdentityData(user.id, user.stripeIdentitySessionId);
+               await StripeConnectService.updateConnectedAccountWithIdentityData(user.id, user.stripeIdentitySessionId);
               
               await user.update({
                 verificationStatus: newStatus,
@@ -385,7 +385,7 @@ export class VerificationController {
                   req.ip || '127.0.0.1'
                 );
 
-                await this.updateConnectedAccountWithIdentityData(user.id, user.stripeIdentitySessionId);
+                await StripeConnectService.updateConnectedAccountWithIdentityData(user.id, user.stripeIdentitySessionId);
                 
                 await user.update({
                   verificationStatus: newStatus,
@@ -563,7 +563,7 @@ if (verificationSession.last_verification_report) {
                       '127.0.0.1' // IP par défaut pour webhook
                     );
 
-                    await this.updateConnectedAccountWithIdentityData(user.id, session.id);
+                    await StripeConnectService.updateConnectedAccountWithIdentityData(user.id, session.id);
                     
                     await user.update({
                       verificationStatus: newStatus,
