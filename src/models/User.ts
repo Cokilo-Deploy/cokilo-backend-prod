@@ -58,6 +58,8 @@ interface UserAttributes {
 
   resetPasswordToken?:string;
   resetPasswordExpiry?:Date;
+
+  
 }
 
 interface UserCreationAttributes extends Optional<UserAttributes, 
