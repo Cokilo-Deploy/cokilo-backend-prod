@@ -5,6 +5,7 @@ import { getUserAccessInfo } from '../utils/userAccess';
 import { ExtendedRegistrationService } from '../services/ExtendedRegistrationService';
 import axios from 'axios';
 import { EmailVerificationService } from '../services/EmailVerificationService';
+import crypto from 'crypto';
 
 export class AuthController {
   
@@ -473,4 +474,80 @@ static async resendVerification(req: Request, res: Response) {
       });
     }
   }
+
+  
+  static async resetPassword(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+
+      if (!email) {
+        return res.status(400).json({
+          success: false,
+          error: 'Email requis'
+        });
+      }
+
+      // Vérifier si l'utilisateur existe
+      const user = await User.findOne({ where: { email } });
+      
+      if (!user) {
+        // Pour la sécurité, on retourne success même si l'email n'existe pas
+        return res.json({
+          success: true,
+          message: 'Si cet email existe, un lien de réinitialisation a été envoyé'
+        });
+      }
+
+      // Générer un token de réinitialisation
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 heure
+
+      // Sauvegarder le token dans la base (vous devrez ajouter ces champs au modèle User)
+      await user.update({
+        resetPasswordToken: resetToken,
+        resetPasswordExpiry: resetTokenExpiry
+      });
+
+      // Configurer l'envoi d'email (optionnel pour le moment)
+      const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+      
+      console.log(`🔄 Token de réinitialisation généré pour ${email}:`);
+      console.log(`📧 URL de réinitialisation: ${resetUrl}`);
+
+      // TODO: Envoyer l'email réel avec nodemailer
+      await sendResetEmail(email, resetUrl);
+
+      res.json({
+        success: true,
+        message: 'Email de réinitialisation envoyé'
+      });
+
+    } catch (error) {
+      console.error('❌ Erreur reset password:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Erreur serveur lors de la réinitialisation'
+      });
+    }
+  }
+}
+
+// Fonction d'envoi d'email (simplifiée pour le test)
+async function sendResetEmail(email: string, resetUrl: string) {
+  // Version console pour les tests
+  console.log(`📧 Email à envoyer à: ${email}`);
+  console.log(`🔗 Lien: ${resetUrl}`);
+  
+  // TODO: Implémenter avec nodemailer si besoin
+  /*
+  const transporter = nodemailer.createTransporter({
+    // Configuration SMTP
+  });
+  
+  await transporter.sendMail({
+    to: email,
+    subject: 'Réinitialisation de votre mot de passe CoKilo',
+    html: `<p>Cliquez sur ce lien pour réinitialiser votre mot de passe: <a href="${resetUrl}">Réinitialiser</a></p>`
+  });
+  */
 }

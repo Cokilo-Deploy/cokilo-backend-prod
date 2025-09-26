@@ -12,5 +12,6 @@ router.get('/me', authMiddleware, AuthController.getProfile);
 router.post('/register', validateExtendedRegistration, AuthController.register);
 router.post('/verify-email', AuthController.verifyEmail);
 router.post('/resend-verification', AuthController.resendVerification);
+router.post('/reset-password', AuthController.resetPassword);
 
 export { router as authRouter };

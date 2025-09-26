@@ -331,7 +331,7 @@ export const translations: AppTranslations = {
     it: 'Vedi dettagli'
   },
 
-  // Messages existants
+  // Messages existants (gardés tels quels)
   'msg.trip_created': {
     fr: 'Voyage créé avec succès',
     en: 'Trip created successfully',
@@ -480,7 +480,7 @@ export const translations: AppTranslations = {
     it: 'Errore nella creazione della prenotazione'
   },
 
-  // NOUVELLES CLÉS - Messages d'erreur de transaction
+  // Messages d'erreur de transaction
   'msg.invalid_transaction_id': {
     fr: 'ID de transaction invalide',
     en: 'Invalid transaction ID',
@@ -524,7 +524,7 @@ export const translations: AppTranslations = {
     it: 'Questa prenotazione non può più essere cancellata poiché il pagamento è stato effettuato'
   },
 
-  // NOUVELLES CLÉS - Messages de succès de paiement
+  // Messages de succès de paiement
   'msg.payment_intent_created': {
     fr: 'Intention de paiement créée avec succès',
     en: 'Payment intent created successfully',
@@ -561,7 +561,7 @@ export const translations: AppTranslations = {
     it: 'Errore nella conferma del pagamento'
   },
 
-  // NOUVELLES CLÉS - Messages de transaction
+  // Messages de transaction
   'msg.transaction_loaded': {
     fr: 'Transaction chargée avec succès',
     en: 'Transaction loaded successfully',
@@ -577,7 +577,7 @@ export const translations: AppTranslations = {
     it: 'Prenotazione cancellata con successo'
   },
 
-  // NOUVELLES CLÉS - Messages de voyage (update/delete)
+  // Messages de voyage (update/delete)
   'msg.trip_updated': {
     fr: 'Voyage mis à jour avec succès',
     en: 'Trip updated successfully',
@@ -593,7 +593,7 @@ export const translations: AppTranslations = {
     it: 'Viaggio eliminato con successo'
   },
 
-  // NOUVELLES CLÉS - Messages d'erreur additionnels
+  // Messages d'erreur additionnels
   'msg.error_loading_transaction': {
     fr: 'Erreur lors du chargement de la transaction',
     en: 'Error loading transaction',
@@ -616,7 +616,7 @@ export const translations: AppTranslations = {
     it: 'Errore nell\'eliminazione del viaggio'
   },
 
-  // NOUVELLES CLÉS - Messages d'autorisation et permissions
+  // Messages d'autorisation et permissions
   'msg.permission_denied': {
     fr: 'Permission refusée',
     en: 'Permission denied',
@@ -632,7 +632,7 @@ export const translations: AppTranslations = {
     it: 'Accesso vietato'
   },
 
-  // NOUVELLES CLÉS - Messages pour codes de validation
+  // Messages pour codes de validation
   'msg.invalid_delivery_code': {
     fr: 'Code de livraison invalide',
     en: 'Invalid delivery code',
@@ -648,7 +648,7 @@ export const translations: AppTranslations = {
     it: 'Verifica del codice fallita'
   },
 
-  // NOUVELLES CLÉS - Messages pour statuts de livraison
+  // Messages pour statuts de livraison
   'msg.delivery_confirmed': {
     fr: 'Livraison confirmée avec succès',
     en: 'Delivery confirmed successfully',
@@ -664,7 +664,7 @@ export const translations: AppTranslations = {
     it: 'Ritiro confermato con successo'
   },
 
-  // NOUVELLES CLÉS - Messages pour validation
+  // Messages pour validation
   'msg.invalid_data': {
     fr: 'Données invalides',
     en: 'Invalid data',
@@ -680,7 +680,7 @@ export const translations: AppTranslations = {
     it: 'Campi obbligatori mancanti'
   },
 
-  // NOUVELLES CLÉS - Messages pour capacité
+  // Messages pour capacité
   'msg.capacity_updated': {
     fr: 'Capacité mise à jour',
     en: 'Capacity updated',
@@ -696,7 +696,7 @@ export const translations: AppTranslations = {
     it: 'Capacità superata'
   },
 
-  // NOUVELLES CLÉS - Messages génériques
+  // Messages génériques
   'msg.operation_successful': {
     fr: 'Opération réussie',
     en: 'Operation successful',
@@ -727,14 +727,14 @@ export const translations: AppTranslations = {
   },
 
   'msg.language_updated': {
-  fr: 'Langue mise à jour avec succès',
-  en: 'Language updated successfully',
-  de: 'Sprache erfolgreich aktualisiert',
-  es: 'Idioma actualizado exitosamente',
-  it: 'Lingua aggiornata con successo'
-},
+    fr: 'Langue mise à jour avec succès',
+    en: 'Language updated successfully',
+    de: 'Sprache erfolgreich aktualisiert',
+    es: 'Idioma actualizado exitosamente',
+    it: 'Lingua aggiornata con successo'
+  },
 
-  // Forms
+  // Forms (existants, gardés tels quels)
   'form.package_description': {
     fr: 'Description du colis',
     en: 'Package description',
@@ -776,5 +776,350 @@ export const translations: AppTranslations = {
     de: 'Liefernotizen',
     es: 'Notas de entrega',
     it: 'Note di consegna'
+  },
+
+  // NOUVELLES CLÉS pour CreateTrip - à ajouter à votre interface AppTranslations
+  'createTrip': {
+    fr: 'Créer un voyage',
+    en: 'Create Trip',
+    de: 'Reise erstellen',
+    es: 'Crear viaje',
+    it: 'Crea viaggio'
+  },
+  'proposeYourBaggageSpace': {
+    fr: 'Proposez votre espace de baggage',
+    en: 'Offer your baggage space',
+    de: 'Bieten Sie Ihren Gepäckraum an',
+    es: 'Ofrece tu espacio de equipaje',
+    it: 'Offri il tuo spazio bagagli'
+  },
+  'verificationRequired': {
+    fr: 'Vérification requise',
+    en: 'Verification Required',
+    de: 'Verifizierung erforderlich',
+    es: 'Verificación requerida',
+    it: 'Verifica richiesta'
+  },
+  'verificationRequiredMessage': {
+    fr: 'Vous devez vérifier votre identité pour créer des voyages.',
+    en: 'You must verify your identity to create trips.',
+    de: 'Sie müssen Ihre Identität verifizieren, um Reisen zu erstellen.',
+    es: 'Debes verificar tu identidad para crear viajes.',
+    it: 'Devi verificare la tua identità per creare viaggi.'
+  },
+  'verifyNow': {
+    fr: 'Vérifier maintenant',
+    en: 'Verify now',
+    de: 'Jetzt verifizieren',
+    es: 'Verificar ahora',
+    it: 'Verifica ora'
+  },
+  'back': {
+    fr: 'Retour',
+    en: 'Back',
+    de: 'Zurück',
+    es: 'Atrás',
+    it: 'Indietro'
+  },
+  'checkingStatus': {
+    fr: 'Vérification de votre statut...',
+    en: 'Checking your status...',
+    de: 'Status wird überprüft...',
+    es: 'Verificando tu estado...',
+    it: 'Verifica del tuo stato...'
+  },
+  'tripTitle': {
+    fr: 'Titre du voyage',
+    en: 'Trip title',
+    de: 'Reisetitel',
+    es: 'Título del viaje',
+    it: 'Titolo del viaggio'
+  },
+  'tripTitlePlaceholder': {
+    fr: 'Ex: Paris → Londres en Eurostar',
+    en: 'Ex: Paris → London by Eurostar',
+    de: 'Z.B.: Paris → London mit Eurostar',
+    es: 'Ej: París → Londres en Eurostar',
+    it: 'Es: Parigi → Londra in Eurostar'
+  },
+  'tripDescription': {
+    fr: 'Description *',
+    en: 'Description *',
+    de: 'Beschreibung *',
+    es: 'Descripción *',
+    it: 'Descrizione *'
+  },
+  'tripDescriptionPlaceholder': {
+    fr: 'Décrivez votre voyage, vos conditions, etc...',
+    en: 'Describe your trip, conditions, etc...',
+    de: 'Beschreiben Sie Ihre Reise, Bedingungen usw...',
+    es: 'Describe tu viaje, condiciones, etc...',
+    it: 'Descrivi il tuo viaggio, condizioni, ecc...'
+  },
+  'departure': {
+    fr: 'Départ',
+    en: 'Departure',
+    de: 'Abfahrt',
+    es: 'Salida',
+    it: 'Partenza'
+  },
+  'arrival': {
+    fr: 'Arrivée',
+    en: 'Arrival',
+    de: 'Ankunft',
+    es: 'Llegada',
+    it: 'Arrivo'
+  },
+  'country': {
+    fr: 'Pays *',
+    en: 'Country *',
+    de: 'Land *',
+    es: 'País *',
+    it: 'Paese *'
+  },
+  'city': {
+    fr: 'Ville *',
+    en: 'City *',
+    de: 'Stadt *',
+    es: 'Ciudad *',
+    it: 'Città *'
+  },
+  'chooseCountry': {
+    fr: 'Choisir un pays',
+    en: 'Choose a country',
+    de: 'Land wählen',
+    es: 'Elegir país',
+    it: 'Scegli paese'
+  },
+  'chooseCity': {
+    fr: 'Choisir une ville',
+    en: 'Choose a city',
+    de: 'Stadt wählen',
+    es: 'Elegir ciudad',
+    it: 'Scegli città'
+  },
+  'departureDate': {
+    fr: 'Date de départ *',
+    en: 'Departure date *',
+    de: 'Abfahrtsdatum *',
+    es: 'Fecha de salida *',
+    it: 'Data di partenza *'
+  },
+  'departureTime': {
+    fr: 'Heure de départ *',
+    en: 'Departure time *',
+    de: 'Abfahrtszeit *',
+    es: 'Hora de salida *',
+    it: 'Ora di partenza *'
+  },
+  'arrivalDate': {
+    fr: 'Date d\'arrivée *',
+    en: 'Arrival date *',
+    de: 'Ankunftsdatum *',
+    es: 'Fecha de llegada *',
+    it: 'Data di arrivo *'
+  },
+  'arrivalTime': {
+    fr: 'Heure d\'arrivée *',
+    en: 'Arrival time *',
+    de: 'Ankunftszeit *',
+    es: 'Hora de llegada *',
+    it: 'Ora di arrivo *'
+  },
+  'transport': {
+    fr: 'Transport',
+    en: 'Transport',
+    de: 'Transport',
+    es: 'Transporte',
+    it: 'Trasporto'
+  },
+  'car': {
+    fr: 'Voiture',
+    en: 'Car',
+    de: 'Auto',
+    es: 'Coche',
+    it: 'Auto'
+  },
+  'train': {
+    fr: 'Train',
+    en: 'Train',
+    de: 'Zug',
+    es: 'Tren',
+    it: 'Treno'
+  },
+  'plane': {
+    fr: 'Avion',
+    en: 'Plane',
+    de: 'Flugzeug',
+    es: 'Avión',
+    it: 'Aereo'
+  },
+  'bus': {
+    fr: 'Bus',
+    en: 'Bus',
+    de: 'Bus',
+    es: 'Autobús',
+    it: 'Autobus'
+  },
+  'availableSpace': {
+    fr: 'Espace disponible',
+    en: 'Available space',
+    de: 'Verfügbarer Platz',
+    es: 'Espacio disponible',
+    it: 'Spazio disponibile'
+  },
+  'weightKg': {
+    fr: 'Poids (kg) *',
+    en: 'Weight (kg) *',
+    de: 'Gewicht (kg) *',
+    es: 'Peso (kg) *',
+    it: 'Peso (kg) *'
+  },
+  'pricePerKg': {
+    fr: 'Prix/kg (€) *',
+    en: 'Price/kg (€) *',
+    de: 'Preis/kg (€) *',
+    es: 'Precio/kg (€) *',
+    it: 'Prezzo/kg (€) *'
+  },
+  'maxItemSize': {
+    fr: 'Taille max des objets',
+    en: 'Max item size',
+    de: 'Max. Objektgröße',
+    es: 'Tamaño máx. objetos',
+    it: 'Dimensione max oggetti'
+  },
+  'maxItemSizePlaceholder': {
+    fr: '50x40x20 cm',
+    en: '50x40x20 cm',
+    de: '50x40x20 cm',
+    es: '50x40x20 cm',
+    it: '50x40x20 cm'
+  },
+  'estimatedRevenue': {
+    fr: 'Revenus estimés',
+    en: 'Estimated revenue',
+    de: 'Geschätzter Erlös',
+    es: 'Ingresos estimados',
+    it: 'Ricavi stimati'
+  },
+  'preview': {
+    fr: 'Aperçu:',
+    en: 'Preview:',
+    de: 'Vorschau:',
+    es: 'Vista previa:',
+    it: 'Anteprima:'
+  },
+  'departure2': {
+    fr: 'Départ:',
+    en: 'Departure:',
+    de: 'Abfahrt:',
+    es: 'Salida:',
+    it: 'Partenza:'
+  },
+  'arrival2': {
+    fr: 'Arrivée:',
+    en: 'Arrival:',
+    de: 'Ankunft:',
+    es: 'Llegada:',
+    it: 'Arrivo:'
+  },
+  'createTrip2': {
+    fr: 'Créer le voyage',
+    en: 'Create trip',
+    de: 'Reise erstellen',
+    es: 'Crear viaje',
+    it: 'Crea viaggio'
+  },
+  'creating': {
+    fr: 'Création...',
+    en: 'Creating...',
+    de: 'Wird erstellt...',
+    es: 'Creando...',
+    it: 'Creando...'
+  },
+  'titleRequired': {
+    fr: 'Le titre est obligatoire',
+    en: 'Title is required',
+    de: 'Titel ist erforderlich',
+    es: 'El título es obligatorio',
+    it: 'Il titolo è obbligatorio'
+  },
+  'descriptionTooShort': {
+    fr: 'La description doit contenir au moins 20 caractères',
+    en: 'Description must contain at least 20 characters',
+    de: 'Beschreibung muss mindestens 20 Zeichen enthalten',
+    es: 'La descripción debe tener al menos 20 caracteres',
+    it: 'La descrizione deve contenere almeno 20 caratteri'
+  },
+  'departureRequired': {
+    fr: 'Le pays et la ville de départ sont obligatoires',
+    en: 'Departure country and city are required',
+    de: 'Abfahrtsland und -stadt sind erforderlich',
+    es: 'País y ciudad de salida son obligatorios',
+    it: 'Paese e città di partenza sono obbligatori'
+  },
+  'arrivalRequired': {
+    fr: 'Le pays et la ville d\'arrivée sont obligatoires',
+    en: 'Arrival country and city are required',
+    de: 'Ankunftsland und -stadt sind erforderlich',
+    es: 'País y ciudad de llegada son obligatorios',
+    it: 'Paese e città di arrivo sono obbligatori'
+  },
+  'weightRequired': {
+    fr: 'Le poids disponible doit être supérieur à 0',
+    en: 'Available weight must be greater than 0',
+    de: 'Verfügbares Gewicht muss größer als 0 sein',
+    es: 'El peso disponible debe ser mayor que 0',
+    it: 'Il peso disponibile deve essere maggiore di 0'
+  },
+  'priceRequired': {
+    fr: 'Le prix par kg doit être supérieur à 0',
+    en: 'Price per kg must be greater than 0',
+    de: 'Preis pro kg muss größer als 0 sein',
+    es: 'El precio por kg debe ser mayor que 0',
+    it: 'Il prezzo per kg deve essere maggiore di 0'
+  },
+  'departureDateInFuture': {
+    fr: 'La date de départ doit être dans le futur',
+    en: 'Departure date must be in the future',
+    de: 'Abfahrtsdatum muss in der Zukunft liegen',
+    es: 'La fecha de salida debe ser futura',
+    it: 'La data di partenza deve essere futura'
+  },
+  'arrivalDateAfterDeparture': {
+    fr: 'La date d\'arrivée doit être après le départ',
+    en: 'Arrival date must be after departure',
+    de: 'Ankunftsdatum muss nach der Abfahrt liegen',
+    es: 'La fecha de llegada debe ser después de la salida',
+    it: 'La data di arrivo deve essere dopo la partenza'
+  },
+  'tripCreated': {
+    fr: 'Voyage créé !',
+    en: 'Trip created!',
+    de: 'Reise erstellt!',
+    es: '¡Viaje creado!',
+    it: 'Viaggio creato!'
+  },
+  'tripCreatedMessage': {
+    fr: 'Votre annonce de voyage a été créée avec succès.',
+    en: 'Your trip listing has been created successfully.',
+    de: 'Ihre Reiseanzeige wurde erfolgreich erstellt.',
+    es: 'Tu anuncio de viaje se ha creado con éxito.',
+    it: 'Il tuo annuncio di viaggio è stato creato con successo.'
+  },
+  'charactersOf': {
+    fr: 'sur',
+    en: 'of',
+    de: 'von',
+    es: 'de',
+    it: 'di'
+  },
+  'at': {
+    fr: 'à',
+    en: 'at',
+    de: 'um',
+    es: 'a las',
+    it: 'alle'
   }
 };
