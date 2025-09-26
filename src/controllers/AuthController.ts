@@ -587,10 +587,9 @@ static async confirmResetPassword(req: Request, res: Response) {
       });
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
-
+    
     await user.update({
-      password: hashedPassword,
+      password: newPassword,
       resetPasswordToken: undefined,
       resetPasswordExpiry: undefined
     });
