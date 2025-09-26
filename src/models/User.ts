@@ -55,6 +55,9 @@ interface UserAttributes {
   
   verificationCode?: string;
   verificationCodeExpires?: Date;
+
+  resetPasswordToken?:string;
+  resetPasswordExpiry?:Date;
 }
 
 interface UserCreationAttributes extends Optional<UserAttributes, 
@@ -62,7 +65,7 @@ interface UserCreationAttributes extends Optional<UserAttributes,
   'totalDeliveries' | 'totalEarnings' | 'language' | 'currency' | 'timezone' | 
   'notificationsEnabled' | 'paymentMethod' | 'stripeTermsAccepted' | 'stripeTermsAcceptedAt' |
   'addressLine1' | 'addressCity' | 'addressPostalCode' | 'dateOfBirth'|
-  'verificationCode' | 'verificationCodeExpires'> {}
+  'verificationCode' | 'verificationCodeExpires'| 'resetPasswordToken'| 'resetPasswordExpiry'> {}
 
 class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: number;
@@ -383,6 +386,14 @@ User.init({
     allowNull: true,
     field: 'verificationcodeexpires'
   }, 
+  resetPasswordToken: {
+  type: DataTypes.STRING,
+  allowNull: true,
+  },
+  resetPasswordExpiry: {
+  type: DataTypes.DATE,
+  allowNull: true,
+  },
   
 }, {
   sequelize,
