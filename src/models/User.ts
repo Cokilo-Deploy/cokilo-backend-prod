@@ -2,7 +2,7 @@
 import { DataTypes, Model, Optional, Op } from 'sequelize';
 import { sequelize } from '../config/database';
 import { UserVerificationStatus, UserRole } from '../types/user';
-const bcrypt = require('bcryptjs');
+import bcrypt from 'bcrypt';
 
 interface UserAttributes {
   id: number;
