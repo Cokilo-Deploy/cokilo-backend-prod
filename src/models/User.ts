@@ -2,7 +2,7 @@
 import { DataTypes, Model, Optional, Op } from 'sequelize';
 import { sequelize } from '../config/database';
 import { UserVerificationStatus, UserRole } from '../types/user';
-import bcrypt from 'bcryptjs';
+const bcrypt = require('bcryptjs');
 
 interface UserAttributes {
   id: number;
@@ -59,7 +59,7 @@ interface UserAttributes {
   resetPasswordToken?:string;
   resetPasswordExpiry?:Date;
 
-  
+
 }
 
 interface UserCreationAttributes extends Optional<UserAttributes, 
