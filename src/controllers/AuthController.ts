@@ -482,63 +482,63 @@ static async resendVerification(req: Request, res: Response) {
   // Dans AuthController.ts - Modifiez votre fonction resetPassword existante
 static async resetPassword(req: Request, res: Response) {
   try {
+    console.log('🔄 Début resetPassword');
     const { email } = req.body;
+    console.log('📧 Email reçu:', email);
 
     if (!email) {
+      console.log('❌ Email manquant');
       return res.status(400).json({
         success: false,
         error: 'Email requis'
       });
     }
 
+    console.log('🔍 Recherche utilisateur...');
     const user = await User.findOne({ where: { email } });
+    console.log('👤 Utilisateur trouvé:', !!user);
     
     if (!user) {
+      console.log('❌ Utilisateur non trouvé');
       return res.json({
         success: true,
         message: 'Si cet email existe, un lien de réinitialisation a été envoyé'
       });
     }
 
+    console.log('🔑 Génération token...');
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 heure
+    const resetTokenExpiry = new Date(Date.now() + 3600000);
 
+    console.log('💾 Mise à jour utilisateur...');
     await user.update({
       resetPasswordToken: resetToken,
       resetPasswordExpiry: resetTokenExpiry
     });
 
-    // Utiliser votre config nodemailer existante
+    console.log('📨 Configuration email...');
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || '587'),
       secure: process.env.SMTP_SECURE === 'true',
       auth: {
-        user: process.env.SMTP_USER, // contact@cokilo.com
+        user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
       },
     });
 
-    const resetUrl = `https://seal-app-og4c6.ondigitalocean.app/reset-password?token=${resetToken}`;
+    const resetUrl = `https://cokilo.com/reset-password?token=${resetToken}`;
+    console.log('🔗 URL générée:', resetUrl);
     
+    console.log('📧 Envoi email...');
     await transporter.sendMail({
       from: `"${process.env.SMTP_FROM_NAME || 'CoKilo'}" <${process.env.SMTP_USER}>`,
       to: email,
       subject: 'Réinitialisation de votre mot de passe CoKilo',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #328499;">Réinitialisation de mot de passe</h2>
-          <p>Cliquez sur le lien ci-dessous pour réinitialiser votre mot de passe :</p>
-          <p>
-            <a href="${resetUrl}" 
-               style="background-color: #328499; color: white; padding: 12px 20px; text-decoration: none; border-radius: 5px;">
-               Réinitialiser mon mot de passe
-            </a>
-          </p>
-          <p>Ce lien expirera dans 1 heure.</p>
-        </div>
-      `,
+      html: `<p>Cliquez pour réinitialiser: <a href="${resetUrl}">Réinitialiser</a></p>`,
     });
+
+    console.log('✅ Email envoyé avec succès');
 
     res.json({
       success: true,
@@ -546,7 +546,7 @@ static async resetPassword(req: Request, res: Response) {
     });
 
   } catch (error) {
-    console.error('Erreur reset password:', error);
+    console.error('❌ Erreur complète:', error);
     res.status(500).json({
       success: false,
       error: 'Erreur serveur lors de la réinitialisation'
