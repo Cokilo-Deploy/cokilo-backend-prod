@@ -6,7 +6,7 @@ import { ExtendedRegistrationService } from '../services/ExtendedRegistrationSer
 import axios from 'axios';
 import { EmailVerificationService } from '../services/EmailVerificationService';
 import crypto from 'crypto';
-import bcrypt from 'bcryptjs/umd/types';
+const bcrypt = require('bcryptjs');
 
 const nodemailer = require('nodemailer');
 
