@@ -50,6 +50,7 @@ export interface AppTranslations {
   'transport.train': TranslationKey;
   'transport.plane': TranslationKey;
   'transport.bus': TranslationKey;
+  'form.transport_section': TranslationKey;
   
   // Trip statuses
   'trip.status.draft': TranslationKey;
@@ -153,5 +154,64 @@ export interface AppTranslations {
   'form.delivery_notes': TranslationKey;
 
   'msg.language_updated': TranslationKey;
+
+  // Create Trip Screen - Navigation et titre
+  'screen.create_trip.title': TranslationKey;
+  'screen.create_trip.subtitle': TranslationKey;
+  'screen.create_trip.verification_required': TranslationKey;
+  'screen.create_trip.verification_message': TranslationKey;
+  'screen.create_trip.verify_now': TranslationKey;
+  'screen.create_trip.checking_status': TranslationKey;
+
+  // Create Trip Form - Champs
+  'form.trip_title': TranslationKey;
+  'form.trip_title_placeholder': TranslationKey;
+  'form.trip_description': TranslationKey;
+  'form.trip_description_placeholder': TranslationKey;
+  'form.departure_section': TranslationKey;
+  'form.arrival_section': TranslationKey;
+  'form.country': TranslationKey;
+  'form.city': TranslationKey;
+  'form.choose_country': TranslationKey;
+  'form.choose_city': TranslationKey;
+  'form.departure_date': TranslationKey;
+  'form.departure_time': TranslationKey;
+  'form.arrival_date': TranslationKey;
+  'form.arrival_time': TranslationKey;
+
+  // Available space section
+  'form.available_space_section': TranslationKey;
+  'form.weight_kg': TranslationKey;
+  'form.price_per_kg_euro': TranslationKey;
+  'form.max_item_size': TranslationKey;
+  'form.max_item_size_placeholder': TranslationKey;
+  'form.estimated_revenue': TranslationKey;
+
+  // Preview section
+  'form.preview': TranslationKey;
+  'form.departure_label': TranslationKey;
+  'form.arrival_label': TranslationKey;
+
+  // Buttons
+  'btn.create_trip': TranslationKey;
+  'btn.creating': TranslationKey;
+  'btn.back': TranslationKey;
+
+  // Validation messages pour Create Trip
+  'validation.title_required': TranslationKey;
+  'validation.description_min_length': TranslationKey;
+  'validation.departure_required': TranslationKey;
+  'validation.arrival_required': TranslationKey;
+  'validation.weight_required': TranslationKey;
+  'validation.price_required': TranslationKey;
+  'validation.departure_future': TranslationKey;
+  'validation.arrival_after_departure': TranslationKey;
+
+  // Success messages
+  'msg.trip_created_success': TranslationKey;
+  'msg.trip_created_success_detail': TranslationKey;
+
+  // Character count
+  'form.characters_of': TranslationKey; // Pour "250/500"
 }
 
