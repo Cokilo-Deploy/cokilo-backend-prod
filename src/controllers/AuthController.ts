@@ -6,6 +6,7 @@ import { ExtendedRegistrationService } from '../services/ExtendedRegistrationSer
 import axios from 'axios';
 import { EmailVerificationService } from '../services/EmailVerificationService';
 import crypto from 'crypto';
+import bcrypt from 'bcryptjs/umd/types';
 
 const nodemailer = require('nodemailer');
 
@@ -550,6 +551,62 @@ static async resetPassword(req: Request, res: Response) {
     res.status(500).json({
       success: false,
       error: 'Erreur serveur lors de la réinitialisation'
+    });
+  }
+}
+
+static async confirmResetPassword(req: Request, res: Response) {
+  try {
+    console.log('🔄 Début confirmResetPassword');
+    const { token, newPassword } = req.body;
+    console.log('🔑 Token reçu:', token);
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Token et nouveau mot de passe requis'
+      });
+    }
+
+    // Importer Op si pas déjà fait
+    const { Op } = require('sequelize');
+
+    const user = await User.findOne({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpiry: {
+          [Op.gt]: new Date()
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        error: 'Token invalide ou expiré'
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    await user.update({
+      password: hashedPassword,
+      resetPasswordToken: undefined,
+      resetPasswordExpiry: undefined
+    });
+
+    console.log('✅ Mot de passe modifié avec succès');
+
+    res.json({
+      success: true,
+      message: 'Mot de passe modifié avec succès'
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur confirm reset:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur'
     });
   }
 }
