@@ -678,7 +678,11 @@ static async checkAccountDeletion(req: Request, res: Response) {
           { travelerId: userId }
         ],
         status: {
-          [Op.notIn]: ['completed', 'cancelled']
+          [Op.in]: [
+            'payment_pending',     // Transaction créée mais pas payée
+            'payment_escrowed',    // Payée mais pas encore récupérée
+            'package_picked_up'    // Récupérée mais pas encore livrée
+          ]
         }
       }
     });
