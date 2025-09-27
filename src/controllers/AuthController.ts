@@ -609,6 +609,58 @@ static async confirmResetPassword(req: Request, res: Response) {
     });
   }
 }
+static async changePassword(req: Request, res: Response) {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user?.id; // Depuis le middleware auth
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: 'Mot de passe actuel et nouveau mot de passe requis'
+      });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({
+        success: false,
+        error: 'Le nouveau mot de passe doit contenir au moins 8 caractères'
+      });
+    }
+
+    const user = await User.findByPk(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Vérifier le mot de passe actuel
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        error: 'Mot de passe actuel incorrect'
+      });
+    }
+
+    // Mettre à jour avec le nouveau mot de passe (le hook User s'occupe du hashage)
+    await user.update({ password: newPassword });
+
+    res.json({
+      success: true,
+      message: 'Mot de passe modifié avec succès'
+    });
+
+  } catch (error) {
+    console.error('Erreur change password:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur'
+    });
+  }
+}
 }
 
 
