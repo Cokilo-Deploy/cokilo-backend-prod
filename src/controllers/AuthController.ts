@@ -13,6 +13,7 @@ import { Trip } from '../models/Trip';
 import { ChatMessage } from '../models/ChatMessage'; 
 import { ChatConversation } from '../models/ChatConversation'; 
 import { Stripe } from 'stripe';
+import { WalletService } from '../services/walletService';
 
 const nodemailer = require('nodemailer');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
@@ -673,6 +674,15 @@ static async changePassword(req: Request, res: Response) {
 static async checkAccountDeletion(req: Request, res: Response) {
   try {
     const userId = req.user?.id;
+    
+    // Vérification que userId existe
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Utilisateur non authentifié'
+      });
+    }
+
     const user = await User.findByPk(userId);
 
     if (!user) {
@@ -695,36 +705,26 @@ static async checkAccountDeletion(req: Request, res: Response) {
       }
     });
 
-    // 2. Vérifier le solde Stripe Connect
-    let stripeBalance = { available: 0, pending: 0 };
-    if (user.stripeConnectedAccountId) {
-      try {
-        const balance = await stripe.balance.retrieve({
-          stripeAccount: user.stripeConnectedAccountId
-        });
-        
-        // Calculer le solde total (disponible + en attente)
-        const totalAvailable = balance.available.reduce((sum, currency) => sum + currency.amount, 0);
-        const totalPending = balance.pending.reduce((sum, currency) => sum + currency.amount, 0);
-        
-        stripeBalance = {
-          available: totalAvailable / 100, // Convertir en euros
-          pending: totalPending / 100
-        };
-      } catch (stripeError) {
-        console.log('Erreur vérification solde Stripe:', stripeError);
-      }
+    // 2. Vérifier le solde wallet (hybride)
+    let walletBalance = 0;
+    
+    try {
+      const balanceDetails = await WalletService.getDetailedWalletBalance(userId);
+      walletBalance = balanceDetails.totalBalance;
+    } catch (walletError) {
+      console.log('Erreur vérification wallet:', walletError);
+      walletBalance = await WalletService.getWalletBalance(userId);
     }
 
     // 3. Empêcher suppression si solde non nul
-    if (stripeBalance.available > 0 || stripeBalance.pending > 0) {
+    if (walletBalance > 0) {
       return res.json({
         success: false,
         canDelete: false,
         reason: 'non_zero_balance',
-        availableBalance: stripeBalance.available,
-        pendingBalance: stripeBalance.pending,
-        message: `Solde Stripe non nul: ${stripeBalance.available}€ disponible, ${stripeBalance.pending}€ en attente`
+        walletBalance: walletBalance,
+        paymentMethod: user.paymentMethod,
+        message: `Wallet non vide: ${walletBalance}€`
       });
     }
 
@@ -759,6 +759,14 @@ static async checkAccountDeletion(req: Request, res: Response) {
 static async deleteAccount(req: Request, res: Response) {
   try {
     const userId = req.user?.id;
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'Utilisateur non trouvé'
+      });
+    }     
 
     // Vérifier une dernière fois qu'il n'y a pas de transactions actives
     const activeTransactions = await Transaction.findAll({
@@ -781,6 +789,34 @@ static async deleteAccount(req: Request, res: Response) {
     }
 
     // Supprimer en cascade
+
+    // Suppression Stripe seulement pour les utilisateurs EU
+    if (user.paymentMethod === 'stripe_connect' && user.stripeConnectedAccountId) {
+      try {
+        await stripe.accounts.del(user.stripeConnectedAccountId);
+        console.log('Compte Stripe Connect supprimé');
+      } catch (stripeError) {
+        console.log('Erreur suppression Stripe Connect (non bloquant):', stripeError);
+      }
+    }
+
+    // Suppression des autres données Stripe communes
+    if (user.stripeIdentitySessionId) {
+      try {
+        await stripe.identity.verificationSessions.cancel(user.stripeIdentitySessionId);
+      } catch (stripeError) {
+        console.log('Erreur suppression Stripe Identity:', stripeError);
+      }
+    }
+
+    if (user.stripeCustomerId) {
+      try {
+        await stripe.customers.del(user.stripeCustomerId);
+      } catch (stripeError) {
+        console.log('Erreur suppression Stripe Customer:', stripeError);
+      }
+    }
+
     // 1. Conversations et messages
     await ChatMessage.destroy({
       where: {
@@ -825,6 +861,7 @@ static async deleteAccount(req: Request, res: Response) {
       message: 'Compte supprimé avec succès'
     });
 
+    
   } catch (error) {
     console.error('Erreur suppression compte:', error);
     res.status(500).json({
