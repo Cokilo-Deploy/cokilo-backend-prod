@@ -759,7 +759,20 @@ static async checkAccountDeletion(req: Request, res: Response) {
 static async deleteAccount(req: Request, res: Response) {
   try {
     const userId = req.user?.id;
+    console.log('=== DEBUT SUPPRESSION COMPTE ===');
+    console.log('User ID:', userId);
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Utilisateur non authentifié'
+      });
+    }
+
     const user = await User.findByPk(userId);
+    console.log('Utilisateur trouvé:', !!user);
+    console.log('Payment method:', user?.paymentMethod);
+    console.log('Stripe Connected Account:', user?.stripeConnectedAccountId);
+
 
     if (!user) {
       return res.status(404).json({
@@ -769,6 +782,7 @@ static async deleteAccount(req: Request, res: Response) {
     }     
 
     // Vérifier une dernière fois qu'il n'y a pas de transactions actives
+    console.log('Vérification transactions actives...');
     const activeTransactions = await Transaction.findAll({
       where: {
         [Op.or]: [
@@ -776,10 +790,11 @@ static async deleteAccount(req: Request, res: Response) {
           { travelerId: userId }
         ],
         status: {
-          [Op.notIn]: ['completed', 'cancelled']
+          [Op.in]: ['payment_pending', 'payment_escrowed', 'package_picked_up']
         }
       }
     });
+    console.log('Transactions actives trouvées:', activeTransactions.length);
 
     if (activeTransactions.length > 0) {
       return res.status(400).json({
@@ -791,6 +806,7 @@ static async deleteAccount(req: Request, res: Response) {
     // Supprimer en cascade
 
     // Suppression Stripe seulement pour les utilisateurs EU
+    console.log('Suppression Stripe Connect...');
     if (user.paymentMethod === 'stripe_connect' && user.stripeConnectedAccountId) {
       try {
         await stripe.accounts.del(user.stripeConnectedAccountId);
@@ -801,6 +817,7 @@ static async deleteAccount(req: Request, res: Response) {
     }
 
     // Suppression des autres données Stripe communes
+    console.log('Suppression Stripe Identity...');
     if (user.stripeIdentitySessionId) {
       try {
         await stripe.identity.verificationSessions.cancel(user.stripeIdentitySessionId);
@@ -808,7 +825,7 @@ static async deleteAccount(req: Request, res: Response) {
         console.log('Erreur suppression Stripe Identity:', stripeError);
       }
     }
-
+    console.log('Suppression Stripe Customer...'); 
     if (user.stripeCustomerId) {
       try {
         await stripe.customers.del(user.stripeCustomerId);
@@ -818,6 +835,7 @@ static async deleteAccount(req: Request, res: Response) {
     }
 
     // 1. Conversations et messages
+    console.log('Suppression messages...');
     await ChatMessage.destroy({
       where: {
         [Op.or]: [
@@ -826,7 +844,7 @@ static async deleteAccount(req: Request, res: Response) {
         ]
       }
     });
-
+    console.log('Suppression conversations...');
     await ChatConversation.destroy({
       where: {
         [Op.or]: [
@@ -837,11 +855,13 @@ static async deleteAccount(req: Request, res: Response) {
     });
 
     // 2. Voyages
+    console.log('Suppression voyages...');
     await Trip.destroy({
       where: { travelerId: userId }
     });
 
     // 3. Transactions terminées
+    console.log('Suppression transactions...');
     await Transaction.destroy({
       where: {
         [Op.or]: [
@@ -852,9 +872,11 @@ static async deleteAccount(req: Request, res: Response) {
     });
 
     // 4. Utilisateur
+    console.log('Suppression utilisateur...');
     await User.destroy({
       where: { id: userId }
     });
+    console.log('=== SUPPRESSION RÉUSSIE ===');
 
     res.json({
       success: true,
@@ -862,8 +884,11 @@ static async deleteAccount(req: Request, res: Response) {
     });
 
     
-  } catch (error) {
-    console.error('Erreur suppression compte:', error);
+  } catch (error:any) {
+    console.error('=== ERREUR SUPPRESSION ===');
+    console.error('Erreur complète:', error);
+    console.error('Stack trace:', error.stack);
+    
     res.status(500).json({
       success: false,
       error: 'Erreur lors de la suppression'
