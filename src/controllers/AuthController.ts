@@ -7,6 +7,11 @@ import axios from 'axios';
 import { EmailVerificationService } from '../services/EmailVerificationService';
 import crypto from 'crypto';
 import bcrypt from 'bcrypt';
+import { Op } from 'sequelize';
+import { Transaction } from '../models/Transaction'; 
+import { Trip } from '../models/Trip';  
+import { ChatMessage } from '../models/ChatMessage'; 
+import { ChatConversation } from '../models/ChatConversation'; 
 
 const nodemailer = require('nodemailer');
 
@@ -658,6 +663,124 @@ static async changePassword(req: Request, res: Response) {
     res.status(500).json({
       success: false,
       error: 'Erreur serveur'
+    });
+  }
+}
+static async checkAccountDeletion(req: Request, res: Response) {
+  try {
+    const userId = req.user?.id;
+
+    // Vérifier s'il y a des transactions en cours
+    const activeTransactions = await Transaction.findAll({
+      where: {
+        [Op.or]: [
+          { senderId: userId },
+          { travelerId: userId }
+        ],
+        status: {
+          [Op.notIn]: ['completed', 'cancelled']
+        }
+      }
+    });
+
+    if (activeTransactions.length > 0) {
+      return res.json({
+        success: false,
+        canDelete: false,
+        activeTransactions: activeTransactions.length,
+        message: 'Vous avez des transactions en cours'
+      });
+    }
+
+    res.json({
+      success: true,
+      canDelete: true,
+      message: 'Compte peut être supprimé'
+    });
+
+  } catch (error) {
+    console.error('Erreur vérification suppression:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur serveur'
+    });
+  }
+}
+
+static async deleteAccount(req: Request, res: Response) {
+  try {
+    const userId = req.user?.id;
+
+    // Vérifier une dernière fois qu'il n'y a pas de transactions actives
+    const activeTransactions = await Transaction.findAll({
+      where: {
+        [Op.or]: [
+          { senderId: userId },
+          { travelerId: userId }
+        ],
+        status: {
+          [Op.notIn]: ['completed', 'cancelled']
+        }
+      }
+    });
+
+    if (activeTransactions.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Impossible de supprimer: transactions en cours'
+      });
+    }
+
+    // Supprimer en cascade
+    // 1. Conversations et messages
+    await ChatMessage.destroy({
+      where: {
+        [Op.or]: [
+          { senderId: userId },
+          
+        ]
+      }
+    });
+
+    await ChatConversation.destroy({
+      where: {
+        [Op.or]: [
+          { user1Id: userId },
+          { user2Id: userId } 
+        ]
+      }
+    });
+
+    // 2. Voyages
+    await Trip.destroy({
+      where: { travelerId: userId }
+    });
+
+    // 3. Transactions terminées
+    await Transaction.destroy({
+      where: {
+        [Op.or]: [
+          { senderId: userId },
+          { travelerId: userId }
+        ]
+      }
+    });
+
+    // 4. Utilisateur
+    await User.destroy({
+      where: { id: userId }
+    });
+
+    res.json({
+      success: true,
+      message: 'Compte supprimé avec succès'
+    });
+
+  } catch (error) {
+    console.error('Erreur suppression compte:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la suppression'
     });
   }
 }
