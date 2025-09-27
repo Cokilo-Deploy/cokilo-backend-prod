@@ -12,8 +12,12 @@ import { Transaction } from '../models/Transaction';
 import { Trip } from '../models/Trip';  
 import { ChatMessage } from '../models/ChatMessage'; 
 import { ChatConversation } from '../models/ChatConversation'; 
+import { Stripe } from 'stripe';
 
 const nodemailer = require('nodemailer');
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: '2025-07-30.basil',
+});
 
 
 export class AuthController {
@@ -669,8 +673,16 @@ static async changePassword(req: Request, res: Response) {
 static async checkAccountDeletion(req: Request, res: Response) {
   try {
     const userId = req.user?.id;
+    const user = await User.findByPk(userId);
 
-    // Vérifier s'il y a des transactions en cours
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'Utilisateur non trouvé'
+      });
+    }
+
+    // 1. Vérifier les transactions actives
     const activeTransactions = await Transaction.findAll({
       where: {
         [Op.or]: [
@@ -678,19 +690,50 @@ static async checkAccountDeletion(req: Request, res: Response) {
           { travelerId: userId }
         ],
         status: {
-          [Op.in]: [
-            'payment_pending',     // Transaction créée mais pas payée
-            'payment_escrowed',    // Payée mais pas encore récupérée
-            'package_picked_up'    // Récupérée mais pas encore livrée
-          ]
+          [Op.in]: ['payment_pending', 'payment_escrowed', 'package_picked_up']
         }
       }
     });
 
+    // 2. Vérifier le solde Stripe Connect
+    let stripeBalance = { available: 0, pending: 0 };
+    if (user.stripeConnectedAccountId) {
+      try {
+        const balance = await stripe.balance.retrieve({
+          stripeAccount: user.stripeConnectedAccountId
+        });
+        
+        // Calculer le solde total (disponible + en attente)
+        const totalAvailable = balance.available.reduce((sum, currency) => sum + currency.amount, 0);
+        const totalPending = balance.pending.reduce((sum, currency) => sum + currency.amount, 0);
+        
+        stripeBalance = {
+          available: totalAvailable / 100, // Convertir en euros
+          pending: totalPending / 100
+        };
+      } catch (stripeError) {
+        console.log('Erreur vérification solde Stripe:', stripeError);
+      }
+    }
+
+    // 3. Empêcher suppression si solde non nul
+    if (stripeBalance.available > 0 || stripeBalance.pending > 0) {
+      return res.json({
+        success: false,
+        canDelete: false,
+        reason: 'non_zero_balance',
+        availableBalance: stripeBalance.available,
+        pendingBalance: stripeBalance.pending,
+        message: `Solde Stripe non nul: ${stripeBalance.available}€ disponible, ${stripeBalance.pending}€ en attente`
+      });
+    }
+
+    // 4. Vérifier les transactions actives
     if (activeTransactions.length > 0) {
       return res.json({
         success: false,
         canDelete: false,
+        reason: 'active_transactions',
         activeTransactions: activeTransactions.length,
         message: 'Vous avez des transactions en cours'
       });
@@ -710,6 +753,8 @@ static async checkAccountDeletion(req: Request, res: Response) {
     });
   }
 }
+    
+
 
 static async deleteAccount(req: Request, res: Response) {
   try {
