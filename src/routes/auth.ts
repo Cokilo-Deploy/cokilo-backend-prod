@@ -15,4 +15,6 @@ router.post('/resend-verification', AuthController.resendVerification);
 router.post('/reset-password', AuthController.resetPassword);
 router.post('/confirm-reset-password', AuthController.confirmResetPassword);
 router.post('/change-password', authMiddleware, AuthController.changePassword);
+router.get('/check-deletion', authMiddleware, AuthController.checkAccountDeletion);
+router.delete('/delete-account', authMiddleware, AuthController.deleteAccount);
 export { router as authRouter };
