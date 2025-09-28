@@ -18,7 +18,7 @@ import { Wallet } from '../models/Wallet';
 
 const nodemailer = require('nodemailer');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: '2025-07-30.basil',
+  apiVersion: '2025-08-27.basil',
 });
 
 
@@ -806,35 +806,76 @@ static async deleteAccount(req: Request, res: Response) {
       });
     }
 
-    // Gestion Stripe Identity avec expurgation/annulation
-    console.log('Gestion Stripe Identity...');
-    if (user.stripeIdentitySessionId) {
-      try {
-        const session = await stripe.identity.verificationSessions.retrieve(user.stripeIdentitySessionId);
-        console.log('Statut Identity session:', session.status);
-        
-        if (session.status === 'verified') {
-          await stripe.identity.verificationSessions.redact(user.stripeIdentitySessionId);
-          console.log('Identity session expurgée (données sensibles supprimées)');
-        } else if (session.status === 'requires_input') {
-          await stripe.identity.verificationSessions.cancel(user.stripeIdentitySessionId);
-          console.log('Identity session annulée');
-        } else {
-          console.log(`Identity session ${session.status} - aucune action requise`);
-        }
-      } catch (sessionError: any) {
-        console.log('Erreur gestion Identity:', sessionError.message);
+    // NOUVELLE SECTION : Expurgation centralisée via RedactionJob (Option 1)
+    console.log('Expurgation centralisée Stripe...');
+    try {
+      const objectsToRedact: any = {};
+      
+      // Ajouter Customer pour expurgation
+      if (user.stripeCustomerId) {
+        objectsToRedact.customers = [user.stripeCustomerId];
+        console.log('Customer ajouté pour expurgation:', user.stripeCustomerId);
       }
-    }
+      
+      // Ajouter Identity VerificationSession pour expurgation
+      if (user.stripeIdentitySessionId) {
+        try {
+          const session = await stripe.identity.verificationSessions.retrieve(user.stripeIdentitySessionId);
+          console.log('Statut Identity session:', session.status);
+          
+          if (session.status === 'verified') {
+            objectsToRedact.identity_verification_sessions = [user.stripeIdentitySessionId];
+            console.log('Identity session vérifiée ajoutée pour expurgation');
+          } else if (session.status === 'requires_input') {
+            await stripe.identity.verificationSessions.cancel(user.stripeIdentitySessionId);
+            console.log('Identity session non vérifiée annulée');
+          }
+        } catch (sessionError: any) {
+          console.log('Erreur vérification statut Identity:', sessionError.message);
+        }
+      }
 
-    // Suppression Stripe Customer
-    console.log('Suppression Stripe Customer...');
-    if (user.stripeCustomerId) {
-      try {
-        await stripe.customers.del(user.stripeCustomerId);
-        console.log('Customer supprimé');
-      } catch (customerError: any) {
-        console.log('Erreur suppression Customer:', customerError.message);
+      // Créer le RedactionJob avec accès direct (Option 1)
+      if (Object.keys(objectsToRedact).length > 0) {
+        const redactionJob = await (stripe as any).redactionJobs.create({
+          objects: objectsToRedact
+        });
+        console.log('RedactionJob créé:', redactionJob.id);
+        console.log('Statut expurgation:', redactionJob.status);
+      } else {
+        console.log('Aucun objet à expurger via RedactionJob');
+      }
+
+    } catch (redactionError: any) {
+      console.log('Erreur RedactionJob (fallback sur méthodes individuelles):', redactionError.message);
+      
+      // Fallback : méthodes individuelles
+      console.log('Utilisation méthodes de suppression individuelles...');
+      
+      // Gestion Identity individuelle
+      if (user.stripeIdentitySessionId) {
+        try {
+          const session = await stripe.identity.verificationSessions.retrieve(user.stripeIdentitySessionId);
+          if (session.status === 'verified') {
+            await stripe.identity.verificationSessions.redact(user.stripeIdentitySessionId);
+            console.log('Identity session expurgée (fallback)');
+          } else if (session.status === 'requires_input') {
+            await stripe.identity.verificationSessions.cancel(user.stripeIdentitySessionId);
+            console.log('Identity session annulée (fallback)');
+          }
+        } catch (identityError: any) {
+          console.log('Erreur Identity fallback:', identityError.message);
+        }
+      }
+      
+      // Suppression Customer individuelle
+      if (user.stripeCustomerId) {
+        try {
+          await stripe.customers.del(user.stripeCustomerId);
+          console.log('Customer supprimé (fallback)');
+        } catch (customerError: any) {
+          console.log('Erreur suppression Customer fallback:', customerError.message);
+        }
       }
     }
 
@@ -842,6 +883,7 @@ static async deleteAccount(req: Request, res: Response) {
     console.log('Gestion Stripe Connect (système hybride)...');
     if (user.paymentMethod === 'stripe_connect' && user.stripeConnectedAccountId) {
       try {
+        // Vérifier d'abord le solde avant suppression
         const balance = await stripe.balance.retrieve({
           stripeAccount: user.stripeConnectedAccountId
         });
@@ -898,17 +940,15 @@ static async deleteAccount(req: Request, res: Response) {
     });
 
     // 5. Wallet virtuel (pour utilisateurs DZ)
-console.log('Suppression wallet...');
-try {
-  // Utiliser WalletService ou modèle Wallet directement
-  const wallet = await Wallet.findOne({ where: { userId } });
-  if (wallet) {
-    await wallet.destroy();
-    console.log('Wallet virtuel supprimé');
-  }
-} catch (walletError: any) {
-  console.log('Erreur suppression wallet (non bloquant):', walletError.message);
-}
+    console.log('Suppression wallet...');
+    try {
+      await Wallet.destroy({
+        where: { userId: userId }
+      });
+      console.log('Wallet virtuel supprimé');
+    } catch (walletError: any) {
+      console.log('Erreur suppression wallet (non bloquant):', walletError.message);
+    }
 
     // 6. Utilisateur (en dernier)
     console.log('Suppression utilisateur...');
