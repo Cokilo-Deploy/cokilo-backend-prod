@@ -14,6 +14,7 @@ import { ChatMessage } from '../models/ChatMessage';
 import { ChatConversation } from '../models/ChatConversation'; 
 import { Stripe } from 'stripe';
 import { WalletService } from '../services/walletService';
+import { Wallet } from '../models/Wallet';
 
 const nodemailer = require('nodemailer');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
@@ -761,6 +762,7 @@ static async deleteAccount(req: Request, res: Response) {
     const userId = req.user?.id;
     console.log('=== DEBUT SUPPRESSION COMPTE ===');
     console.log('User ID:', userId);
+    
     if (!userId) {
       return res.status(401).json({
         success: false,
@@ -772,16 +774,17 @@ static async deleteAccount(req: Request, res: Response) {
     console.log('Utilisateur trouvé:', !!user);
     console.log('Payment method:', user?.paymentMethod);
     console.log('Stripe Connected Account:', user?.stripeConnectedAccountId);
-
+    console.log('Stripe Customer ID:', user?.stripeCustomerId);
+    console.log('Stripe Identity Session:', user?.stripeIdentitySessionId);
 
     if (!user) {
       return res.status(404).json({
         success: false,
         error: 'Utilisateur non trouvé'
       });
-    }     
+    }
 
-    // Vérifier une dernière fois qu'il n'y a pas de transactions actives
+    // Vérification finale des transactions actives
     console.log('Vérification transactions actives...');
     const activeTransactions = await Transaction.findAll({
       where: {
@@ -803,64 +806,87 @@ static async deleteAccount(req: Request, res: Response) {
       });
     }
 
-    // Supprimer en cascade
-
-    // Suppression Stripe seulement pour les utilisateurs EU
-    console.log('Suppression Stripe Connect...');
-    if (user.paymentMethod === 'stripe_connect' && user.stripeConnectedAccountId) {
-      try {
-        await stripe.accounts.del(user.stripeConnectedAccountId);
-        console.log('Compte Stripe Connect supprimé');
-      } catch (stripeError) {
-        console.log('Erreur suppression Stripe Connect (non bloquant):', stripeError);
-      }
-    }
-
-    // Suppression des autres données Stripe communes
-    console.log('Suppression Stripe Identity...');
+    // Gestion Stripe Identity avec expurgation/annulation
+    console.log('Gestion Stripe Identity...');
     if (user.stripeIdentitySessionId) {
       try {
-        await stripe.identity.verificationSessions.cancel(user.stripeIdentitySessionId);
-      } catch (stripeError) {
-        console.log('Erreur suppression Stripe Identity:', stripeError);
+        const session = await stripe.identity.verificationSessions.retrieve(user.stripeIdentitySessionId);
+        console.log('Statut Identity session:', session.status);
+        
+        if (session.status === 'verified') {
+          await stripe.identity.verificationSessions.redact(user.stripeIdentitySessionId);
+          console.log('Identity session expurgée (données sensibles supprimées)');
+        } else if (session.status === 'requires_input') {
+          await stripe.identity.verificationSessions.cancel(user.stripeIdentitySessionId);
+          console.log('Identity session annulée');
+        } else {
+          console.log(`Identity session ${session.status} - aucune action requise`);
+        }
+      } catch (sessionError: any) {
+        console.log('Erreur gestion Identity:', sessionError.message);
       }
     }
-    console.log('Suppression Stripe Customer...'); 
+
+    // Suppression Stripe Customer
+    console.log('Suppression Stripe Customer...');
     if (user.stripeCustomerId) {
       try {
         await stripe.customers.del(user.stripeCustomerId);
-      } catch (stripeError) {
-        console.log('Erreur suppression Stripe Customer:', stripeError);
+        console.log('Customer supprimé');
+      } catch (customerError: any) {
+        console.log('Erreur suppression Customer:', customerError.message);
       }
     }
 
-    // 1. Conversations et messages
+    // Suppression Stripe Connect (hybride EU/DZ)
+    console.log('Gestion Stripe Connect (système hybride)...');
+    if (user.paymentMethod === 'stripe_connect' && user.stripeConnectedAccountId) {
+      try {
+        const balance = await stripe.balance.retrieve({
+          stripeAccount: user.stripeConnectedAccountId
+        });
+        
+        const totalAvailable = balance.available.reduce((sum, currency) => sum + currency.amount, 0);
+        const totalPending = balance.pending.reduce((sum, currency) => sum + currency.amount, 0);
+        
+        console.log(`Solde Connect avant suppression: ${totalAvailable/100}€ disponible, ${totalPending/100}€ en attente`);
+        
+        await stripe.accounts.del(user.stripeConnectedAccountId);
+        console.log('Compte Stripe Connect supprimé (utilisateur EU)');
+      } catch (stripeError: any) {
+        console.log('Erreur suppression Stripe Connect:', stripeError.message);
+      }
+    } else {
+      console.log('Utilisateur DZ - wallet virtuel, pas de Stripe Connect à supprimer');
+    }
+
+    // Suppression des données application
+    console.log('Suppression des données application...');
+    
+    // 1. Messages de chat
     console.log('Suppression messages...');
     await ChatMessage.destroy({
-      where: {
-        [Op.or]: [
-          { senderId: userId },
-          
-        ]
-      }
+      where: { senderId: userId }
     });
+
+    // 2. Conversations de chat
     console.log('Suppression conversations...');
     await ChatConversation.destroy({
       where: {
         [Op.or]: [
           { user1Id: userId },
-          { user2Id: userId } 
+          { user2Id: userId }
         ]
       }
     });
 
-    // 2. Voyages
+    // 3. Voyages créés
     console.log('Suppression voyages...');
     await Trip.destroy({
       where: { travelerId: userId }
     });
 
-    // 3. Transactions terminées
+    // 4. Transactions (toutes)
     console.log('Suppression transactions...');
     await Transaction.destroy({
       where: {
@@ -871,20 +897,34 @@ static async deleteAccount(req: Request, res: Response) {
       }
     });
 
-    // 4. Utilisateur
+    // 5. Wallet virtuel (pour utilisateurs DZ)
+console.log('Suppression wallet...');
+try {
+  // Utiliser WalletService ou modèle Wallet directement
+  const wallet = await Wallet.findOne({ where: { userId } });
+  if (wallet) {
+    await wallet.destroy();
+    console.log('Wallet virtuel supprimé');
+  }
+} catch (walletError: any) {
+  console.log('Erreur suppression wallet (non bloquant):', walletError.message);
+}
+
+    // 6. Utilisateur (en dernier)
     console.log('Suppression utilisateur...');
     await User.destroy({
       where: { id: userId }
     });
+
     console.log('=== SUPPRESSION RÉUSSIE ===');
+    console.log('Compte utilisateur supprimé complètement (app + Stripe)');
 
     res.json({
       success: true,
       message: 'Compte supprimé avec succès'
     });
 
-    
-  } catch (error:any) {
+  } catch (error: any) {
     console.error('=== ERREUR SUPPRESSION ===');
     console.error('Erreur complète:', error);
     console.error('Stack trace:', error.stack);
