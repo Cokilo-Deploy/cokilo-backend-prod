@@ -22,12 +22,21 @@ import NotificationRoutes from './routes/notification';
 import { userLanguageRouter } from './routes/userLanguage';
 import supportRoutes from './routes/support';
 import { adminRouter } from './routes/admin';
+import cors from 'cors';
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 const PORT = parseInt(process.env.PORT || '8080', 10);
+
+// Configuration CORS
+const corsOptions = {
+  origin: ['http://localhost:3000', 'https://admin.cokilo.com'],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 
 // Middlewares
 app.use('/api/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
