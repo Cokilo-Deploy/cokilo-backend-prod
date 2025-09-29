@@ -5,8 +5,9 @@ import { adminAuth } from '../middleware/adminAuth';
 
 const router = express.Router();
 
-// Routes publiques (pas de auth)
+// Routes publiques (AVANT adminAuth)
 router.post('/login', AdminAuthController.login);
+router.post('/create-admin', AdminAuthController.createAdmin); // NOUVELLE ROUTE
 
 // Routes protégées (nécessitent adminAuth)
 router.use(adminAuth);
