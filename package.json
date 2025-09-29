@@ -12,7 +12,8 @@
     "test:watch": "jest --watch",
     "test:setup": "ts-node src/scripts/testSetup.ts",
     "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "generate-admin": "ts-node src/scripts/generateAdminSQL.ts"
   },
   "keywords": [
     "baggage",
