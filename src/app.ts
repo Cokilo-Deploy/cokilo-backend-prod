@@ -21,6 +21,7 @@ import stripeConnectWebhookRoutes from './routes/webhooks';
 import NotificationRoutes from './routes/notification';
 import { userLanguageRouter } from './routes/userLanguage';
 import supportRoutes from './routes/support';
+import { adminRouter } from './routes/admin';
 
 dotenv.config();
 
@@ -74,6 +75,7 @@ app.use('/api/webhooks', stripeConnectWebhookRoutes);
 app.use('/api/notifications', NotificationRoutes);
 app.use('/api/user', userLanguageRouter);
 app.use('/api/support', supportRoutes);
+app.use('/api/admin', adminRouter);
 
 // Gestion des erreurs
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
