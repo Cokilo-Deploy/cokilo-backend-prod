@@ -22,7 +22,7 @@ interface UserAttributes {
   country?: string;
   paymentMethod: 'manual' | 'stripe_connect';
   
-   role: 'user' | 'admin' | 'super_admin';
+  role: UserRole;
   isActive: boolean;
   rating: number;
   totalTrips: number;
@@ -86,7 +86,7 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public country?: string;
   public paymentMethod!: 'manual' | 'stripe_connect';
   
-  public role!: 'user' | 'admin' | 'super_admin';
+  public role!: UserRole;
   public isActive!: boolean;
   public rating!: number;
   public totalTrips!: number;
@@ -254,12 +254,11 @@ User.init({
     defaultValue: 'manual',
     field: 'paymentmethod' // AJOUTER cette ligne
   },
-  role: {  
-      type: DataTypes.ENUM,
-      values: ['user', 'admin', 'super_admin'],
-      defaultValue: 'user',
-      allowNull: false,
-    },
+  role: {
+    type: DataTypes.ENUM('user', 'admin'),
+    allowNull: false,
+    defaultValue: UserRole.USER,
+  },
   isActive: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,
