@@ -22,5 +22,8 @@ router.get('/transactions', AdminController.getTransactions);
 router.patch('/transactions/:id/resolve', AdminController.resolveTransaction);
 router.get('/support/messages', AdminController.getSupportMessages);
 router.post('/support/messages/:id/reply', AdminController.replySupportMessage);
+// Routes publiques (AVANT adminAuth)
+router.post('/login', AdminAuthController.login);
+router.post('/create-admin', AdminAuthController.createAdmin); // NOUVELLE ROUTE
 
 export { router as adminRouter };
