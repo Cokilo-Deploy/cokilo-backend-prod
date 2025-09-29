@@ -19,18 +19,18 @@ export class AdminController {
       
       const totalTrips = await Trip.count();
       const activeTrips = await Trip.count({
-        where: { status: 'active' }
+        where: { status: 'published' }
       });
       
       const totalTransactions = await Transaction.count();
       const pendingTransactions = await Transaction.count({
-        where: { status: 'payment_pending' }
+        where: { status: TransactionStatus.PAYMENT_PENDING }
       });
 
       // Revenus du mois
       const monthlyRevenue = await Transaction.sum('amount', {
         where: {
-          status: 'payment_released',
+          status: TransactionStatus.PAYMENT_RELEASED,
           createdAt: { [Op.gte]: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
         }
       });
