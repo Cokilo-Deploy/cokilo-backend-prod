@@ -1,7 +1,7 @@
 //src//models/User.ts
 import { DataTypes, Model, Optional, Op } from 'sequelize';
 import { sequelize } from '../config/database';
-import { UserVerificationStatus, UserRole } from '../types/user';
+import { UserVerificationStatus } from '../types/user';
 import bcrypt from 'bcrypt';
 
 interface UserAttributes {
@@ -22,7 +22,7 @@ interface UserAttributes {
   country?: string;
   paymentMethod: 'manual' | 'stripe_connect';
   
-  role: UserRole;
+  
   isActive: boolean;
   rating: number;
   totalTrips: number;
@@ -63,7 +63,7 @@ interface UserAttributes {
 }
 
 interface UserCreationAttributes extends Optional<UserAttributes, 
-  'id' | 'verificationStatus' | 'role' | 'isActive' | 'rating' | 'totalTrips' | 
+  'id' | 'verificationStatus'  | 'isActive' | 'rating' | 'totalTrips' | 
   'totalDeliveries' | 'totalEarnings' | 'language' | 'currency' | 'timezone' | 
   'notificationsEnabled' | 'paymentMethod' | 'stripeTermsAccepted' | 'stripeTermsAcceptedAt' |
   'addressLine1' | 'addressCity' | 'addressPostalCode' | 'dateOfBirth'|
@@ -86,7 +86,7 @@ class User extends Model<UserAttributes, UserCreationAttributes> implements User
   public country?: string;
   public paymentMethod!: 'manual' | 'stripe_connect';
   
-  public role!: UserRole;
+  
   public isActive!: boolean;
   public rating!: number;
   public totalTrips!: number;
@@ -253,11 +253,6 @@ User.init({
     allowNull: false,
     defaultValue: 'manual',
     field: 'paymentmethod' // AJOUTER cette ligne
-  },
-  role: {
-    type: DataTypes.ENUM('user', 'admin'),
-    allowNull: false,
-    defaultValue: UserRole.USER,
   },
   isActive: {
     type: DataTypes.BOOLEAN,
