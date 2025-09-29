@@ -7,7 +7,7 @@ const router = express.Router();
 
 // Routes publiques (AVANT adminAuth)
 router.post('/login', AdminAuthController.login);
-router.post('/create-admin', AdminAuthController.createAdmin); // NOUVELLE ROUTE
+
 
 // Routes protégées (nécessitent adminAuth)
 router.use(adminAuth);
