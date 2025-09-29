@@ -1,7 +1,6 @@
-// src/middleware/adminAuth.ts
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { User } from '../models/User';
+import { Admin } from '../models/Admin';
 
 export const adminAuth = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -12,13 +11,15 @@ export const adminAuth = async (req: Request, res: Response, next: NextFunction)
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
-    const user = await User.findByPk(decoded.userId);
     
-    if (!user || !['admin', 'super_admin'].includes(user.role)) {
+    // Chercher dans la table admins au lieu de users
+    const admin = await Admin.findByPk(decoded.adminId || decoded.userId);
+    
+    if (!admin || !admin.isActive) {
       return res.status(403).json({ error: 'Accès admin requis' });
     }
 
-    (req as any).user = user;
+    (req as any).admin = admin;
     next();
   } catch (error) {
     res.status(401).json({ error: 'Token invalide' });
