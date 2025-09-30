@@ -130,9 +130,13 @@ export class AuthController {
                      req.connection.remoteAddress || 
                      '127.0.0.1';
 
-      // Ajouter détection automatique de devise si manquante
+      // Ajouter détection automatique de devise et pays si manquante
       const detectedCurrency = await AuthController.detectCurrencyFromIP(req);
       req.body.currency = req.body.currency || detectedCurrency;
+
+      const detectedCountry = await AuthController.detectCountryFromIP(req);
+      req.body.country = req.body.country || detectedCountry;
+
 
       const result = await ExtendedRegistrationService.registerWithStripeConnect(
         req.body, 
@@ -156,6 +160,7 @@ export class AuthController {
             paymentMethod: result.user.paymentMethod
           },
           detectedCurrency: req.body.currency,
+          detectedCountry: req.body.country,
           stripeAccountCreated: result.stripeAccountCreated
         },
         userAccess,
@@ -222,6 +227,7 @@ static async registerSimple(req: Request, res: Response) {
       email,
       password, // Le hook beforeCreate va hasher
       currency: detectedCurrency,
+      country: detectedCountry,
       emailVerifiedAt: undefined,
       verificationCode,
       verificationCodeExpires: codeExpiration
