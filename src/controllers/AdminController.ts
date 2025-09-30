@@ -3,8 +3,9 @@ import { Request, Response } from 'express';
 import { User } from '../models/User';
 import { Trip } from '../models/Trip';
 import { Transaction } from '../models/Transaction';
-import { Op } from 'sequelize';
+import { Op, QueryTypes } from 'sequelize';
 import { TransactionStatus } from '../types/transaction';
+import { sequelize } from '../config/database';
 
 export class AdminController {
   static async getDashboard(req: Request, res: Response) {
@@ -303,6 +304,124 @@ static async getUserDetails(req: Request, res: Response) {
     });
   } catch (error) {
     console.error('Erreur getUserDetails:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+}
+// Statistiques wallet globales
+static async getWalletStats(req: Request, res: Response) {
+  try {
+    // Total des wallets
+    const totalWallets = await sequelize.query(
+      'SELECT COUNT(*) as count FROM wallets',
+      { type: QueryTypes.SELECT }
+    ) as any[];
+
+    // Solde total tous wallets
+    const totalBalance = await sequelize.query(
+      'SELECT SUM(balance) as total FROM wallets',
+      { type: QueryTypes.SELECT }
+    ) as any[];
+
+    // Demandes de retrait en attente (à implémenter si vous avez une table)
+    const pendingWithdrawals = 0; // Placeholder
+
+    res.json({
+      success: true,
+      data: {
+        totalWallets: totalWallets[0]?.count || 0,
+        totalBalance: totalBalance[0]?.total || 0,
+        pendingWithdrawals,
+      }
+    });
+  } catch (error) {
+    console.error('Erreur wallet stats:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+}
+
+// Liste des wallets utilisateurs DZD
+static async getDZDWallets(req: Request, res: Response) {
+  try {
+    const { page = 1, limit = 50 } = req.query;
+    const offset = (Number(page) - 1) * Number(limit);
+
+    // Utilisateurs algériens avec wallet
+    const wallets = await sequelize.query(
+      `SELECT 
+        u.id as "userId",
+        u.email,
+        u."firstName",
+        u."lastName",
+        u.country,
+        w.balance,
+        w."updatedAt" as "lastUpdate"
+      FROM users u
+      JOIN wallets w ON u.id = w."userId"
+      WHERE u.country = 'DZ' AND u."paymentMethod" != 'stripe_connect'
+      ORDER BY w.balance DESC
+      LIMIT $1 OFFSET $2`,
+      {
+        bind: [Number(limit), offset],
+        type: QueryTypes.SELECT
+      }
+    );
+
+    const countResult = await sequelize.query(
+      `SELECT COUNT(*) as count 
+       FROM users u
+       JOIN wallets w ON u.id = w."userId"
+       WHERE u.country = 'DZ'`,
+      { type: QueryTypes.SELECT }
+    ) as any[];
+
+    res.json({
+      success: true,
+      data: {
+        wallets,
+        pagination: {
+          total: countResult[0]?.count || 0,
+          page: Number(page),
+          pages: Math.ceil((countResult[0]?.count || 0) / Number(limit))
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Erreur DZD wallets:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+}
+
+// Historique wallet d'un utilisateur
+static async getUserWalletHistory(req: Request, res: Response) {
+  try {
+    const { userId } = req.params;
+
+    const history = await sequelize.query(
+      `SELECT 
+        wt.id,
+        wt.type,
+        wt.amount,
+        wt.description,
+        wt."createdAt",
+        t.id as "transactionId"
+      FROM wallet_transactions wt
+      JOIN wallets w ON wt."walletId" = w.id
+      LEFT JOIN transactions t ON wt."transactionId" = t.id
+      WHERE w."userId" = $1
+      ORDER BY wt."createdAt" DESC
+      LIMIT 50`,
+      {
+        bind: [userId],
+        type: QueryTypes.SELECT
+      }
+    );
+
+    res.json({
+      success: true,
+      data: { history }
+    });
+  } catch (error) {
+    console.error('Erreur wallet history:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
   }
 }

@@ -26,5 +26,9 @@ router.post('/support/messages/:id/reply', AdminController.replySupportMessage);
 // Routes publiques (AVANT adminAuth)
 router.post('/login', AdminAuthController.login);
 router.post('/create-admin', AdminAuthController.createAdmin); // NOUVELLE ROUTE
+// Wallet management
+router.get('/wallet/stats', AdminController.getWalletStats);
+router.get('/wallet/dzd', AdminController.getDZDWallets);
+router.get('/wallet/user/:userId/history', AdminController.getUserWalletHistory);
 
 export { router as adminRouter };
