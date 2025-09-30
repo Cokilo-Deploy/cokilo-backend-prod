@@ -343,18 +343,18 @@ static async getWalletStats(req: Request, res: Response) {
 static async getDZDWallets(req: Request, res: Response) {
   try {
     const { page = 1, limit = 50 } = req.query;
-    const offset = (Number(page) - 1) * Number(limit);
+    const pageNum = Math.max(1, Number(page)); // Force minimum à 1
+    const offset = (pageNum - 1) * Number(limit);
 
-    // Correction : user_id au lieu de userId
     const wallets = await sequelize.query(
       `SELECT 
-        u.id as "user_id",
+        u.id as "userId",
         u.email,
         u."firstName",
         u."lastName",
         u.country,
         w.balance,
-        w."updated_at" as "lastUpdate"
+        w.updated_at as "lastUpdate"
       FROM users u
       JOIN wallets w ON u.id = w.user_id
       WHERE u.country = 'DZ'
@@ -380,14 +380,14 @@ static async getDZDWallets(req: Request, res: Response) {
         wallets,
         pagination: {
           total: countResult[0]?.count || 0,
-          page: Number(page),
+          page: pageNum,
           pages: Math.ceil((countResult[0]?.count || 0) / Number(limit))
         }
       }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur DZD wallets:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    res.status(500).json({ success: false, error: error.message });
   }
 }
 
