@@ -204,7 +204,10 @@ static async registerSimple(req: Request, res: Response) {
 
     console.log('🌍 Détection IP en cours...');
     const detectedCurrency = await AuthController.detectCurrencyFromIP(req);
-    console.log('✅ IP détectée - devise:', detectedCurrency);
+        
+    const detectedCountry = await AuthController.detectCountryFromIP(req);
+    console.log('✅ IP détectée - devise:', detectedCurrency, detectedCountry);
+    
     
     console.log('🔑 Génération code de vérification...');
     const verificationCode = EmailVerificationService.generateVerificationCode();
@@ -264,7 +267,8 @@ static async registerSimple(req: Request, res: Response) {
           email: user.email,
         },
         requiresVerification: true,
-        detectedCurrency
+        detectedCurrency,
+        detectedCountry
       },
       message: 'Compte créé. Vérifiez votre email pour l\'activer.'
     });
