@@ -345,7 +345,7 @@ static async getDZDWallets(req: Request, res: Response) {
     const { page = 1, limit = 50 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
 
-    // Utilisateurs algériens avec wallet
+    // Correction : user_id au lieu de userId
     const wallets = await sequelize.query(
       `SELECT 
         u.id as "userId",
@@ -356,8 +356,8 @@ static async getDZDWallets(req: Request, res: Response) {
         w.balance,
         w."updatedAt" as "lastUpdate"
       FROM users u
-      JOIN wallets w ON u.id = w."userId"
-      WHERE u.country = 'DZ' AND u."paymentMethod" != 'stripe_connect'
+      JOIN wallets w ON u.id = w.user_id
+      WHERE u.country = 'DZ'
       ORDER BY w.balance DESC
       LIMIT $1 OFFSET $2`,
       {
@@ -369,7 +369,7 @@ static async getDZDWallets(req: Request, res: Response) {
     const countResult = await sequelize.query(
       `SELECT COUNT(*) as count 
        FROM users u
-       JOIN wallets w ON u.id = w."userId"
+       JOIN wallets w ON u.id = w.user_id
        WHERE u.country = 'DZ'`,
       { type: QueryTypes.SELECT }
     ) as any[];
