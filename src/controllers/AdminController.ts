@@ -74,7 +74,7 @@ export class AdminController {
         where: whereClause,
         limit: Number(limit),
         offset,
-        order: [['createdAt', 'DESC']],
+        order: [['created_at', 'DESC']],
         attributes: { exclude: ['password'] }
       });
 
@@ -141,7 +141,7 @@ static async getTrips(req: Request, res: Response) {
       where: whereClause,
       limit: Number(limit),
       offset,
-      order: [['createdAt', 'DESC']],
+      order: [['created_at', 'DESC']],
       include: [{
         model: User,
         as: 'traveler',
@@ -198,7 +198,7 @@ static async getTransactions(req: Request, res: Response) {
       where: whereClause,
       limit: Number(limit),
       offset,
-      order: [['createdAt', 'DESC']]
+      order: [['created_at', 'DESC']]
     });
 
     res.json({
@@ -348,13 +348,13 @@ static async getDZDWallets(req: Request, res: Response) {
     // Correction : user_id au lieu de userId
     const wallets = await sequelize.query(
       `SELECT 
-        u.id as "userId",
+        u.id as "user_id",
         u.email,
         u."firstName",
         u."lastName",
         u.country,
         w.balance,
-        w."updatedAt" as "lastUpdate"
+        w."updated_at" as "lastUpdate"
       FROM users u
       JOIN wallets w ON u.id = w.user_id
       WHERE u.country = 'DZ'
@@ -402,13 +402,13 @@ static async getUserWalletHistory(req: Request, res: Response) {
         wt.type,
         wt.amount,
         wt.description,
-        wt."createdAt",
+        wt."created_at",
         t.id as "transactionId"
       FROM wallet_transactions wt
       JOIN wallets w ON wt."walletId" = w.id
       LEFT JOIN transactions t ON wt."transactionId" = t.id
-      WHERE w."userId" = $1
-      ORDER BY wt."createdAt" DESC
+      WHERE w."user_id" = $1
+      ORDER BY wt."created_at" DESC
       LIMIT 50`,
       {
         bind: [userId],
