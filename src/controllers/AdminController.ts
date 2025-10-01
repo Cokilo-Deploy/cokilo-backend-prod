@@ -588,4 +588,36 @@ static async rejectWithdrawal(req: Request, res: Response) {
     res.status(500).json({ success: false, error: error.message });
   }
 }
+static async getUserWithdrawalRequests(req: Request, res: Response) {
+  try {
+    const { userId } = req.params;
+
+    const requests = await sequelize.query(
+      `SELECT 
+        wr.id,
+        wr.amount,
+        wr.currency,
+        wr.bank_name as "bankName",
+        wr.status,
+        wr.requested_at as "createdAt"
+      FROM withdrawal_requests wr
+      JOIN wallets w ON wr.wallet_id = w.id
+      WHERE w.user_id = $1
+      ORDER BY wr.requested_at DESC`,
+      {
+        bind: [userId],
+        type: QueryTypes.SELECT
+      }
+    );
+
+    res.json({
+      success: true,
+      data: { requests }
+    });
+
+  } catch (error: any) {
+    console.error('Erreur getUserWithdrawalRequests:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
 }

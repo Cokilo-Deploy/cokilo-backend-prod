@@ -30,6 +30,7 @@ router.post('/create-admin', AdminAuthController.createAdmin); // NOUVELLE ROUTE
 router.get('/wallet/stats', AdminController.getWalletStats);
 router.get('/wallet/dzd', AdminController.getDZDWallets);
 router.get('/wallet/user/:userId/history', AdminController.getUserWalletHistory);
+router.get('/users/:userId/withdrawals', AdminController.getUserWithdrawalRequests);
 
 
 export { router as adminRouter };
