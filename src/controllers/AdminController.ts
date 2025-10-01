@@ -288,7 +288,7 @@ static async getUserDetails(req: Request, res: Response) {
         "lastName",
         country,
         currency,
-        "paymentMethod",
+        paymentmethod,
         "verificationStatus",
         "createdAt"
       FROM users
