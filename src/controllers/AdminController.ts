@@ -277,35 +277,58 @@ static async replySupportMessage(req: Request, res: Response) {
 
 static async getUserDetails(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const { userId } = req.params;
 
-    const user = await User.findByPk(id, {
-      attributes: { exclude: ['password'] },
-      include: [
-        {
-          model: Trip,
-          as: 'trips',
-          limit: 5
-        },
-        {
-          model: Transaction,
-          as: 'sentTransactions',
-          limit: 5
-        }
-      ]
-    });
+    // Utiliser une requête SQL brute au lieu de Sequelize ORM
+    const userResult = await sequelize.query(
+      `SELECT 
+        id,
+        email,
+        "firstName",
+        "lastName",
+        country,
+        currency,
+        "paymentMethod",
+        "verificationStatus",
+        "createdAt"
+      FROM users
+      WHERE id = $1`,
+      {
+        bind: [userId],
+        type: QueryTypes.SELECT
+      }
+    );
 
-    if (!user) {
-      return res.status(404).json({ success: false, error: 'Utilisateur non trouvé' });
+    if (!userResult || userResult.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Utilisateur non trouvé'
+      });
     }
+
+    // Récupérer le solde wallet
+    const walletResult = await sequelize.query(
+      `SELECT balance FROM wallets WHERE user_id = $1`,
+      {
+        bind: [userId],
+        type: QueryTypes.SELECT
+      }
+    ) as any[];
+
+    const user = userResult[0] as any;
+    user.walletBalance = walletResult[0]?.balance || 0;
 
     res.json({
       success: true,
       data: { user }
     });
-  } catch (error) {
+
+  } catch (error: any) {
     console.error('Erreur getUserDetails:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
   }
 }
 // Statistiques wallet globales
