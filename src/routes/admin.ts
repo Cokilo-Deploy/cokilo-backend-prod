@@ -34,6 +34,8 @@ router.get('/users/:userId/withdrawals', AdminController.getUserWithdrawalReques
 router.get('/wallet/withdrawal/:withdrawalId', AdminController.getWithdrawalDetails);
 router.post('/wallet/withdrawal/:withdrawalId/approve', AdminController.approveWithdrawal);
 router.post('/wallet/withdrawal/:withdrawalId/reject', AdminController.rejectWithdrawal);
+//Delete management
+router.delete('/users/:id', AdminController.deleteUserAccount);
 
 
 export { router as adminRouter };

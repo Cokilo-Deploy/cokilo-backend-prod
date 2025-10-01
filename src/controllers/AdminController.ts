@@ -7,6 +7,13 @@ import { Op, QueryTypes } from 'sequelize';
 import { TransactionStatus } from '../types/transaction';
 import { sequelize } from '../config/database';
 import { WalletService } from '../services/walletService';
+import { Wallet } from '../models/Wallet';
+import { ChatConversation, ChatMessage } from '../models';
+import { Stripe } from 'stripe';
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: '2025-08-27.basil',
+});
 
 export class AdminController {
   static async getDashboard(req: Request, res: Response) {
@@ -618,6 +625,122 @@ static async getUserWithdrawalRequests(req: Request, res: Response) {
   } catch (error: any) {
     console.error('Erreur getUserWithdrawalRequests:', error);
     res.status(500).json({ success: false, error: error.message });
+  }
+}
+static async deleteUserAccount(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    console.log('=== SUPPRESSION ADMIN COMPTE ===');
+    console.log('User ID à supprimer:', id);
+    
+    const user = await User.findByPk(id);
+    console.log('Utilisateur trouvé:', !!user);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'Utilisateur non trouvé'
+      });
+    }
+
+    console.log('Payment method:', user.paymentMethod);
+    console.log('Stripe Connected Account:', user.stripeConnectedAccountId);
+    console.log('Stripe Customer ID:', user.stripeCustomerId);
+    console.log('Stripe Identity Session:', user.stripeIdentitySessionId);
+
+    // Expurgation Stripe centralisée
+    console.log('Expurgation Stripe...');
+    try {
+      const objectsToRedact: any = {};
+      
+      if (user.stripeCustomerId) {
+        objectsToRedact.customers = [user.stripeCustomerId];
+        console.log('Customer ajouté pour expurgation');
+      }
+      
+      if (user.stripeIdentitySessionId) {
+        try {
+          const session = await stripe.identity.verificationSessions.retrieve(user.stripeIdentitySessionId);
+          if (session.status === 'verified') {
+            objectsToRedact.identity_verification_sessions = [user.stripeIdentitySessionId];
+          } else if (session.status === 'requires_input') {
+            await stripe.identity.verificationSessions.cancel(user.stripeIdentitySessionId);
+          }
+        } catch (sessionError: any) {
+          console.log('Erreur Identity:', sessionError.message);
+        }
+      }
+
+      if (Object.keys(objectsToRedact).length > 0) {
+        const redactionJob = await (stripe as any).redactionJobs.create({
+          objects: objectsToRedact
+        });
+        console.log('RedactionJob créé:', redactionJob.id);
+      }
+    } catch (redactionError: any) {
+      console.log('Fallback méthodes individuelles:', redactionError.message);
+      
+      if (user.stripeIdentitySessionId) {
+        try {
+          const session = await stripe.identity.verificationSessions.retrieve(user.stripeIdentitySessionId);
+          if (session.status === 'verified') {
+            await stripe.identity.verificationSessions.redact(user.stripeIdentitySessionId);
+          }
+        } catch (e: any) {
+          console.log('Erreur Identity fallback:', e.message);
+        }
+      }
+      
+      if (user.stripeCustomerId) {
+        try {
+          await stripe.customers.del(user.stripeCustomerId);
+        } catch (e: any) {
+          console.log('Erreur Customer fallback:', e.message);
+        }
+      }
+    }
+
+    // Suppression Stripe Connect
+    if (user.paymentMethod === 'stripe_connect' && user.stripeConnectedAccountId) {
+      try {
+        await stripe.accounts.del(user.stripeConnectedAccountId);
+        console.log('Compte Connect supprimé');
+      } catch (e: any) {
+        console.log('Erreur Connect:', e.message);
+      }
+    }
+
+    // Suppression données application
+    console.log('Suppression données application...');
+    
+    await ChatMessage.destroy({ where: { senderId: id } });
+    await ChatConversation.destroy({
+      where: {
+        [Op.or]: [{ user1Id: id }, { user2Id: id }]
+      }
+    });
+    await Trip.destroy({ where: { travelerId: id } });
+    await Transaction.destroy({
+      where: {
+        [Op.or]: [{ senderId: id }, { travelerId: id }]
+      }
+    });
+    await Wallet.destroy({ where: { userId: id } });
+    await User.destroy({ where: { id } });
+
+    console.log('=== SUPPRESSION ADMIN RÉUSSIE ===');
+
+    res.json({
+      success: true,
+      message: 'Compte supprimé complètement (utilisateur + Stripe)'
+    });
+
+  } catch (error: any) {
+    console.error('=== ERREUR SUPPRESSION ADMIN ===', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la suppression'
+    });
   }
 }
 }
