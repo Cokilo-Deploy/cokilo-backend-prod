@@ -6,6 +6,7 @@ import { Transaction } from '../models/Transaction';
 import { Op, QueryTypes } from 'sequelize';
 import { TransactionStatus } from '../types/transaction';
 import { sequelize } from '../config/database';
+import { WalletService } from '../services/walletService';
 
 export class AdminController {
   static async getDashboard(req: Request, res: Response) {
@@ -405,7 +406,7 @@ static async getUserWalletHistory(req: Request, res: Response) {
         wt."created_at",
         t.id as "transactionId"
       FROM wallet_transactions wt
-      JOIN wallets w ON wt."walletId" = w.id
+      JOIN wallets w ON wt.wallet_id = w.id
       LEFT JOIN transactions t ON wt."transactionId" = t.id
       WHERE w."user_id" = $1
       ORDER BY wt."created_at" DESC
@@ -423,6 +424,80 @@ static async getUserWalletHistory(req: Request, res: Response) {
   } catch (error) {
     console.error('Erreur wallet history:', error);
     res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+}
+static async processWithdrawal(req: Request, res: Response) {
+  try {
+    const { userId, amount, bankName, accountNumber, accountHolder, notes } = req.body;
+
+    if (!userId || !amount || !bankName || !accountNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Données manquantes'
+      });
+    }
+
+    // Vérifier le solde disponible
+    const walletBalance = await WalletService.getWalletBalance(userId);
+    
+    if (amount > walletBalance) {
+      return res.status(400).json({
+        success: false,
+        error: 'Solde insuffisant'
+      });
+    }
+
+    // Débiter le wallet
+    const wallet = await WalletService.getOrCreateWallet(userId);
+    const transaction = await sequelize.transaction();
+
+    try {
+      // Débiter le montant
+      await sequelize.query(
+        'UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2',
+        {
+          bind: [amount, userId],
+          transaction
+        }
+      );
+
+      // Enregistrer la transaction de retrait
+      await sequelize.query(
+        `INSERT INTO wallet_transactions (wallet_id, transaction_id, type, amount, description, created_at)
+         VALUES ($1, NULL, 'debit', $2, $3, NOW())`,
+        {
+          bind: [
+            wallet.id,
+            amount,
+            `Virement bancaire vers ${bankName} - ${accountNumber} - ${accountHolder}${notes ? ' - ' + notes : ''}`
+          ],
+          transaction
+        }
+      );
+
+      await transaction.commit();
+
+      console.log(`✅ Virement traité: ${amount}€ pour user ${userId}`);
+
+      res.json({
+        success: true,
+        message: 'Virement traité avec succès',
+        data: {
+          newBalance: walletBalance - amount
+        }
+      });
+
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+
+  } catch (error: any) {
+    console.error('Erreur processWithdrawal:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Erreur lors du traitement du virement'
+    });
   }
 }
 }
