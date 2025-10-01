@@ -15,7 +15,6 @@ router.use(adminAuth);
 router.get('/profile', AdminAuthController.getProfile);
 router.get('/dashboard', AdminController.getDashboard);
 router.get('/users', AdminController.getUsers);
-router.get('/users/:id', AdminController.getUserDetails);
 router.patch('/users/:id/status', AdminController.updateUserStatus);
 router.get('/trips', AdminController.getTrips);
 router.patch('/trips/:id/status', AdminController.updateTripStatus);
@@ -23,6 +22,7 @@ router.get('/transactions', AdminController.getTransactions);
 router.patch('/transactions/:id/resolve', AdminController.resolveTransaction);
 router.get('/support/messages', AdminController.getSupportMessages);
 router.post('/support/messages/:id/reply', AdminController.replySupportMessage);
+router.get('/users/:userId', AdminController.getUserDetails);
 // Routes publiques (AVANT adminAuth)
 router.post('/login', AdminAuthController.login);
 router.post('/create-admin', AdminAuthController.createAdmin); // NOUVELLE ROUTE
