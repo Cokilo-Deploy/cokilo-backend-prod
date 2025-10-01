@@ -75,7 +75,7 @@ export class AdminController {
         where: whereClause,
         limit: Number(limit),
         offset,
-        order: [['created_at', 'DESC']],
+        order: [['createdAt', 'DESC']],
         attributes: { exclude: ['password'] }
       });
 
@@ -142,7 +142,7 @@ static async getTrips(req: Request, res: Response) {
       where: whereClause,
       limit: Number(limit),
       offset,
-      order: [['created_at', 'DESC']],
+      order: [['createdAt', 'DESC']],
       include: [{
         model: User,
         as: 'traveler',
@@ -199,7 +199,7 @@ static async getTransactions(req: Request, res: Response) {
       where: whereClause,
       limit: Number(limit),
       offset,
-      order: [['created_at', 'DESC']]
+      order: [['createdAt', 'DESC']]
     });
 
     res.json({
@@ -403,13 +403,16 @@ static async getUserWalletHistory(req: Request, res: Response) {
         wt.type,
         wt.amount,
         wt.description,
-        wt."created_at",
-        t.id as "transactionId"
+        wt.created_at as "createdAt",
+        wt.transaction_id as "transactionId",
+        wr.id as "withdrawalRequestId"
       FROM wallet_transactions wt
       JOIN wallets w ON wt.wallet_id = w.id
-      LEFT JOIN transactions t ON wt.transaction_id = t.id
-      WHERE w."user_id" = $1
-      ORDER BY wt."created_at" DESC
+      LEFT JOIN withdrawal_requests wr ON wt.wallet_id = wr.wallet_id 
+        AND wt.type = 'debit'
+        AND ABS(EXTRACT(EPOCH FROM (wt.created_at - wr.requested_at))) < 10
+      WHERE w.user_id = $1
+      ORDER BY wt.created_at DESC
       LIMIT 50`,
       {
         bind: [userId],
@@ -421,70 +424,135 @@ static async getUserWalletHistory(req: Request, res: Response) {
       success: true,
       data: { history }
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erreur wallet history:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    res.status(500).json({ success: false, error: error.message });
   }
 }
-static async processWithdrawal(req: Request, res: Response) {
+static async getWithdrawalDetails(req: Request, res: Response) {
   try {
-    const { userId, amount, bankName, accountNumber, accountHolder, notes } = req.body;
+    const { withdrawalId } = req.params;
 
-    if (!userId || !amount || !bankName || !accountNumber) {
-      return res.status(400).json({
+    const result = await sequelize.query(
+      `SELECT 
+        wr.id,
+        wr.wallet_id as "walletId",
+        wr.amount,
+        wr.currency,
+        wr.bank_account_name as "accountHolder",
+        wr.bank_account_number as "accountNumber",
+        wr.bank_name as "bankName",
+        wr.bank_code as "swiftBic",
+        wr.status,
+        wr.requested_at as "createdAt",
+        wr.notes,
+        u.id as "userId",
+        u.email as "userEmail",
+        u."firstName" || ' ' || u."lastName" as "userName"
+      FROM withdrawal_requests wr
+      JOIN wallets w ON wr.wallet_id = w.id
+      JOIN users u ON w.user_id = u.id
+      WHERE wr.id = $1`,
+      {
+        bind: [withdrawalId],
+        type: QueryTypes.SELECT
+      }
+    );
+
+    if (!result || result.length === 0) {
+      return res.status(404).json({
         success: false,
-        error: 'Données manquantes'
+        error: 'Demande non trouvée'
       });
     }
 
-    // Vérifier le solde disponible
-    const walletBalance = await WalletService.getWalletBalance(userId);
-    
-    if (amount > walletBalance) {
-      return res.status(400).json({
+    res.json({
+      success: true,
+      data: result[0]
+    });
+
+  } catch (error: any) {
+    console.error('Erreur getWithdrawalDetails:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+static async approveWithdrawal(req: Request, res: Response) {
+  try {
+    const { withdrawalId } = req.params;
+
+    await sequelize.query(
+      `UPDATE withdrawal_requests 
+       SET status = 'approved', processed_at = NOW() 
+       WHERE id = $1`,
+      { bind: [withdrawalId] }
+    );
+
+    console.log(`Demande de retrait ${withdrawalId} approuvée`);
+
+    res.json({
+      success: true,
+      message: 'Demande approuvée'
+    });
+
+  } catch (error: any) {
+    console.error('Erreur approveWithdrawal:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+static async rejectWithdrawal(req: Request, res: Response) {
+  try {
+    const { withdrawalId } = req.params;
+    const { reason } = req.body;
+
+    // Récupérer wallet_id et montant
+    const withdrawal = await sequelize.query(
+      `SELECT wallet_id, amount FROM withdrawal_requests WHERE id = $1`,
+      {
+        bind: [withdrawalId],
+        type: QueryTypes.SELECT
+      }
+    ) as any[];
+
+    if (!withdrawal || withdrawal.length === 0) {
+      return res.status(404).json({
         success: false,
-        error: 'Solde insuffisant'
+        error: 'Demande non trouvée'
       });
     }
 
-    // Débiter le wallet
-    const wallet = await WalletService.getOrCreateWallet(userId);
+    const { wallet_id, amount } = withdrawal[0];
     const transaction = await sequelize.transaction();
 
     try {
-      // Débiter le montant
+      // Recréditer le wallet
       await sequelize.query(
-        'UPDATE wallets SET balance = balance - $1, updated_at = NOW() WHERE user_id = $2',
+        'UPDATE wallets SET balance = balance + $1 WHERE id = $2',
         {
-          bind: [amount, userId],
+          bind: [amount, wallet_id],
           transaction
         }
       );
 
-      // Enregistrer la transaction de retrait
+      // Marquer comme rejetée
       await sequelize.query(
-        `INSERT INTO wallet_transactions (wallet_id, transaction_id, type, amount, description, created_at)
-         VALUES ($1, NULL, 'debit', $2, $3, NOW())`,
+        `UPDATE withdrawal_requests 
+         SET status = 'rejected', 
+             processed_at = NOW(), 
+             notes = COALESCE(notes || E'\\n', '') || $1 
+         WHERE id = $2`,
         {
-          bind: [
-            wallet.id,
-            amount,
-            `Virement bancaire vers ${bankName} - ${accountNumber} - ${accountHolder}${notes ? ' - ' + notes : ''}`
-          ],
+          bind: [`Rejet: ${reason}`, withdrawalId],
           transaction
         }
       );
 
       await transaction.commit();
-
-      console.log(`✅ Virement traité: ${amount}€ pour user ${userId}`);
+      
+      console.log(`Demande ${withdrawalId} rejetée et montant recrédité`);
 
       res.json({
         success: true,
-        message: 'Virement traité avec succès',
-        data: {
-          newBalance: walletBalance - amount
-        }
+        message: 'Demande rejetée et montant recrédité'
       });
 
     } catch (error) {
@@ -493,11 +561,8 @@ static async processWithdrawal(req: Request, res: Response) {
     }
 
   } catch (error: any) {
-    console.error('Erreur processWithdrawal:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Erreur lors du traitement du virement'
-    });
+    console.error('Erreur rejectWithdrawal:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 }
 }
