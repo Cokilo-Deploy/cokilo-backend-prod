@@ -407,7 +407,7 @@ static async getUserWalletHistory(req: Request, res: Response) {
         t.id as "transactionId"
       FROM wallet_transactions wt
       JOIN wallets w ON wt.wallet_id = w.id
-      LEFT JOIN transactions t ON wt."transactionId" = t.id
+      LEFT JOIN transactions t ON wt.transaction_id = t.id
       WHERE w."user_id" = $1
       ORDER BY wt."created_at" DESC
       LIMIT 50`,
