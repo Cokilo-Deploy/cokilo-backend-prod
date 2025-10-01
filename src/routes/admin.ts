@@ -32,6 +32,8 @@ router.get('/wallet/dzd', AdminController.getDZDWallets);
 router.get('/wallet/user/:userId/history', AdminController.getUserWalletHistory);
 router.get('/users/:userId/withdrawals', AdminController.getUserWithdrawalRequests);
 router.get('/wallet/withdrawal/:withdrawalId', AdminController.getWithdrawalDetails);
+router.post('/wallet/withdrawal/:withdrawalId/approve', AdminController.approveWithdrawal);
+router.post('/wallet/withdrawal/:withdrawalId/reject', AdminController.rejectWithdrawal);
 
 
 export { router as adminRouter };
