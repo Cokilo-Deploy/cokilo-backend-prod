@@ -17,47 +17,69 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
 
 export class AdminController {
   static async getDashboard(req: Request, res: Response) {
-    try {
-      // Statistiques de base
-      const totalUsers = await User.count();
-      const activeUsers = await User.count({
-        where: { 
-          lastLoginAt: { [Op.gte]: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
-        }
-      });
-      
-      const totalTrips = await Trip.count();
-      const activeTrips = await Trip.count({
-        where: { status: 'published' }
-      });
-      
-      const totalTransactions = await Transaction.count();
-      const pendingTransactions = await Transaction.count({
-        where: { status: TransactionStatus.PAYMENT_PENDING }
-      });
+  try {
+    // Statistiques de base
+    const totalUsers = await User.count();
+    const activeUsers = await User.count({
+      where: { 
+        lastLoginAt: { [Op.gte]: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+      }
+    });
+    
+    const totalTrips = await Trip.count();
+    const activeTrips = await Trip.count({
+      where: { status: 'published' }
+    });
+    
+    const totalTransactions = await Transaction.count();
+    const pendingTransactions = await Transaction.count({
+      where: { status: TransactionStatus.PAYMENT_PENDING }
+    });
 
-      // Revenus du mois
-      const monthlyRevenue = await Transaction.sum('amount', {
-        where: {
-          status: TransactionStatus.PAYMENT_RELEASED,
-          createdAt: { [Op.gte]: new Date(new Date().getFullYear(), new Date().getMonth(), 1) }
-        }
-      });
+    // NOUVEAU - Revenus totaux (serviceFee uniquement)
+    const revenueResult = await sequelize.query(
+      `SELECT 
+        SUM("serviceFee") as "totalRevenue",
+        COUNT(*) as "completedTransactions"
+      FROM transactions 
+      WHERE status IN ('payment_released', 'delivered')
+      AND "serviceFee" IS NOT NULL`,
+      { type: QueryTypes.SELECT }
+    ) as any[];
 
-      res.json({
-        success: true,
-        data: {
-          users: { total: totalUsers, active: activeUsers },
-          trips: { total: totalTrips, active: activeTrips },
-          transactions: { total: totalTransactions, pending: pendingTransactions },
-          revenue: { monthly: monthlyRevenue || 0 }
-        }
-      });
-    } catch (error) {
-      console.error('Erreur dashboard admin:', error);
-      res.status(500).json({ success: false, error: 'Erreur serveur' });
-    }
+    const totalRevenue = Number(revenueResult[0]?.totalRevenue || 0);
+    const completedTransactions = Number(revenueResult[0]?.completedTransactions || 0);
+
+    // Revenus du mois en cours
+    const monthRevenueResult = await sequelize.query(
+      `SELECT SUM("serviceFee") as "monthlyRevenue"
+      FROM transactions 
+      WHERE status IN ('payment_released', 'delivered')
+      AND "serviceFee" IS NOT NULL
+      AND "createdAt" >= DATE_TRUNC('month', CURRENT_DATE)`,
+      { type: QueryTypes.SELECT }
+    ) as any[];
+
+    const monthlyRevenue = Number(monthRevenueResult[0]?.monthlyRevenue || 0);
+
+    res.json({
+      success: true,
+      data: {
+        users: { total: totalUsers, active: activeUsers },
+        trips: { total: totalTrips, active: activeTrips },
+        transactions: { total: totalTransactions, pending: pendingTransactions },
+        revenue: {
+          total: totalRevenue,
+          completedTransactions
+        },
+        monthlyRevenue
+      }
+    });
+  } catch (error) {
+    console.error('Erreur dashboard admin:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
   }
+}
 
   static async getUsers(req: Request, res: Response) {
     try {
