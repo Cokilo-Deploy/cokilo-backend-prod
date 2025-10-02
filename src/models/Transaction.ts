@@ -358,7 +358,7 @@ travelerReviewed: {
       }
       
       if (!transaction.serviceFee) {
-        transaction.serviceFee = parseFloat((transaction.amount * 0.10).toFixed(2));
+        transaction.serviceFee = parseFloat((transaction.amount * 0.30).toFixed(2));
       }
       
       if (!transaction.travelerAmount) {

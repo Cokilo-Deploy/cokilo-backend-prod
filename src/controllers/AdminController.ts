@@ -757,4 +757,70 @@ await User.destroy({ where: { id } });
     });
   }
 }
+static async getStats(req: Request, res: Response) {
+  try {
+    // Utilisateurs
+    const usersCount = await User.count();
+    const activeUsers = await User.count({ where: { isActive: true } });
+    
+    // Voyages
+    const tripsCount = await Trip.count();
+    const activeTrips = await Trip.count({ 
+      where: { 
+        status: 'active',
+        departureDate: { [Op.gte]: new Date() }
+      }
+    });
+
+    // Transactions
+    const transactionsCount = await Transaction.count();
+    const pendingTransactions = await Transaction.count({ 
+      where: { status: 'payment_pending' }
+    });
+
+    // Revenus totaux
+    const revenueResult = await sequelize.query(
+      `SELECT 
+        SUM("serviceFee") as "totalRevenue",
+        COUNT(*) as "completedTransactions"
+      FROM transactions 
+      WHERE status IN ('payment_released', 'delivered')
+      AND "serviceFee" IS NOT NULL`,
+      { type: QueryTypes.SELECT }
+    ) as any[];
+
+    const totalRevenue = Number(revenueResult[0]?.totalRevenue || 0);
+    const completedTransactions = Number(revenueResult[0]?.completedTransactions || 0);
+
+    // Revenus du mois en cours
+    const monthRevenueResult = await sequelize.query(
+      `SELECT SUM("serviceFee") as "monthlyRevenue"
+      FROM transactions 
+      WHERE status IN ('payment_released', 'delivered')
+      AND "serviceFee" IS NOT NULL
+      AND "createdAt" >= DATE_TRUNC('month', CURRENT_DATE)`,
+      { type: QueryTypes.SELECT }
+    ) as any[];
+
+    const monthlyRevenue = Number(monthRevenueResult[0]?.monthlyRevenue || 0);
+
+    res.json({
+      success: true,
+      data: {
+        users: { total: usersCount, active: activeUsers },
+        trips: { total: tripsCount, active: activeTrips },
+        transactions: { total: transactionsCount, pending: pendingTransactions },
+        revenue: {
+          total: totalRevenue,
+          completedTransactions
+        },
+        monthlyRevenue
+      }
+    });
+
+  } catch (error) {
+    console.error('Erreur getStats:', error);
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
+  }
+}
 }
