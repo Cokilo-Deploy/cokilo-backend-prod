@@ -216,29 +216,47 @@ static async updateTripStatus(req: Request, res: Response) {
 
 static async getTransactions(req: Request, res: Response) {
   try {
-    const { page = 1, limit = 50, status } = req.query;
+    const { page = 1, limit = 50 } = req.query;
     const offset = (Number(page) - 1) * Number(limit);
 
-    const whereClause: any = {};
-    if (status) {
-      whereClause.status = status;
-    }
+    const transactions = await sequelize.query(
+      `SELECT 
+        t.id,
+        t.amount,
+        t."serviceFee",
+        t.status,
+        t."statusHistory",
+        t."packageDescription",
+        t."createdAt",
+        t."pickedUpAt",
+        t."deliveredAt",
+        t."paymentReleasedAt",
+        sender."firstName" || ' ' || sender."lastName" as "senderName",
+        traveler."firstName" || ' ' || traveler."lastName" as "travelerName"
+      FROM transactions t
+      JOIN users sender ON t."senderId" = sender.id
+      JOIN users traveler ON t."travelerId" = traveler.id
+      ORDER BY t."createdAt" DESC
+      LIMIT $1 OFFSET $2`,
+      {
+        bind: [Number(limit), offset],
+        type: QueryTypes.SELECT
+      }
+    );
 
-    const transactions = await Transaction.findAndCountAll({
-      where: whereClause,
-      limit: Number(limit),
-      offset,
-      order: [['createdAt', 'DESC']]
-    });
+    const countResult = await sequelize.query(
+      'SELECT COUNT(*) as count FROM transactions',
+      { type: QueryTypes.SELECT }
+    ) as any[];
 
     res.json({
       success: true,
       data: {
-        transactions: transactions.rows,
+        transactions,
         pagination: {
-          total: transactions.count,
+          total: countResult[0]?.count || 0,
           page: Number(page),
-          pages: Math.ceil(transactions.count / Number(limit))
+          pages: Math.ceil((countResult[0]?.count || 0) / Number(limit))
         }
       }
     });
