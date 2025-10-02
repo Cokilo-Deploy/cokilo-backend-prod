@@ -788,8 +788,10 @@ static async getStats(req: Request, res: Response) {
       AND "serviceFee" IS NOT NULL`,
       { type: QueryTypes.SELECT }
     ) as any[];
+    console.log('Revenue result:', revenueResult);
 
     const totalRevenue = Number(revenueResult[0]?.totalRevenue || 0);
+    console.log('Total revenue:', totalRevenue);
     const completedTransactions = Number(revenueResult[0]?.completedTransactions || 0);
 
     // Revenus du mois en cours
@@ -803,6 +805,7 @@ static async getStats(req: Request, res: Response) {
     ) as any[];
 
     const monthlyRevenue = Number(monthRevenueResult[0]?.monthlyRevenue || 0);
+    console.log('Monthly revenue:', monthlyRevenue);
 
     res.json({
       success: true,
