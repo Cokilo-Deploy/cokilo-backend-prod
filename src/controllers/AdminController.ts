@@ -42,7 +42,7 @@ export class AdminController {
         SUM("serviceFee") as "totalRevenue",
         COUNT(*) as "completedTransactions"
       FROM transactions 
-      WHERE status IN ('payment_released', 'delivered')
+      WHERE status = 'payment_released'
       AND "serviceFee" IS NOT NULL`,
       { type: QueryTypes.SELECT }
     ) as any[];
@@ -54,7 +54,7 @@ export class AdminController {
     const monthRevenueResult = await sequelize.query(
       `SELECT SUM("serviceFee") as "monthlyRevenue"
       FROM transactions 
-      WHERE status IN ('payment_released', 'delivered')
+      WHERE status = 'payment_released'
       AND "serviceFee" IS NOT NULL
       AND "createdAt" >= DATE_TRUNC('month', CURRENT_DATE)`,
       { type: QueryTypes.SELECT }
