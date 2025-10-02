@@ -394,7 +394,10 @@ static async getWalletStats(req: Request, res: Response) {
     ) as any[];
 
     // Demandes de retrait en attente (à implémenter si vous avez une table)
-    const pendingWithdrawals = 0; // Placeholder
+    const pendingWithdrawals = await sequelize.query(
+      `SELECT COUNT(*) as count FROM withdrawal_requests WHERE status = 'pending'`,
+      { type: QueryTypes.SELECT }
+    ) as any[];
 
     res.json({
       success: true,
