@@ -711,22 +711,36 @@ static async deleteUserAccount(req: Request, res: Response) {
     }
 
     // Suppression données application
-    console.log('Suppression données application...');
-    
-    await ChatMessage.destroy({ where: { senderId: id } });
-    await ChatConversation.destroy({
-      where: {
-        [Op.or]: [{ user1Id: id }, { user2Id: id }]
-      }
-    });
-    await Trip.destroy({ where: { travelerId: id } });
-    await Transaction.destroy({
-      where: {
-        [Op.or]: [{ senderId: id }, { travelerId: id }]
-      }
-    });
-    await Wallet.destroy({ where: { userId: id } });
-    await User.destroy({ where: { id } });
+   console.log('Suppression données application...');
+
+// ORDRE IMPORTANT : supprimer d'abord les enfants, puis les parents
+await ChatMessage.destroy({ where: { senderId: id } });
+await ChatMessage.destroy({
+  where: {
+    conversationId: {
+      [Op.in]: await ChatConversation.findAll({
+        where: {
+          [Op.or]: [{ user1Id: id }, { user2Id: id }]
+        },
+        attributes: ['id']
+      }).then(convs => convs.map(c => c.id))
+    }
+  }
+});
+await ChatConversation.destroy({
+  where: {
+    [Op.or]: [{ user1Id: id }, { user2Id: id }]
+  }
+});
+
+await Transaction.destroy({
+  where: {
+    [Op.or]: [{ senderId: id }, { travelerId: id }]
+  }
+});
+await Trip.destroy({ where: { travelerId: id } });
+await Wallet.destroy({ where: { userId: id } });
+await User.destroy({ where: { id } });
 
     console.log('=== SUPPRESSION ADMIN RÉUSSIE ===');
 
