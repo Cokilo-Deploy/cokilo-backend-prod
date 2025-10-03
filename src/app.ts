@@ -32,7 +32,7 @@ const PORT = parseInt(process.env.PORT || '8080', 10);
 
 // Configuration CORS
 const corsOptions = {
-  origin: ['http://localhost:3000', 'https://admin.cokilo.com'],
+  origin: ['http://localhost:3000', 'https://admin.cokilo.com','https://cokilo.com','http://cokilo.com'],
   credentials: true,
 };
 
