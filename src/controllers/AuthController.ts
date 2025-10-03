@@ -114,6 +114,114 @@ export class AuthController {
     }
   }
 
+  // NOUVELLE MÉTHODE - Validation directe avec création du compte Connect
+private static async createAndValidateStripeConnect(data: any, userIp: string): Promise<{
+  success: boolean, 
+  errors: string[], 
+  accountId?: string
+}> {
+  const errors: string[] = [];
+  
+  try {
+    console.log('🔍 Création + Validation Stripe Connect...');
+    console.log('📍 Données:', {
+      country: data.country,
+      postalCode: data.postalCode,
+      phone: data.phone,
+      city: data.city
+    });
+    
+    // Préparer date de naissance
+    const dobParts = data.dateOfBirth.split('-');
+    
+    // Préparer l'adresse
+    const address: any = {
+      line1: data.addressLine1,
+      city: data.city,
+      postal_code: data.postalCode,
+      country: data.country,
+    };
+    
+    if (data.addressLine2) {
+      address.line2 = data.addressLine2;
+    }
+    
+    // État requis pour US, CA, AU
+    if (['US', 'CA', 'AU'].includes(data.country) && data.state) {
+      address.state = data.state;
+    }
+    
+    // Créer le compte Connect RÉEL
+    const account = await stripe.accounts.create({
+      type: 'express',
+      country: data.country,
+      email: data.email,
+      capabilities: {
+        card_payments: { requested: true },
+        transfers: { requested: true },
+      },
+      business_type: 'individual',
+      individual: {
+        first_name: data.firstName,
+        last_name: data.lastName,
+        email: data.email,
+        phone: data.phone,
+        dob: {
+          day: parseInt(dobParts[2]),
+          month: parseInt(dobParts[1]),
+          year: parseInt(dobParts[0]),
+        },
+        address: address,
+      },
+      tos_acceptance: {
+        date: Math.floor(Date.now() / 1000),
+        ip: userIp,
+      },
+    });
+
+    console.log('✅ Compte Stripe Connect créé:', account.id);
+    
+    return { 
+      success: true, 
+      errors: [],
+      accountId: account.id
+    };
+
+  } catch (error: any) {
+    console.error('❌ Création Stripe Connect échouée:', error);
+    console.error('Type erreur:', error.type);
+    console.error('Param:', error.param);
+    console.error('Message:', error.message);
+    
+    // Parser les erreurs Stripe pour messages clairs
+    if (error.type === 'StripeInvalidRequestError') {
+      const param = error.param || '';
+      
+      if (param.includes('postal_code')) {
+        errors.push(`Code postal invalide pour ${data.country}. Ce code postal n'existe pas dans notre base.`);
+      } else if (param.includes('phone')) {
+        errors.push(`Numéro de téléphone invalide. Vérifiez le format (ex: +33 6 XX XX XX XX pour France).`);
+      } else if (param.includes('address.city')) {
+        errors.push(`Ville invalide ou ne correspond pas au code postal.`);
+      } else if (param.includes('address')) {
+        errors.push(`Adresse invalide. Vérifiez que la ville et le code postal correspondent.`);
+      } else if (param.includes('dob')) {
+        errors.push(`Date de naissance invalide.`);
+      } else if (param.includes('state')) {
+        errors.push(`État/Province manquant. Requis pour ${data.country}.`);
+      } else if (param.includes('first_name') || param.includes('last_name')) {
+        errors.push(`Nom ou prénom invalide.`);
+      } else {
+        errors.push(error.message || 'Données invalides pour Stripe');
+      }
+    } else {
+      errors.push('Erreur lors de la création du compte de paiement.');
+    }
+    
+    return { success: false, errors };
+  }
+}
+
   static async register(req: Request, res: Response) {
     try {
       // Si c'est l'ancien format (sans champs étendus), utiliser l'ancienne méthode
@@ -168,12 +276,35 @@ export class AuthController {
       });
 
     } catch (error: any) {
-      console.error('Erreur inscription:', error);
-      res.status(400).json({
-        success: false,
-        error: error.message || 'Erreur lors de l\'inscription'
-      });
-    }
+  console.error('Erreur inscription:', error);
+  
+  // Parser les erreurs pour le frontend
+  let errorMessage = 'Erreur lors de l\'inscription';
+  let fieldErrors: any = {};
+  
+  const errorText = error.message || '';
+  
+  if (errorText.includes('postal') || errorText.includes('Code postal')) {
+    fieldErrors.postalCode = 'Code postal invalide ou inexistant';
+    errorMessage = 'Code postal invalide pour ce pays';
+  } else if (errorText.includes('phone') || errorText.includes('téléphone')) {
+    fieldErrors.phone = 'Numéro invalide';
+    errorMessage = 'Numéro de téléphone invalide';
+  } else if (errorText.includes('address') || errorText.includes('Adresse')) {
+    fieldErrors.address = 'Adresse invalide';
+    errorMessage = 'L\'adresse ne correspond pas au code postal';
+  } else if (errorText.includes('state') || errorText.includes('État')) {
+    fieldErrors.state = 'État/Province requis';
+    errorMessage = 'État ou province requis pour ce pays';
+  }
+  
+  res.status(400).json({
+    success: false,
+    error: errorMessage,
+    fieldErrors: fieldErrors,
+    details: error.message
+  });
+}
   }
 
   // Méthode pour l'ancien format d'inscription (rétrocompatibilité)

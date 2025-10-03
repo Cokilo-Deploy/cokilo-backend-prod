@@ -1,67 +1,151 @@
-import { User } from '../models/User';
+//src/services/ExtendedRegistrationService.ts
+import { User, UserVerificationStatus } from '../models/User';
 import { StripeConnectService } from './StripeConnectService';
 import jwt from 'jsonwebtoken';
+import { AuthController } from '../controllers/AuthController';
 
 export class ExtendedRegistrationService {
   
   static async registerWithStripeConnect(userData: any, userIp: string) {
-    const {
-      email, password, firstName, lastName, phone,
-      country, dateOfBirth, addressLine1, addressCity, addressPostalCode,
-      acceptCokiloTerms, acceptStripeTerms
-    } = userData;
+  const {
+    email, password, firstName, lastName, phone,
+    country, dateOfBirth, addressLine1, addressLine2, city, postalCode, state,
+    currency, acceptStripeTerms
+  } = userData;
 
-    // Validation des consentements
-    if (!acceptCokiloTerms) {
-      throw new Error('Vous devez accepter les conditions générales de CoKilo');
+  console.log('🔄 Début registerWithStripeConnect');
+  console.log('📍 Country:', country);
+  console.log('💰 Currency:', currency);
+
+  let stripeConnectedAccountId = null;
+  let stripeAccountCreated = false;
+
+  try {
+    // ÉTAPE 1: Création Stripe Connect AVANT tout (pour non-DZ)
+    if (country !== 'DZ' && acceptStripeTerms) {
+      console.log('🏦 ÉTAPE 1: Création Stripe Connect (validation incluse)...');
+      
+      // Appeler la nouvelle méthode de validation/création
+      const stripeResult = await AuthController['createAndValidateStripeConnect'](userData, userIp);
+      
+      if (!stripeResult.success) {
+        // Bloquer l'inscription si Stripe refuse
+        const errorMessage = stripeResult.errors.join(' | ');
+        console.error('❌ Stripe Connect échoué:', errorMessage);
+        throw new Error(errorMessage);
+      }
+      
+      // ✅ Compte Connect créé avec succès
+      stripeConnectedAccountId = stripeResult.accountId!;
+      stripeAccountCreated = true;
+      
+      console.log('✅ Stripe Connect OK:', stripeConnectedAccountId);
+    } else if (country === 'DZ') {
+      console.log('🇩🇿 Utilisateur DZ - pas de Stripe Connect, utilisation wallet');
     }
 
-    const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
-    const isEuropeanUser = euCountries.includes(country);
-
-    if (isEuropeanUser) {
-      if (!acceptStripeTerms) {
-        throw new Error('Vous devez accepter les conditions de service Stripe pour recevoir vos paiements');
-      }
-
-      if (!dateOfBirth || !addressLine1 || !addressCity || !addressPostalCode) {
-        throw new Error('Adresse complète et date de naissance requises pour les utilisateurs européens');
-      }
-    }
-
-    // Créer l'utilisateur
+    // ÉTAPE 2: Créer l'utilisateur en BDD
+    console.log('👤 ÉTAPE 2: Création utilisateur en BDD...');
     const user = await User.create({
-      email, password, firstName, lastName, phone,
-      country,
+      firstName,
+      lastName,
+      email,
+      password,
+      phone,
+      currency: currency || 'EUR',
+      country: country,
+      paymentMethod: country === 'DZ' ? 'manual' : 'stripe_connect',
+      stripeConnectedAccountId: stripeConnectedAccountId || undefined,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined,
-      addressLine1, addressCity, addressPostalCode,
+      addressLine1: addressLine1,
+      addressCity: city,
+      addressPostalCode: postalCode,
+      verificationStatus: UserVerificationStatus.UNVERIFIED,
       stripeTermsAccepted: acceptStripeTerms || false,
       stripeTermsAcceptedAt: acceptStripeTerms ? new Date() : undefined,
-      paymentMethod: isEuropeanUser ? 'stripe_connect' : 'manual'
     });
 
-    // Créer automatiquement le Connected Account pour les européens
-    let stripeAccountCreated = false;
-    if (isEuropeanUser && acceptStripeTerms) {
+    console.log('✅ Utilisateur créé avec ID:', user.id);
+
+    // ÉTAPE 3: Stripe Identity EN DERNIER (non bloquant)
+    if (country !== 'DZ' && stripeConnectedAccountId) {
+      console.log('🔐 ÉTAPE 3: Création session Stripe Identity...');
       try {
-        await StripeConnectService.createConnectedAccountWithUserData(user.id, userIp);
-        stripeAccountCreated = true;
-        console.log(`Connected Account créé automatiquement pour user ${user.id}`);
-      } catch (error) {
-        console.error('Erreur création Connected Account:', error);
-        // L'inscription continue même si Connect échoue
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        
+        const verificationSession = await stripe.identity.verificationSessions.create({
+          type: 'document',
+          metadata: {
+            user_id: user.id.toString(),
+            connected_account_id: stripeConnectedAccountId,
+          },
+          options: {
+            document: {
+              allowed_types: ['driving_license', 'passport', 'id_card'],
+              require_live_capture: true,
+              require_matching_selfie: true,
+            },
+          },
+        });
+
+        await user.update({
+          stripeIdentitySessionId: verificationSession.id,
+         
+        });
+
+        console.log('✅ Session Identity créée:', verificationSession.id);
+      } catch (identityError: any) {
+        console.error('⚠️ Identity échouée (non bloquant car Connect OK):', identityError.message);
+        // L'utilisateur pourra relancer Identity plus tard
+      }
+    }
+
+    // ÉTAPE 4: Créer wallet pour DZ
+    if (country === 'DZ') {
+      try {
+        const { Wallet } = require('../models/Wallet');
+        await Wallet.create({
+          userId: user.id,
+          balance: 0,
+          currency: 'DZD',
+        });
+        console.log('✅ Wallet DZD créé pour utilisateur');
+      } catch (walletError: any) {
+        console.error('⚠️ Erreur création wallet:', walletError.message);
       }
     }
 
     // Générer le token
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET!, { expiresIn: '7d' });
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      process.env.JWT_SECRET!,
+      { expiresIn: '7d' }
+    );
+
+    console.log('✅ Inscription étendue réussie');
 
     return {
-  token,
-  user: user, // Retourner l'objet User complet au lieu d'un objet partiel
-  stripeAccountCreated,
-  needsStripeOnboarding: isEuropeanUser && !stripeAccountCreated
-};
+      token,
+      user: user,
+      stripeAccountCreated,
+    };
+
+  } catch (error: any) {
+    console.error('💥 Erreur inscription étendue:', error);
     
+    // NETTOYAGE: Supprimer le compte Stripe si créé mais erreur après
+    if (stripeConnectedAccountId) {
+      console.log('🗑️ Nettoyage: suppression compte Stripe...');
+      try {
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        await stripe.accounts.del(stripeConnectedAccountId);
+        console.log('✅ Compte Stripe supprimé');
+      } catch (cleanupError: any) {
+        console.error('⚠️ Erreur nettoyage Stripe:', cleanupError.message);
+      }
+    }
+    
+    throw error;
   }
+}
 }
