@@ -551,12 +551,22 @@ if (verificationSession.last_verification_report) {
 
   static async submitStripeData(req: Request, res: Response) {
   try {
+    
     const user = (req as any).user;
     const { 
       dateOfBirth, addressLine1, addressLine2, 
       addressCity, addressPostalCode, acceptStripeTerms, 
       phone, state 
     } = req.body;
+    
+    console.log('📋 Données reçues pour validation:', {
+  phone: req.body.phone,
+  addressPostalCode: req.body.addressPostalCode,
+  addressCity: req.body.addressCity,
+  country: user.country
+});
+
+// Avant l'appel à createConnectedAccountWithUserData
 
     // Validation des champs requis
     if (!dateOfBirth || !addressLine1 || !addressCity || !addressPostalCode || !acceptStripeTerms || !phone) {
