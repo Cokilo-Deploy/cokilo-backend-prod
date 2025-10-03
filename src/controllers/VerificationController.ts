@@ -558,7 +558,7 @@ if (verificationSession.last_verification_report) {
       addressCity, addressPostalCode, acceptStripeTerms, 
       phone, state 
     } = req.body;
-
+    
     console.log('📋 Données reçues pour validation:', {
   phone: req.body.phone,
   addressPostalCode: req.body.addressPostalCode,
@@ -593,11 +593,91 @@ if (verificationSession.last_verification_report) {
     const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
     const isEuropeanUser = euCountries.includes(user.country || 'FR');
 
+    // Dans submitStripeData, AVANT l'appel à createConnectedAccountWithUserData
+
+// Validation indicatif pays (UE + Algérie)
+const phoneCountryCode = req.body.phone.substring(0, 3); // +33, +34, etc.
+
+const countryPhonePrefixes: { [key: string]: string[] } = {
+  // Pays de l'Union Européenne
+  'AT': ['+43'],   // Autriche
+  'BE': ['+32'],   // Belgique
+  'BG': ['+359'],  // Bulgarie
+  'HR': ['+385'],  // Croatie
+  'CY': ['+357'],  // Chypre
+  'CZ': ['+420'],  // République Tchèque
+  'DK': ['+45'],   // Danemark
+  'EE': ['+372'],  // Estonie
+  'FI': ['+358'],  // Finlande
+  'FR': ['+33'],   // France
+  'DE': ['+49'],   // Allemagne
+  'GR': ['+30'],   // Grèce
+  'HU': ['+36'],   // Hongrie
+  'IE': ['+353'],  // Irlande
+  'IT': ['+39'],   // Italie
+  'LV': ['+371'],  // Lettonie
+  'LT': ['+370'],  // Lituanie
+  'LU': ['+352'],  // Luxembourg
+  'MT': ['+356'],  // Malte
+  'NL': ['+31'],   // Pays-Bas
+  'PL': ['+48'],   // Pologne
+  'PT': ['+351'],  // Portugal
+  'RO': ['+40'],   // Roumanie
+  'SK': ['+421'],  // Slovaquie
+  'SI': ['+386'],  // Slovénie
+  'ES': ['+34'],   // Espagne
+  'SE': ['+46'],   // Suède
+  
+  // Algérie
+  'DZ': ['+213'],  // Algérie
+  
+  // Autres pays si nécessaire
+  'CH': ['+41'],   // Suisse
+  'GB': ['+44'],   // Royaume-Uni
+  'NO': ['+47'],   // Norvège
+  'US': ['+1'],    // États-Unis
+  'CA': ['+1'],    // Canada
+  'MA': ['+212'],  // Maroc
+  'TN': ['+216'],  // Tunisie
+};
+
+const validPrefixes = countryPhonePrefixes[user.country || 'FR'];
+if (validPrefixes && !validPrefixes.some(prefix => req.body.phone.startsWith(prefix))) {
+  const expectedPrefix = validPrefixes.join(' ou ');
+  
+  console.log('❌ Indicatif incorrect:', req.body.phone, 'pour pays:', user.country);
+  
+  // Nettoyer les données invalides
+  await user.update({
+    dateOfBirth: undefined,
+    addressLine1: undefined,
+    addressLine2: undefined,
+    addressCity: undefined,
+    addressPostalCode: undefined,
+    phone: undefined,
+    stripeTermsAccepted: false,
+    stripeTermsAcceptedAt: undefined
+  });
+  
+  return res.status(400).json({
+    success: false,
+    error: `Numéro de téléphone invalide pour ${user.country}. Utilisez un numéro commençant par ${expectedPrefix}.`,
+    fieldErrors: {
+      phone: 'Indicatif pays incorrect'
+    },
+    helpText: `Le numéro doit commencer par ${expectedPrefix} car votre pays est ${user.country}.`
+  });
+}
+
+console.log('✅ Indicatif téléphonique valide pour', user.country);
+
+
     if (isEuropeanUser) {
       console.log('🏦 Validation + Création Stripe Connect...');
       
       try {
         // Créer le compte Connect (cela va valider les données)
+        
         const connectAccountId = await StripeConnectService.createConnectedAccountWithUserData(
           user.id,
           req.ip || '127.0.0.1'
@@ -675,15 +755,11 @@ if (verificationSession.last_verification_report) {
     }
 
   } catch (error: any) {
-  console.error('❌ Erreur sauvegarde données:', error);
-  console.error('Type erreur:', error.name);
-  console.error('Message:', error.message);
-  
-  res.status(500).json({
-    success: false,
-    error: 'Une erreur est survenue. Veuillez réessayer ou contacter le support.',
-    details: error.message
-  });
-}
+    console.error('❌ Erreur sauvegarde données:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la sauvegarde'
+    });
+  }
 }
 }
