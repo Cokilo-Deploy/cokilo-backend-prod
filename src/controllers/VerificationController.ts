@@ -558,7 +558,7 @@ if (verificationSession.last_verification_report) {
       addressCity, addressPostalCode, acceptStripeTerms, 
       phone, state 
     } = req.body;
-    
+
     console.log('📋 Données reçues pour validation:', {
   phone: req.body.phone,
   addressPostalCode: req.body.addressPostalCode,
@@ -675,11 +675,15 @@ if (verificationSession.last_verification_report) {
     }
 
   } catch (error: any) {
-    console.error('❌ Erreur sauvegarde données:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erreur lors de la sauvegarde'
-    });
-  }
+  console.error('❌ Erreur sauvegarde données:', error);
+  console.error('Type erreur:', error.name);
+  console.error('Message:', error.message);
+  
+  res.status(500).json({
+    success: false,
+    error: 'Une erreur est survenue. Veuillez réessayer ou contacter le support.',
+    details: error.message
+  });
+}
 }
 }
