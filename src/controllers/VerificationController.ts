@@ -549,9 +549,8 @@ if (verificationSession.last_verification_report) {
     }
   }
 
-  static async submitStripeData(req: Request, res: Response) {
+ static async submitStripeData(req: Request, res: Response) {
   try {
-    
     const user = (req as any).user;
     const { 
       dateOfBirth, addressLine1, addressLine2, 
@@ -560,15 +559,15 @@ if (verificationSession.last_verification_report) {
     } = req.body;
     
     console.log('📋 Données reçues pour validation:', {
-  phone: req.body.phone,
-  addressPostalCode: req.body.addressPostalCode,
-  addressCity: req.body.addressCity,
-  country: user.country
-});
+      phone: req.body.phone,
+      addressPostalCode: req.body.addressPostalCode,
+      addressCity: req.body.addressCity,
+      country: user.country
+    });
 
-// Avant l'appel à createConnectedAccountWithUserData
-
-    // Validation des champs requis
+    // ==========================================
+    // ÉTAPE 1 : VALIDATION DES CHAMPS REQUIS
+    // ==========================================
     if (!dateOfBirth || !addressLine1 || !addressCity || !addressPostalCode || !acceptStripeTerms || !phone) {
       return res.status(400).json({
         success: false,
@@ -576,12 +575,121 @@ if (verificationSession.last_verification_report) {
       });
     }
 
-    // Sauvegarder les données d'abord
+    // ==========================================
+    // ÉTAPE 2 : DÉTERMINER SI UTILISATEUR EU
+    // ==========================================
+    const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'HU', 'LV', 'LT', 'MT', 'PL', 'RO', 'SK', 'SI', 'SE'];
+    const isEuropeanUser = euCountries.includes(user.country || 'FR');
+
+    // ==========================================
+    // ÉTAPE 3 : VALIDATION INDICATIF TÉLÉPHONE
+    // (AVANT sauvegarde en BDD)
+    // ==========================================
+    const countryPhonePrefixes: { [key: string]: string[] } = {
+      'AT': ['+43'], 'BE': ['+32'], 'BG': ['+359'], 'HR': ['+385'],
+      'CY': ['+357'], 'CZ': ['+420'], 'DK': ['+45'], 'EE': ['+372'],
+      'FI': ['+358'], 'FR': ['+33'], 'DE': ['+49'], 'GR': ['+30'],
+      'HU': ['+36'], 'IE': ['+353'], 'IT': ['+39'], 'LV': ['+371'],
+      'LT': ['+370'], 'LU': ['+352'], 'MT': ['+356'], 'NL': ['+31'],
+      'PL': ['+48'], 'PT': ['+351'], 'RO': ['+40'], 'SK': ['+421'],
+      'SI': ['+386'], 'ES': ['+34'], 'SE': ['+46'],
+      'DZ': ['+213'], 'CH': ['+41'], 'GB': ['+44'], 'NO': ['+47'], 
+      'US': ['+1'], 'CA': ['+1'], 'MA': ['+212'], 'TN': ['+216']
+    };
+
+    const validPrefixes = countryPhonePrefixes[user.country || 'FR'];
+    if (validPrefixes && !validPrefixes.some(prefix => phone.startsWith(prefix))) {
+      const expectedPrefix = validPrefixes.join(' ou ');
+      console.log('❌ Indicatif incorrect:', phone, 'pour pays:', user.country);
+      
+      // Pas de sauvegarde - retour direct
+      return res.status(400).json({
+        success: false,
+        error: `Numéro de téléphone invalide pour ${user.country}. Utilisez un numéro commençant par ${expectedPrefix}.`,
+        fieldErrors: { phone: 'Indicatif pays incorrect' },
+        helpText: `Le numéro doit commencer par ${expectedPrefix} car votre pays est ${user.country}.`
+      });
+    }
+
+    console.log('✅ Indicatif téléphonique valide pour', user.country);
+
+    // ==========================================
+    // ÉTAPE 4 : VALIDATION FORMAT CODE POSTAL
+    // (AVANT sauvegarde en BDD)
+    // ==========================================
+    const postalCodeLengths: { [key: string]: { min: number, max: number, pattern?: RegExp } } = {
+      'ES': { min: 5, max: 5, pattern: /^\d{5}$/ },
+      'FR': { min: 5, max: 5, pattern: /^\d{5}$/ },
+      'DE': { min: 5, max: 5, pattern: /^\d{5}$/ },
+      'IT': { min: 5, max: 5, pattern: /^\d{5}$/ },
+      'PT': { min: 7, max: 8, pattern: /^\d{4}-\d{3}$/ },
+      'NL': { min: 6, max: 7, pattern: /^\d{4}\s?[A-Z]{2}$/i },
+      'BE': { min: 4, max: 4, pattern: /^\d{4}$/ },
+      'AT': { min: 4, max: 4, pattern: /^\d{4}$/ },
+      'GR': { min: 5, max: 5, pattern: /^\d{5}$/ },
+      'PL': { min: 6, max: 6, pattern: /^\d{2}-\d{3}$/ },
+      'FI': { min: 5, max: 5, pattern: /^\d{5}$/ },
+      'SE': { min: 5, max: 6, pattern: /^\d{3}\s?\d{2}$/ },
+      'DK': { min: 4, max: 4, pattern: /^\d{4}$/ },
+      'CZ': { min: 5, max: 6, pattern: /^\d{3}\s?\d{2}$/ },
+      'HU': { min: 4, max: 4, pattern: /^\d{4}$/ },
+      'RO': { min: 6, max: 6, pattern: /^\d{6}$/ },
+      'BG': { min: 4, max: 4, pattern: /^\d{4}$/ },
+      'HR': { min: 5, max: 5, pattern: /^\d{5}$/ },
+      'SI': { min: 4, max: 4, pattern: /^\d{4}$/ },
+      'SK': { min: 5, max: 6, pattern: /^\d{3}\s?\d{2}$/ },
+      'LT': { min: 5, max: 5, pattern: /^\d{5}$/ },
+      'EE': { min: 5, max: 5, pattern: /^\d{5}$/ },
+      'CY': { min: 4, max: 4, pattern: /^\d{4}$/ },
+      'LU': { min: 4, max: 4, pattern: /^\d{4}$/ },
+      'DZ': { min: 5, max: 5, pattern: /^\d{5}$/ },
+      'CH': { min: 4, max: 4, pattern: /^\d{4}$/ },
+      'GB': { min: 5, max: 8 },
+      'US': { min: 5, max: 10, pattern: /^\d{5}(-\d{4})?$/ },
+      'CA': { min: 6, max: 7, pattern: /^[A-Z]\d[A-Z]\s?\d[A-Z]\d$/i },
+    };
+
+    const postalCodeRules = postalCodeLengths[user.country || 'FR'];
+    if (postalCodeRules) {
+      const postalCode = addressPostalCode.trim();
+      const isLengthValid = postalCode.length >= postalCodeRules.min && 
+                            postalCode.length <= postalCodeRules.max;
+      const isPatternValid = postalCodeRules.pattern ? 
+                             postalCodeRules.pattern.test(postalCode) : true;
+      
+      if (!isLengthValid || !isPatternValid) {
+        console.log('❌ Code postal format invalide:', postalCode, 'pour pays:', user.country);
+        
+        // Pas de sauvegarde - retour direct
+        const examplePostalCode = 
+          user.country === 'ES' ? '28001' :
+          user.country === 'FR' ? '75001' :
+          user.country === 'DE' ? '10115' :
+          user.country === 'IT' ? '00118' :
+          'format valide';
+
+        return res.status(400).json({
+          success: false,
+          error: `Code postal invalide pour ${user.country}. Format attendu: ${postalCodeRules.min} à ${postalCodeRules.max} caractères.`,
+          fieldErrors: { addressPostalCode: 'Format de code postal incorrect' },
+          helpText: `Exemple: ${examplePostalCode}`
+        });
+      }
+    }
+
+    console.log('✅ Code postal format valide pour', user.country);
+
+    // ==========================================
+    // ÉTAPE 5 : SAUVEGARDE EN BDD
+    // (Seulement si validations format OK)
+    // ==========================================
     await user.update({
       dateOfBirth: new Date(dateOfBirth),
       addressLine1,
+      addressLine2,
       addressCity,
       addressPostalCode,
+      state,
       phone,
       stripeTermsAccepted: acceptStripeTerms,
       stripeTermsAcceptedAt: new Date()
@@ -589,95 +697,14 @@ if (verificationSession.last_verification_report) {
 
     console.log('✅ Données sauvegardées pour utilisateur:', user.id);
 
-    // NOUVEAU : Pour utilisateurs EU, créer Connect MAINTENANT (validation)
-    const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
-    const isEuropeanUser = euCountries.includes(user.country || 'FR');
-
-    // Dans submitStripeData, AVANT l'appel à createConnectedAccountWithUserData
-
-// Validation indicatif pays (UE + Algérie)
-const phoneCountryCode = req.body.phone.substring(0, 3); // +33, +34, etc.
-
-const countryPhonePrefixes: { [key: string]: string[] } = {
-  // Pays de l'Union Européenne
-  'AT': ['+43'],   // Autriche
-  'BE': ['+32'],   // Belgique
-  'BG': ['+359'],  // Bulgarie
-  'HR': ['+385'],  // Croatie
-  'CY': ['+357'],  // Chypre
-  'CZ': ['+420'],  // République Tchèque
-  'DK': ['+45'],   // Danemark
-  'EE': ['+372'],  // Estonie
-  'FI': ['+358'],  // Finlande
-  'FR': ['+33'],   // France
-  'DE': ['+49'],   // Allemagne
-  'GR': ['+30'],   // Grèce
-  'HU': ['+36'],   // Hongrie
-  'IE': ['+353'],  // Irlande
-  'IT': ['+39'],   // Italie
-  'LV': ['+371'],  // Lettonie
-  'LT': ['+370'],  // Lituanie
-  'LU': ['+352'],  // Luxembourg
-  'MT': ['+356'],  // Malte
-  'NL': ['+31'],   // Pays-Bas
-  'PL': ['+48'],   // Pologne
-  'PT': ['+351'],  // Portugal
-  'RO': ['+40'],   // Roumanie
-  'SK': ['+421'],  // Slovaquie
-  'SI': ['+386'],  // Slovénie
-  'ES': ['+34'],   // Espagne
-  'SE': ['+46'],   // Suède
-  
-  // Algérie
-  'DZ': ['+213'],  // Algérie
-  
-  // Autres pays si nécessaire
-  'CH': ['+41'],   // Suisse
-  'GB': ['+44'],   // Royaume-Uni
-  'NO': ['+47'],   // Norvège
-  'US': ['+1'],    // États-Unis
-  'CA': ['+1'],    // Canada
-  'MA': ['+212'],  // Maroc
-  'TN': ['+216'],  // Tunisie
-};
-
-const validPrefixes = countryPhonePrefixes[user.country || 'FR'];
-if (validPrefixes && !validPrefixes.some(prefix => req.body.phone.startsWith(prefix))) {
-  const expectedPrefix = validPrefixes.join(' ou ');
-  
-  console.log('❌ Indicatif incorrect:', req.body.phone, 'pour pays:', user.country);
-  
-  // Nettoyer les données invalides
-  await user.update({
-    dateOfBirth: undefined,
-    addressLine1: undefined,
-    addressLine2: undefined,
-    addressCity: undefined,
-    addressPostalCode: undefined,
-    phone: undefined,
-    stripeTermsAccepted: false,
-    stripeTermsAcceptedAt: undefined
-  });
-  
-  return res.status(400).json({
-    success: false,
-    error: `Numéro de téléphone invalide pour ${user.country}. Utilisez un numéro commençant par ${expectedPrefix}.`,
-    fieldErrors: {
-      phone: 'Indicatif pays incorrect'
-    },
-    helpText: `Le numéro doit commencer par ${expectedPrefix} car votre pays est ${user.country}.`
-  });
-}
-
-console.log('✅ Indicatif téléphonique valide pour', user.country);
-
-
+    // ==========================================
+    // ÉTAPE 6 : VALIDATION STRIPE CONNECT
+    // (Vérification existence réelle code postal)
+    // ==========================================
     if (isEuropeanUser) {
       console.log('🏦 Validation + Création Stripe Connect...');
       
       try {
-        // Créer le compte Connect (cela va valider les données)
-        
         const connectAccountId = await StripeConnectService.createConnectedAccountWithUserData(
           user.id,
           req.ip || '127.0.0.1'
@@ -690,7 +717,6 @@ console.log('✅ Indicatif téléphonique valide pour', user.country);
 
         console.log('✅ Stripe Connect créé et validé:', connectAccountId);
 
-        // Maintenant que Connect est OK, on peut lancer Identity
         res.json({
           success: true,
           stripeConnectCreated: true,
@@ -700,7 +726,7 @@ console.log('✅ Indicatif téléphonique valide pour', user.country);
       } catch (stripeError: any) {
         console.error('❌ Validation Stripe échouée:', stripeError.message);
         
-        // Parser l'erreur Stripe pour message clair
+        // Parser erreur Stripe
         let errorMessage = 'Données invalides';
         let fieldErrors: any = {};
         
@@ -709,7 +735,7 @@ console.log('✅ Indicatif téléphonique valide pour', user.country);
           
           if (param.includes('postal_code')) {
             fieldErrors.addressPostalCode = 'Code postal invalide';
-            errorMessage = 'Code postal invalide ou inexistant pour votre pays';
+            errorMessage = `Code postal "${addressPostalCode}" n'existe pas en ${user.country}. Vérifiez qu'il est correct.`;
           } else if (param.includes('phone')) {
             fieldErrors.phone = 'Numéro invalide';
             errorMessage = 'Numéro de téléphone invalide pour votre pays';
@@ -727,12 +753,14 @@ console.log('✅ Indicatif téléphonique valide pour', user.country);
           }
         }
         
-        // SUPPRIMER les données invalides de l'utilisateur
+        // Nettoyer données invalides
         await user.update({
           dateOfBirth: undefined,
           addressLine1: undefined,
+          addressLine2: undefined,
           addressCity: undefined,
           addressPostalCode: undefined,
+          state: undefined,
           phone: undefined,
           stripeTermsAccepted: false,
           stripeTermsAcceptedAt: undefined
@@ -746,7 +774,7 @@ console.log('✅ Indicatif téléphonique valide pour', user.country);
         });
       }
     } else {
-      // Utilisateurs non-EU : pas de Connect, juste sauvegarder
+      // Utilisateurs non-EU (DZ, etc.)
       res.json({
         success: true,
         stripeConnectCreated: false,
@@ -756,9 +784,13 @@ console.log('✅ Indicatif téléphonique valide pour', user.country);
 
   } catch (error: any) {
     console.error('❌ Erreur sauvegarde données:', error);
+    console.error('Type:', error.name);
+    console.error('Message:', error.message);
+    
     res.status(500).json({
       success: false,
-      error: 'Erreur lors de la sauvegarde'
+      error: 'Une erreur est survenue. Veuillez réessayer.',
+      details: error.message
     });
   }
 }
