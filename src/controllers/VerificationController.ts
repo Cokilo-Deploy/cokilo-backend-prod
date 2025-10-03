@@ -165,40 +165,10 @@ export class VerificationController {
           statusMessage = '✅ Identité vérifiée avec succès !';
           statusColor = '#34C759';
           
-          // NOUVEAU : Traitement différencié après validation
-          const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
-          const isEuropeanUser = euCountries.includes(user.country || 'FR');
-          
-          if (isEuropeanUser) {
-            console.log('🇪🇺 Utilisateur européen - Création compte Connect');
-            try {
-              const connectAccount = await StripeConnectService.createConnectedAccountWithUserData(
-                user.id, 
-                req.ip || '127.0.0.1'
-               
-              );
-
-               await StripeConnectService.updateConnectedAccountWithIdentityData(user.id, user.stripeIdentitySessionId);
-              
-              await user.update({
-                verificationStatus: newStatus,
-                paymentMethod: 'stripe_connect',
-                stripeConnectedAccountId: connectAccount,
-                identityVerifiedAt: new Date()
-              });
-              
-              console.log('✅ Compte Connect créé:', connectAccount);
-            } catch (connectError) {
-              console.error('❌ Erreur création compte Connect:', connectError);
-            }
-          } else {
-            console.log('🇩🇿 Utilisateur non-européen - Wallet manuel');
-            await user.update({
-              verificationStatus: newStatus,
-              paymentMethod: 'manual',
-              identityVerifiedAt: new Date()
-            });
-          }
+          await user.update({
+  verificationStatus: newStatus,
+  identityVerifiedAt: new Date()
+});
           
           break;
         case 'requires_input':
@@ -372,41 +342,10 @@ export class VerificationController {
         case 'verified':
           newStatus = UserVerificationStatus.VERIFIED;
           
-          // NOUVEAU : Traitement différencié si pas encore fait
-          if (!user.stripeConnectedAccountId) {
-            const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
-            const isEuropeanUser = euCountries.includes(user.country || 'FR');
-            
-            if (isEuropeanUser && !user.stripeConnectedAccountId) {
-              console.log('🇪🇺 Utilisateur européen - Création compte Connect');
-              try {
-                const connectAccount = await StripeConnectService.createConnectedAccountWithUserData(
-                  user.id, 
-                  req.ip || '127.0.0.1'
-                );
-
-                await StripeConnectService.updateConnectedAccountWithIdentityData(user.id, user.stripeIdentitySessionId);
-                
-                await user.update({
-                  verificationStatus: newStatus,
-                  paymentMethod: 'stripe_connect',
-                  stripeConnectedAccountId: connectAccount,
-                  identityVerifiedAt: new Date()
-                });
-                
-                console.log('✅ Compte Connect créé:', connectAccount);
-              } catch (connectError) {
-                console.error('❌ Erreur création compte Connect:', connectError);
-              }
-            } else if (!isEuropeanUser) {
-              console.log('🇩🇿 Utilisateur non-européen - Wallet manuel');
-              await user.update({
-                verificationStatus: newStatus,
-                paymentMethod: 'manual',
-                identityVerifiedAt: new Date()
-              });
-            }
-          }
+          await user.update({
+    verificationStatus: newStatus,
+    identityVerifiedAt: new Date()
+  });
           
           break;
         case 'requires_input':
@@ -611,43 +550,126 @@ if (verificationSession.last_verification_report) {
   }
 
   static async submitStripeData(req: Request, res: Response) {
-    try {
-      const user = (req as any).user;
-      const { dateOfBirth, addressLine1, addressCity, addressPostalCode, acceptStripeTerms, phone } = req.body;
+  try {
+    const user = (req as any).user;
+    const { 
+      dateOfBirth, addressLine1, addressLine2, 
+      addressCity, addressPostalCode, acceptStripeTerms, 
+      phone, state 
+    } = req.body;
 
-      // Validation
-      if (!dateOfBirth || !addressLine1 || !addressCity || !addressPostalCode || !acceptStripeTerms) {
-        return res.status(400).json({
-          success: false,
-          error: 'Tous les champs sont requis'
-        });
-      }
-
-      // Mettre à jour l'utilisateur avec les données Stripe
-      await user.update({
-        dateOfBirth: new Date(dateOfBirth),
-        addressLine1,
-        addressCity,
-        addressPostalCode,
-        phone,
-        stripeTermsAccepted: acceptStripeTerms,
-        stripeTermsAcceptedAt: new Date()
-
-      });
-
-      console.log('✅ Données Stripe sauvegardées pour utilisateur:', user.id);
-
-      res.json({
-        success: true,
-        message: 'Informations sauvegardées. Vous pouvez maintenant procéder à la vérification d\'identité.'
-      });
-
-    } catch (error) {
-      console.error('❌ Erreur sauvegarde données Stripe:', error);
-      res.status(500).json({
+    // Validation des champs requis
+    if (!dateOfBirth || !addressLine1 || !addressCity || !addressPostalCode || !acceptStripeTerms || !phone) {
+      return res.status(400).json({
         success: false,
-        error: 'Erreur lors de la sauvegarde'
+        error: 'Tous les champs sont requis'
       });
     }
+
+    // Sauvegarder les données d'abord
+    await user.update({
+      dateOfBirth: new Date(dateOfBirth),
+      addressLine1,
+      addressCity,
+      addressPostalCode,
+      phone,
+      stripeTermsAccepted: acceptStripeTerms,
+      stripeTermsAcceptedAt: new Date()
+    });
+
+    console.log('✅ Données sauvegardées pour utilisateur:', user.id);
+
+    // NOUVEAU : Pour utilisateurs EU, créer Connect MAINTENANT (validation)
+    const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
+    const isEuropeanUser = euCountries.includes(user.country || 'FR');
+
+    if (isEuropeanUser) {
+      console.log('🏦 Validation + Création Stripe Connect...');
+      
+      try {
+        // Créer le compte Connect (cela va valider les données)
+        const connectAccountId = await StripeConnectService.createConnectedAccountWithUserData(
+          user.id,
+          req.ip || '127.0.0.1'
+        );
+
+        await user.update({
+          stripeConnectedAccountId: connectAccountId,
+          paymentMethod: 'stripe_connect'
+        });
+
+        console.log('✅ Stripe Connect créé et validé:', connectAccountId);
+
+        // Maintenant que Connect est OK, on peut lancer Identity
+        res.json({
+          success: true,
+          stripeConnectCreated: true,
+          message: 'Données validées. Vous pouvez maintenant procéder à la vérification d\'identité.'
+        });
+
+      } catch (stripeError: any) {
+        console.error('❌ Validation Stripe échouée:', stripeError.message);
+        
+        // Parser l'erreur Stripe pour message clair
+        let errorMessage = 'Données invalides';
+        let fieldErrors: any = {};
+        
+        if (stripeError.param) {
+          const param = stripeError.param;
+          
+          if (param.includes('postal_code')) {
+            fieldErrors.addressPostalCode = 'Code postal invalide';
+            errorMessage = 'Code postal invalide ou inexistant pour votre pays';
+          } else if (param.includes('phone')) {
+            fieldErrors.phone = 'Numéro invalide';
+            errorMessage = 'Numéro de téléphone invalide pour votre pays';
+          } else if (param.includes('address.city')) {
+            fieldErrors.addressCity = 'Ville invalide';
+            errorMessage = 'La ville ne correspond pas au code postal';
+          } else if (param.includes('address')) {
+            fieldErrors.addressLine1 = 'Adresse invalide';
+            errorMessage = 'Adresse invalide';
+          } else if (param.includes('dob')) {
+            fieldErrors.dateOfBirth = 'Date invalide';
+            errorMessage = 'Date de naissance invalide';
+          } else {
+            errorMessage = stripeError.message;
+          }
+        }
+        
+        // SUPPRIMER les données invalides de l'utilisateur
+        await user.update({
+          dateOfBirth: undefined,
+          addressLine1: undefined,
+          addressCity: undefined,
+          addressPostalCode: undefined,
+          phone: undefined,
+          stripeTermsAccepted: false,
+          stripeTermsAcceptedAt: undefined
+        });
+
+        return res.status(400).json({
+          success: false,
+          error: errorMessage,
+          fieldErrors: fieldErrors,
+          details: stripeError.message
+        });
+      }
+    } else {
+      // Utilisateurs non-EU : pas de Connect, juste sauvegarder
+      res.json({
+        success: true,
+        stripeConnectCreated: false,
+        message: 'Informations sauvegardées. Vous pouvez maintenant procéder à la vérification d\'identité.'
+      });
+    }
+
+  } catch (error: any) {
+    console.error('❌ Erreur sauvegarde données:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erreur lors de la sauvegarde'
+    });
   }
+}
 }
