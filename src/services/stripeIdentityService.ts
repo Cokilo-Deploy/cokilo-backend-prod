@@ -1,3 +1,4 @@
+//src/services/StripeIdentityService.ts
 import Stripe from 'stripe';
 import { User, UserVerificationStatus } from '../models/User';
 
