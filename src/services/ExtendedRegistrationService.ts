@@ -131,7 +131,7 @@ export class ExtendedRegistrationService {
     };
 
   } catch (error: any) {
-    console.error('💥 Erreur inscription étendue:', error);
+    console.error('💥 Enscription étendue:', error);
     
     // NETTOYAGE: Supprimer le compte Stripe si créé mais erreur après
     if (stripeConnectedAccountId) {
