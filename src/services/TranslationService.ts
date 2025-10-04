@@ -1,4 +1,4 @@
-// 1. CORRIGER src/services/TranslationService.ts - Supprimer les doublons
+// 1. CORRIGER src/services/TranslationService.ts
 import { translations } from '../config/translations';
 import { AppTranslations, TranslationKey } from '../types/translations';
 import { User } from '../models/User';
