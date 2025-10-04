@@ -63,7 +63,7 @@ export class VerificationController {
           userCurrency: user.currency, // AJOUT - Préserver la devise
         },
         options: sessionOptions,
-        return_url: `http://192.168.1.106:3000/verification/complete?user_id=${user.id}`,
+        return_url: `https://cokilo.com/stripe-return?user_id=${user.id}`,
       });
 
       console.log('✅ Session Stripe créée:', verificationSession.id);
