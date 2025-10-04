@@ -1121,5 +1121,80 @@ export const translations: AppTranslations = {
     de: 'um',
     es: 'a las',
     it: 'alle'
+  },
+  // HomeScreen - Header
+  'home.title': {
+    fr: 'CoKilo',
+    en: 'CoKilo',
+    de: 'CoKilo',
+    es: 'CoKilo',
+    it: 'CoKilo'
+  },
+  'home.subtitle': {
+    fr: 'Transportez et expédiez en toute confiance',
+    en: 'Transport and ship with confidence',
+    de: 'Transportieren und versenden Sie mit Vertrauen',
+    es: 'Transporta y envía con confianza',
+    it: 'Trasporta e spedisci con fiducia'
+  },
+
+  // HomeScreen - Quick Actions
+  'home.search_trip': {
+    fr: 'Rechercher un voyage',
+    en: 'Search for a trip',
+    de: 'Nach einer Reise suchen',
+    es: 'Buscar un viaje',
+    it: 'Cerca un viaggio'
+  },
+  'home.search_trip_desc': {
+    fr: 'Trouvez quelqu\'un qui peut transporter vos colis',
+    en: 'Find someone who can transport your packages',
+    de: 'Finden Sie jemanden, der Ihre Pakete transportieren kann',
+    es: 'Encuentra a alguien que pueda transportar tus paquetes',
+    it: 'Trova qualcuno che possa trasportare i tuoi pacchi'
+  },
+  'home.create_trip': {
+    fr: 'Créer un voyage',
+    en: 'Create a trip',
+    de: 'Reise erstellen',
+    es: 'Crear un viaje',
+    it: 'Crea un viaggio'
+  },
+  'home.create_trip_desc': {
+    fr: 'Proposez votre espace de baggage disponible',
+    en: 'Offer your available baggage space',
+    de: 'Bieten Sie Ihren verfügbaren Gepäckraum an',
+    es: 'Ofrece tu espacio de equipaje disponible',
+    it: 'Offri il tuo spazio bagagli disponibile'
+  },
+
+  // HomeScreen - Stats Section
+  'home.your_stats': {
+    fr: 'Vos statistiques',
+    en: 'Your statistics',
+    de: 'Ihre Statistiken',
+    es: 'Tus estadísticas',
+    it: 'Le tue statistiche'
+  },
+  'home.trips_created': {
+    fr: 'Voyages créés',
+    en: 'Trips created',
+    de: 'Erstellte Reisen',
+    es: 'Viajes creados',
+    it: 'Viaggi creati'
+  },
+  'home.packages_sent': {
+    fr: 'Colis envoyés',
+    en: 'Packages sent',
+    de: 'Versendete Pakete',
+    es: 'Paquetes enviados',
+    it: 'Pacchi inviati'
+  },
+  'home.loading': {
+    fr: '...',
+    en: '...',
+    de: '...',
+    es: '...',
+    it: '...'
   }
 };

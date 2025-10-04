@@ -205,7 +205,21 @@ export interface AppTranslations {
   'tripCreatedMessage': TranslationKey;
   'charactersOf': TranslationKey;
   'at': TranslationKey;
+  // HomeScreen - Header
+  'home.title': TranslationKey;
+  'home.subtitle': TranslationKey;
   
+  // HomeScreen - Quick Actions
+  'home.search_trip': TranslationKey;
+  'home.search_trip_desc': TranslationKey;
+  'home.create_trip': TranslationKey;
+  'home.create_trip_desc': TranslationKey;
+  
+  // HomeScreen - Stats Section
+  'home.your_stats': TranslationKey;
+  'home.trips_created': TranslationKey;
+  'home.packages_sent': TranslationKey;
+  'home.loading': TranslationKey;
 
 }
 
