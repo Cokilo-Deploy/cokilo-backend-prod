@@ -63,10 +63,13 @@ export class VerificationController {
           userCurrency: user.currency, // AJOUT - Préserver la devise
         },
         options: sessionOptions,
-        return_url: `https://cokilo.com/stripe-return`,
+        
       });
 
       console.log('✅ Session Stripe créée:', verificationSession.id);
+
+      // Construire l'URL de retour avec le session_id
+      const returnUrl = `https://cokilo.com/stripe-return?session_id=${verificationSession.id}`;
 
       // Sauvegarder l'ID de session sur l'utilisateur SANS modifier la devise
       await user.update({
@@ -83,6 +86,7 @@ export class VerificationController {
           status: verificationSession.status,
           url: verificationSession.url,
         },
+          returnUrl: returnUrl,
         message: 'Session de vérification créée',
         country: userCountry, // Retourner le pays détecté pour debug
       });
