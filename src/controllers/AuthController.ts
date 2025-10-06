@@ -562,6 +562,33 @@ static async resendVerification(req: Request, res: Response) {
           error: 'Email ou mot de passe incorrect'
         });
       }
+      if (!user.emailVerifiedAt) {
+      console.log('Email non vérifié pour:', user.email);
+
+      const verificationCode = EmailVerificationService.generateVerificationCode();
+      const codeExpiration = EmailVerificationService.getCodeExpiration();
+      await user.update({
+        verificationCode,
+        verificationCodeExpires: codeExpiration
+      });
+
+      await EmailVerificationService.sendVerificationCode(
+        user.email,
+        user.firstName,
+        verificationCode
+      );
+
+      console.log('Nouveau code envoyé automatiquement à:', user.email);
+
+      return res.status(403).json({
+        success: false,
+        error: 'Email non vérifié',
+        requiresVerification: true,
+        userId: user.id,
+        email: user.email,
+        message: 'Un nouveau code de vérification a été envoyé à votre email'
+      });
+    }
 
       const jwtSecret = process.env.JWT_SECRET || 'fallback-secret';
       const token = jwt.sign({ userId: user.id }, jwtSecret, { expiresIn: '7d' });
