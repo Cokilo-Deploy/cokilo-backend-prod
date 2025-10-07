@@ -153,6 +153,13 @@ export class TransactionController {
       const user = (req as any).user;
       const { tripId, weight, description, itemType, specialInstructions } = req.body;
 
+      if (!user.isVerified) {
+      return res.status(403).json({
+        success: false,
+        message: 'Compte non vérifié'
+      });
+    }
+
       console.log('🔍 Données extraites:', { tripId, weight, description, itemType });
 
       if (!description || description.trim().length < 10) {
