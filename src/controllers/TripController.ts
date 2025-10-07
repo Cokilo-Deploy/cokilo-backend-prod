@@ -137,9 +137,7 @@ export class TripController {
 console.log('=== DEBUT getAllTrips ===');
 
     try {
-      const user = (req as any).user;
-
-       
+      const user = (req as any).user;       
       
       const forcedCurrency = req.headers['x-force-currency'] as string;
       const userCurrency = forcedCurrency || user.currency;
@@ -173,10 +171,21 @@ console.log('=== DEBUT getAllTrips ===');
 
       console.log('Trips récupérés avant conversion:', paginatedTrips.length);
 
-      const plainTrips = paginatedTrips.map(trip => {
-        const tripData = trip.toJSON();
-        return translationService.formatTripForAPI(tripData, user);
-      });
+      const plainTrips = await Promise.all(
+  paginatedTrips.map(async (trip) => {
+    const reservedWeight = await TripCapacityService.calculateReservedWeight(trip.id);
+    const availableWeight = trip.capacityKg - reservedWeight;
+    
+    const tripData = {
+      ...trip.toJSON(),
+      reservedWeight,
+      availableWeight,
+      capacityPercentage: Math.round((reservedWeight / trip.capacityKg) * 100)
+    };
+    
+    return translationService.formatTripForAPI(tripData, user);
+  })
+);
 
       const convertedTrips = await TripController.convertTripsForUser(plainTrips, userCurrency);
       const totalTrips = await Trip.count({ where: whereClause });
