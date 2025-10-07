@@ -193,7 +193,7 @@ console.log('=== DEBUT getAllTrips ===');
       //log
       console.log(`Total trips: ${plainTrips.length}, Disponibles: ${availableTrips.length}`);
             
-      const convertedTrips = await TripController.convertTripsForUser(plainTrips, userCurrency);
+      const convertedTrips = await TripController.convertTripsForUser(availableTrips, userCurrency);
       const totalTrips = await Trip.count({ where: whereClause });
 
       return sendLocalizedResponse(
