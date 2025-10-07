@@ -168,6 +168,7 @@ console.log('=== DEBUT getAllTrips ===');
         limit,
         offset
       });
+      
 
       console.log('Trips récupérés avant conversion:', paginatedTrips.length);
 
@@ -186,7 +187,8 @@ console.log('=== DEBUT getAllTrips ===');
     return translationService.formatTripForAPI(tripData, user);
   })
 );
-
+      const availableTrips = plainTrips.filter(trip => trip.availableWeight > 0);
+            
       const convertedTrips = await TripController.convertTripsForUser(plainTrips, userCurrency);
       const totalTrips = await Trip.count({ where: whereClause });
 
