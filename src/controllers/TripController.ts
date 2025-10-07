@@ -176,6 +176,8 @@ console.log('=== DEBUT getAllTrips ===');
   paginatedTrips.map(async (trip) => {
     const reservedWeight = await TripCapacityService.calculateReservedWeight(trip.id);
     const availableWeight = trip.capacityKg - reservedWeight;
+    //log
+    console.log(`Voyage ${trip.id}: capacityKg=${trip.capacityKg}, reserved=${reservedWeight}, available=${availableWeight}`);
     
     const tripData = {
       ...trip.toJSON(),
@@ -188,6 +190,8 @@ console.log('=== DEBUT getAllTrips ===');
   })
 );
       const availableTrips = plainTrips.filter(trip => trip.availableWeight > 0);
+      //log
+      console.log(`Total trips: ${plainTrips.length}, Disponibles: ${availableTrips.length}`);
             
       const convertedTrips = await TripController.convertTripsForUser(plainTrips, userCurrency);
       const totalTrips = await Trip.count({ where: whereClause });
