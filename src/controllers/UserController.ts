@@ -5,6 +5,7 @@ import { getUserAccessInfo } from '../utils/userAccess';
 import { Op } from 'sequelize';
 import { Review } from '../models/Review';
 import { Transaction, Trip } from '../models';
+import { ErrorCode, errorResponse, successResponse } from '../utils/errorCodes';
 
 interface AuthRequest extends Request {
   user?: User;
@@ -15,15 +16,12 @@ export class UserController {
   static async getProfile(req: AuthRequest, res: Response) {
     try {
       if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          error: 'Authentification requise',
-        });
+        return res.status(401).json(errorResponse(ErrorCode.UNAUTHORIZED));
       }
 
       const userAccess = getUserAccessInfo(req.user);
 
-      res.json({
+      res.json(successResponse({
         success: true,
         data: {
           user: {
@@ -42,13 +40,10 @@ export class UserController {
           }
         },
         userAccess, // ← Informations de permissions
-      });
+      }));
 
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: 'Erreur lors de la récupération du profil',
-      });
+      res.status(500).json(errorResponse(ErrorCode.SERVER_ERROR));
     }
   }
 
@@ -57,10 +52,7 @@ export class UserController {
   static async getDashboard(req: AuthRequest, res: Response) {
     try {
       if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          error: 'Authentification requise',
-        });
+        return res.status(401).json(errorResponse(ErrorCode.UNAUTHORIZED));
       }
 
       const userAccess = getUserAccessInfo(req.user);
@@ -97,17 +89,10 @@ export class UserController {
         };
       }
 
-      res.json({
-        success: true,
-        data: dashboardData,
-        userAccess, // ← Contrôle l'affichage des éléments UI
-      });
+      res.json(successResponse({ ...dashboardData, userAccess }));
 
     } catch (error) {
-      res.status(500).json({
-        success: false,
-        error: 'Erreur lors de la récupération du tableau de bord',
-      });
+      res.status(500).json(errorResponse(ErrorCode.SERVER_ERROR));
     }
   }
 
@@ -117,10 +102,7 @@ export class UserController {
     const { profileName } = req.body;
 
     if (profileName && (profileName.length < 2 || profileName.length > 50)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Le nom de profil doit contenir entre 2 et 50 caractères'
-      });
+      return res.status(400).json(errorResponse(ErrorCode.PROFILE_NAME_LENGTH));
     }
 
     // Vérifier si le nom de profil existe déjà (en excluant l'utilisateur actuel)
@@ -133,34 +115,25 @@ export class UserController {
       });
 
       if (existingUser) {
-        return res.status(400).json({
-          success: false,
-          error: 'Ce nom de profil est déjà utilisé'
-        });
+        return res.status(400).json(errorResponse(ErrorCode.PROFILE_NAME_ALREADY_USED));
       }
     }
 
     await user.update({ profileName: profileName ? profileName.trim() : null });
 
-    res.json({
+    res.json(successResponse({
       success: true,
       data: { user: { ...user.toJSON(), profileName: profileName ? profileName.trim() : null } },
       message: 'Profil mis à jour'
-    });
+    }));
   } catch (error: any) {
     // Gérer l'erreur de contrainte unique de la base de données
     if (error.name === 'SequelizeUniqueConstraintError') {
-      return res.status(400).json({
-        success: false,
-        error: 'Ce nom de profil est déjà utilisé'
-      });
+      return res.status(400).json(errorResponse(ErrorCode.PROFILE_NAME_ALREADY_USED));
     }
 
     console.error('Erreur mise à jour profil:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erreur lors de la mise à jour du profil'
-    });
+    res.status(500).json(errorResponse(ErrorCode.SERVER_ERROR));
   }
 
 }
@@ -174,14 +147,14 @@ static async getUserInfo(req: Request, res: Response) {
     });
     
     if (!user) {
-      return res.status(404).json({ success: false, error: 'Utilisateur non trouvé' });
+      return res.status(404).json(errorResponse(ErrorCode.USER_NOT_FOUND));
     }
     
     const reviewCount = await Review.count({
       where: { revieweeId: userId, isPublic: true }
     });
     
-    res.json({
+    res.json(successResponse({
       success: true,
       data: {
         user: {
@@ -191,11 +164,11 @@ static async getUserInfo(req: Request, res: Response) {
           avatar: user.avatar // Ajout
         }
       }
-    });
+    }));
     
   } catch (error: any) {
     console.error('Erreur récupération infos utilisateur:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    res.status(500).json(errorResponse(ErrorCode.SERVER_ERROR));
   }
 }
 // Upload avatar utilisateur
@@ -208,11 +181,11 @@ static async uploadAvatar(req: AuthRequest, res: Response) {
     
     if (!user) {
       console.log('Pas d\'utilisateur authentifié');
-      return res.status(401).json({ success: false, error: 'Non autorisé' });
+      return res.status(401).json(errorResponse(ErrorCode.UNAUTHORIZED));
     }
 
     if (!req.file) {
-        return res.status(400).json({ success: false, error: 'Aucun fichier fourni' });
+        return res.status(400).json(errorResponse(ErrorCode.INVALID_INPUT));
     }
 
     // URL complète du fichier uploadé
@@ -223,7 +196,7 @@ static async uploadAvatar(req: AuthRequest, res: Response) {
     await user.update({ avatar: avatarUrl });
     console.log('Avatar mis à jour en base pour user:', user.id);
 
-    res.json({
+    res.json(successResponse({
       success: true,
       data: { 
         avatar: avatarUrl,
@@ -233,11 +206,11 @@ static async uploadAvatar(req: AuthRequest, res: Response) {
         }
       },
       message: 'Avatar mis à jour avec succès'
-    });
+    }));
 
   } catch (error: any) {
      console.error('Erreur upload avatar:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    res.status(500).json(errorResponse(ErrorCode.SERVER_ERROR));
   }
 }
 // Dans controllers/UserController.ts, ajoutez cette méthode
@@ -267,18 +240,15 @@ static async getUserStats(req: Request, res: Response) {
     console.log('DEBUG - Total voyages dans la DB:', totalVoyages);
     console.log('DEBUG - Total colis dans la DB:', totalColis);
 
-    res.json({
+    res.json(successResponse({
       success: true,
       voyagesCreated,
       colisEnvoyes
-    });
+    }));
 
   } catch (error) {
     console.error('Erreur complète:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Erreur lors de la récupération des statistiques'
-    });
+    res.status(500).json(errorResponse(ErrorCode.SERVER_ERROR));
   }
 }
 }

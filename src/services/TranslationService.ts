@@ -11,6 +11,7 @@ export class TranslationService {
 
   constructor() {
     this.translations = translations;
+    
   }
 
   public static getInstance(): TranslationService {
