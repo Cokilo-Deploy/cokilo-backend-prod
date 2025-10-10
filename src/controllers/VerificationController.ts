@@ -5,6 +5,7 @@ import { getUserAccessInfo } from '../utils/userAccess';
 import { UserVerificationStatus } from '../types/user';
 import { StripeConnectService } from '../services/StripeConnectService'; // AJOUT
 import { ErrorCode } from '../utils/errorCodes';
+import { translateVerificationStatus } from '../utils/statusTranslations';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
@@ -377,14 +378,15 @@ export class VerificationController {
       await user.reload();
 
       res.json({
-        success: true,
-        verificationStatus: newStatus,
-        stripeStatus: verificationSession.status,
-        paymentMethod: user.paymentMethod, // AJOUT
-        hasStripeConnect: !!user.stripeConnectedAccountId, // AJOUT
-        currency: user.currency, // AJOUT
-        userAccess: getUserAccessInfo(user),
-      });
+  success: true,
+  verificationStatus: newStatus,
+  verificationStatusText: translateVerificationStatus(newStatus, user.language || 'fr'), // ✨ AJOUT
+  stripeStatus: verificationSession.status,
+  paymentMethod: user.paymentMethod,
+  hasStripeConnect: !!user.stripeConnectedAccountId,
+  currency: user.currency,
+  userAccess: getUserAccessInfo(user),
+});
 
     } catch (error: any) {
       console.error('❌ Erreur vérification statut:', error);
@@ -677,11 +679,16 @@ if (verificationSession.last_verification_report) {
           'format valide';
 
         return res.status(400).json({
-          success: false,
-          error: `Code postal invalide pour ${user.country}. Format attendu: ${postalCodeRules.min} à ${postalCodeRules.max} caractères.`,
-          fieldErrors: { addressPostalCode: 'Format de code postal incorrect' },
-          helpText: `Exemple: ${examplePostalCode}`
-        });
+  success: false,
+  errorCode: ErrorCode.INVALID_POSTAL_CODE_FORMAT,
+  data: {
+    country: user.country,
+    minLength: postalCodeRules.min,
+    maxLength: postalCodeRules.max,
+    example: examplePostalCode
+  },
+  fieldErrors: { addressPostalCode: 'Format de code postal incorrect' }
+});
       }
     }
 
