@@ -3,7 +3,6 @@ import { Review } from '../models/Review';
 import { Transaction } from '../models/Transaction';
 import { User } from '../models/User';
 import { TransactionStatus } from '../types/transaction';
-import { ErrorCode, errorResponse, successResponse } from '../utils/errorCodes';
 
 interface AuthRequest extends Request {
   user?: User;
@@ -16,20 +15,20 @@ export class ReviewController {
       const { transactionId, rating, comment, isPublic = true } = req.body;
 
       if (!user) {
-        return res.status(401).json(errorResponse(ErrorCode.UNAUTHORIZED));
+        return res.status(401).json({ success: false, error: 'Non autorisé' });
       }
 
       const transaction = await Transaction.findByPk(transactionId);
       if (!transaction) {
-        return res.status(404).json(errorResponse(ErrorCode.TRANSACTION_NOT_FOUND));
+        return res.status(404).json({ success: false, error: 'Transaction non trouvée' });
       }
 
       if (user.id !== transaction.senderId && user.id !== transaction.travelerId) {
-        return res.status(403).json(errorResponse(ErrorCode.FORBIDDEN));
+        return res.status(403).json({ success: false, error: 'Non autorisé pour cette transaction' });
       }
 
       if (transaction.status !== TransactionStatus.PAYMENT_RELEASED) {
-        return res.status(400).json(errorResponse(ErrorCode.TRANSACTION_NOT_COMPLETED));
+        return res.status(400).json({ success: false, error: 'Transaction non terminée' });
       }
 
       const revieweeId = user.id === transaction.senderId ? transaction.travelerId : transaction.senderId;
@@ -39,7 +38,7 @@ export class ReviewController {
       });
 
       if (existingReview) {
-        return res.status(400).json(errorResponse(ErrorCode.REVIEW_ALREADY_EXISTS));
+        return res.status(400).json({ success: false, error: 'Avis déjà donné pour cette transaction' });
       }
 
       const review = await Review.create({
@@ -67,7 +66,7 @@ export class ReviewController {
 
     } catch (error: any) {
       console.error('Erreur création avis:', error);
-      res.status(500).json(errorResponse(ErrorCode.SERVER_ERROR));
+      res.status(500).json({ success: false, error: 'Erreur serveur' });
     }
   }
 
@@ -117,7 +116,7 @@ export class ReviewController {
       };
     });
 
-    res.json(successResponse({
+    res.json({
       success: true,
       data: {
         reviews: transformedReviews,
@@ -128,11 +127,11 @@ export class ReviewController {
           totalPages: Math.ceil(reviews.count / Number(limit))
         }
       }
-    }));
+    });
 
   } catch (error: any) {
     console.error('Erreur récupération avis:', error);
-    res.status(500).json(errorResponse(ErrorCode.SERVER_ERROR));
+    res.status(500).json({ success: false, error: 'Erreur serveur' });
   }
 }
 
@@ -142,12 +141,12 @@ export class ReviewController {
       const { transactionId } = req.params;
 
       if (!user) {
-        return res.status(401).json(errorResponse(ErrorCode.UNAUTHORIZED));
+        return res.status(401).json({ success: false, error: 'Non autorisé' });
       }
 
       const transaction = await Transaction.findByPk(transactionId);
       if (!transaction || (user.id !== transaction.senderId && user.id !== transaction.travelerId)) {
-        return res.status(403).json(errorResponse(ErrorCode.FORBIDDEN));
+        return res.status(403).json({ success: false, error: 'Non autorisé' });
       }
 
       const reviews = await Review.findAll({
@@ -166,12 +165,14 @@ export class ReviewController {
         ]
       });
 
-      res.json(successResponse({ reviews }));
-       
+      res.json({
+        success: true,
+        data: { reviews }
+      });
 
     } catch (error: any) {
       console.error('Erreur récupération avis transaction:', error);
-      res.status(500).json(errorResponse(ErrorCode.SERVER_ERROR));
+      res.status(500).json({ success: false, error: 'Erreur serveur' });
     }
   }
 
