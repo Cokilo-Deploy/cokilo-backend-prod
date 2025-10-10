@@ -1,6 +1,7 @@
 // backend/src/utils/errorCodes.ts
 
 export enum ErrorCode {
+INVALID_POSTAL_CODE_FORMAT = 'INVALID_POSTAL_CODE_FORMAT',
 INVALID_PHONE_PREFIX = 'INVALID_PHONE_PREFIX',
     // Langue utilisateur
 LANGUAGE_REQUIRED = 'LANGUAGE_REQUIRED',
