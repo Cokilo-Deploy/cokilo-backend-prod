@@ -15,6 +15,7 @@ import { ChatConversation } from '../models/ChatConversation';
 import { Stripe } from 'stripe';
 import { WalletService } from '../services/walletService';
 import { Wallet } from '../models/Wallet';
+import { ErrorCode, errorResponse } from '../utils/errorCodes';
 
 const nodemailer = require('nodemailer');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
@@ -460,11 +461,8 @@ static async verifyEmail(req: Request, res: Response) {
     );
 
     if (!isValid) {
-      return res.status(400).json({
-        success: false,
-        error: 'Code de vérification invalide ou expiré'
-      });
-    }
+  return res.status(400).json(errorResponse(ErrorCode.INVALID_VERIFICATION_CODE));
+}
 
     // Marquer comme vérifié
     await user.update({
@@ -549,19 +547,13 @@ static async resendVerification(req: Request, res: Response) {
 
       const user = await User.findOne({ where: { email } });
       if (!user) {
-        return res.status(401).json({
-          success: false,
-          error: 'Email ou mot de passe incorrect'
-        });
-      }
+  return res.status(401).json(errorResponse(ErrorCode.INVALID_CREDENTIALS));
+}
 
       const isValidPassword = await user.validatePassword(password);
       if (!isValidPassword) {
-        return res.status(401).json({
-          success: false,
-          error: 'Email ou mot de passe incorrect'
-        });
-      }
+  return res.status(401).json(errorResponse(ErrorCode.INVALID_CREDENTIALS));
+}
       if (!user.emailVerifiedAt) {
       console.log('Email non vérifié pour:', user.email);
 
@@ -581,13 +573,12 @@ static async resendVerification(req: Request, res: Response) {
       console.log('Nouveau code envoyé automatiquement à:', user.email);
 
       return res.status(403).json({
-        success: false,
-        error: 'Email non vérifié',
-        requiresVerification: true,
-        userId: user.id,
-        email: user.email,
-        message: 'Un nouveau code de vérification a été envoyé à votre email'
-      });
+  success: false,
+  errorCode: ErrorCode.EMAIL_NOT_VERIFIED,
+  requiresVerification: true,
+  userId: user.id,
+  email: user.email
+});
     }
 
       const jwtSecret = process.env.JWT_SECRET || 'fallback-secret';

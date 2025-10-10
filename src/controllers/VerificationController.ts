@@ -4,6 +4,7 @@ import { User } from '../models/User';
 import { getUserAccessInfo } from '../utils/userAccess';
 import { UserVerificationStatus } from '../types/user';
 import { StripeConnectService } from '../services/StripeConnectService'; // AJOUT
+import { ErrorCode } from '../utils/errorCodes';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
@@ -608,11 +609,14 @@ if (verificationSession.last_verification_report) {
       
       // Pas de sauvegarde - retour direct
       return res.status(400).json({
-        success: false,
-        error: `Numéro de téléphone invalide pour ${user.country}. Utilisez un numéro commençant par ${expectedPrefix}.`,
-        fieldErrors: { phone: 'Indicatif pays incorrect' },
-        helpText: `Le numéro doit commencer par ${expectedPrefix} car votre pays est ${user.country}.`
-      });
+  success: false,
+  errorCode: ErrorCode.INVALID_PHONE_PREFIX,
+  data: {
+    country: user.country,
+    expectedPrefix: expectedPrefix
+  },
+  fieldErrors: { phone: 'Indicatif pays incorrect' }
+});
     }
 
     console.log('✅ Indicatif téléphonique valide pour', user.country);
