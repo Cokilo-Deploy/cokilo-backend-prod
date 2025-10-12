@@ -9,6 +9,7 @@ import { TripCapacityService } from '../services/TripCapacityService';
 import { CurrencyService } from '../services/CurrencyService';
 import { translationService } from '../services/TranslationService';
 import { sendLocalizedResponse } from '../utils/responseHelpers';
+import { ErrorCode, errorResponse } from '../utils/errorCodes';
 
 export class TripController {
 
@@ -389,15 +390,9 @@ console.log('=== DEBUT getAllTrips ===');
       );
 
     } catch (error: any) {
-      console.error('Erreur création voyage:', error);
-      return sendLocalizedResponse(
-        res,
-        'msg.error_creating_trip',
-        null,
-        500,
-        (req as any).user
-      );
-    }
+  console.error('Erreur création voyage:', error);
+  return res.status(500).json(errorResponse(ErrorCode.TRIP_CREATION_FAILED));
+}
   }
 
   static async getTripDetails(req: Request, res: Response) {

@@ -14,6 +14,7 @@ import { WalletService } from '../services/walletService';
 import { NotificationService } from '../services/NotificationService';
 import { translationService } from '../services/TranslationService';
 import { sendLocalizedResponse } from '../utils/responseHelpers';
+import { UserAccessInfo } from '../utils/userAccess';
 
 
 
@@ -556,7 +557,7 @@ const formattedTransaction = translationService.formatTransactionForAPI(
         'msg.package_delivered',
         null,
         200,
-        user
+        (req as any).user
       );
 
     } catch (error: any) {
