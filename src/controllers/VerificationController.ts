@@ -5,7 +5,6 @@ import { getUserAccessInfo } from '../utils/userAccess';
 import { UserVerificationStatus } from '../types/user';
 import { StripeConnectService } from '../services/StripeConnectService'; // AJOUT
 import { ErrorCode } from '../utils/errorCodes';
-import { translateVerificationStatus } from '../utils/statusTranslations';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
@@ -378,15 +377,14 @@ export class VerificationController {
       await user.reload();
 
       res.json({
-  success: true,
-  verificationStatus: newStatus,
-  verificationStatusText: translateVerificationStatus(newStatus, user.language || 'fr'), // ✨ AJOUT
-  stripeStatus: verificationSession.status,
-  paymentMethod: user.paymentMethod,
-  hasStripeConnect: !!user.stripeConnectedAccountId,
-  currency: user.currency,
-  userAccess: getUserAccessInfo(user),
-});
+        success: true,
+        verificationStatus: newStatus,
+        stripeStatus: verificationSession.status,
+        paymentMethod: user.paymentMethod, // AJOUT
+        hasStripeConnect: !!user.stripeConnectedAccountId, // AJOUT
+        currency: user.currency, // AJOUT
+        userAccess: getUserAccessInfo(user),
+      });
 
     } catch (error: any) {
       console.error('❌ Erreur vérification statut:', error);
