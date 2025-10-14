@@ -777,7 +777,7 @@ let formattedTransaction = translationService.formatTransactionForAPI(transactio
         'msg.transaction_cancelled',
         null,
         200,
-        user
+        (req as any).user
       );
 
     } catch (error: any) {
