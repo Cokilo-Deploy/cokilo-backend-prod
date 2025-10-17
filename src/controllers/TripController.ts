@@ -163,7 +163,7 @@ console.log('=== DEBUT getAllTrips ===');
         include: [{
           model: User,
           as: 'traveler',
-          attributes: ['id', 'firstName', 'lastName', 'profileName', 'rating']
+          attributes: ['id', 'firstName', 'lastName', 'profileName', 'rating', 'avatar']
         }],
         order: [['createdAt', 'DESC']],
         limit,
@@ -258,7 +258,7 @@ console.log('=== DEBUT getAllTrips ===');
           {
             model: User,
             as: 'traveler',
-            attributes: ['id', 'firstName', 'lastName', 'profileName'],
+            attributes: ['id', 'firstName', 'lastName', 'profileName', 'avatar'],
           },
         ],
         order: [['departureDate', 'ASC']],
