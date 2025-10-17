@@ -51,11 +51,7 @@ export class TripCapacityService {
       const trip = await Trip.findByPk(tripId);
       if (!trip) return false;
 
-      // Vérifier d'abord la disponibilité
-      const isAvailable = await this.checkAvailability(tripId, weight);
-      if (!isAvailable) {
-        throw new Error('Capacité insuffisante');
-      }
+      
 
       // Mettre à jour le poids réservé du voyage
       const newReservedWeight = trip.reservedWeight + weight;
