@@ -155,7 +155,7 @@ console.log('=== DEBUT getAllTrips ===');
 
       const whereClause = {
         status: TripStatus.PUBLISHED,
-        travelerId: { [Op.not]: user.id }
+        
       };
 
       const paginatedTrips = await Trip.findAll({
@@ -184,7 +184,8 @@ console.log('=== DEBUT getAllTrips ===');
       ...trip.toJSON(),
       reservedWeight,
       availableWeight,
-      capacityPercentage: Math.round((reservedWeight / trip.capacityKg) * 100)
+      capacityPercentage: Math.round((reservedWeight / trip.capacityKg) * 100),
+      isOwnTrip: trip.travelerId === user.id
     };
     
     return translationService.formatTripForAPI(tripData, user);
@@ -232,7 +233,7 @@ console.log('=== DEBUT getAllTrips ===');
       const { from, to, date, maxWeight, maxPrice } = req.query;
       const whereConditions: any = { 
         status: TripStatus.PUBLISHED,
-        travelerId: { [Op.ne]: user.id }
+        
       };
 
       if (from) {
@@ -274,7 +275,7 @@ console.log('=== DEBUT getAllTrips ===');
             reservedWeight,
             availableWeight,
             capacityPercentage: Math.round((reservedWeight / trip.capacityKg) * 100),
-            isOwnTrip: false
+            isOwnTrip: trip.travelerId === user.id
           };
 
           return translationService.formatTripForAPI(tripData, user);

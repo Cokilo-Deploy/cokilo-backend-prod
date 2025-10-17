@@ -8,6 +8,8 @@ export interface TranslationKey {
 }
 
 export interface AppTranslations {
+  //AuthController
+  'msg.incorrect_current_password': TranslationKey;
   // Navigation
   'nav.home': TranslationKey;
   'nav.trips': TranslationKey;
