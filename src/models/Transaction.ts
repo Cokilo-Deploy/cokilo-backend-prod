@@ -234,7 +234,7 @@ Transaction.init({
     allowNull: false,
     validate: {
       min: 0.1,
-      max: 50,
+      
     },
   },
   packageValue: {
