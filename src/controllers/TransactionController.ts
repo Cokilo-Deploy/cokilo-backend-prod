@@ -183,9 +183,24 @@ export class TransactionController {
           user
         );
       }
+      console.log('🔍 === VÉRIFICATION CAPACITÉ ===');
+console.log('Trip capacityKg:', trip.capacityKg);
+console.log('Trip reservedWeight actuel:', trip.reservedWeight);
+console.log('Weight demandé:', weight, 'type:', typeof weight);
+
+// Calculer manuellement
+const reservedWeight = await TripCapacityService.calculateReservedWeight(tripId);
+console.log('🔍 Poids réservé (depuis transactions DB):', reservedWeight);
+console.log('🔍 Poids disponible calculé:', trip.capacityKg - reservedWeight);
+console.log('🔍 Est-ce que', weight, '<=', trip.capacityKg - reservedWeight, '?');
+
+
 
       const isAvailable = await TripCapacityService.checkAvailability(tripId, weight);
+      console.log('🔍 Résultat checkAvailability:', isAvailable);
+
       if (!isAvailable) {
+        console.log('❌ REJETÉ - Capacité insuffisante');
         return sendLocalizedResponse(
           res,
           'msg.insufficient_capacity',
