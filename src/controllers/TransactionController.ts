@@ -772,8 +772,7 @@ let formattedTransaction = translationService.formatTransactionForAPI(transactio
       await NotificationService.notifyTransactionCancelled(transaction, cancelledBy as 'sender' | 'traveler');
       await TripCapacityService.updateTripVisibility();
 
-      await user.reload();
-
+      
       return sendLocalizedResponse(
         res,
         'msg.transaction_cancelled',

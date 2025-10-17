@@ -16,6 +16,7 @@ import { Stripe } from 'stripe';
 import { WalletService } from '../services/walletService';
 import { Wallet } from '../models/Wallet';
 import { ErrorCode, errorResponse } from '../utils/errorCodes';
+import { sendLocalizedResponse } from '../utils/responseHelpers';
 
 const nodemailer = require('nodemailer');
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
@@ -809,10 +810,13 @@ static async changePassword(req: Request, res: Response) {
     // Vérifier le mot de passe actuel
     const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
     if (!isCurrentPasswordValid) {
-      return res.status(400).json({
-        success: false,
-        error: 'Mot de passe actuel incorrect'
-      });
+  return sendLocalizedResponse(
+    res,
+    'msg.incorrect_current_password',
+    null,
+    400,
+    user
+  );
     }
 
     // Mettre à jour avec le nouveau mot de passe (le hook User s'occupe du hashage)

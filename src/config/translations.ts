@@ -2,6 +2,15 @@
 import { AppTranslations } from '../types/translations';
 
 export const translations: AppTranslations = {
+  //AuthController
+  'msg.incorrect_current_password': {
+    fr: 'Mot de passe actuel incorrect',
+    en: 'Current password is incorrect',
+    de: 'Aktuelles Passwort ist falsch',
+    es: 'Contraseña actual incorrecta',
+    it: 'Password attuale errata'
+},
+
   // Navigation
   'nav.home': {
     fr: 'Accueil',
