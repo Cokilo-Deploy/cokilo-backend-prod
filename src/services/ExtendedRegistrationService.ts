@@ -44,6 +44,20 @@ export class ExtendedRegistrationService {
       console.log('🇩🇿 Utilisateur DZ - pas de Stripe Connect, utilisation wallet');
     }
 
+    // VÉRIFICATION: Téléphone unique
+    if (phone) {
+      console.log('📞 Vérification unicité du téléphone...');
+      const existingPhone = await User.findOne({ 
+        where: { phone: phone.trim() } 
+      });
+      
+      if (existingPhone) {
+        console.log('❌ Téléphone déjà utilisé');
+        throw new Error('Ce numéro de téléphone est déjà associé à un compte');
+      }
+      console.log('✅ Téléphone disponible');
+    }
+
     // ÉTAPE 2: Créer l'utilisateur en BDD
     console.log('👤 ÉTAPE 2: Création utilisateur en BDD...');
     const user = await User.create({
