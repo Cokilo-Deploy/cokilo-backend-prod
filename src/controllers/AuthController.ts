@@ -247,6 +247,22 @@ private static async createAndValidateStripeConnect(data: any, userIp: string): 
       const detectedCountry = await AuthController.detectCountryFromIP(req);
       req.body.country = req.body.country || detectedCountry;
 
+      if (req.body.phone) {
+      const existingPhone = await User.findOne({ 
+      where: { phone: req.body.phone.trim() } 
+      });
+  
+      if (existingPhone) {
+        return res.status(409).json({
+        success: false,
+        error: 'Ce numéro de téléphone est déjà associé à un compte',
+        fieldErrors: {
+        phone: 'Numéro déjà utilisé'
+        }
+        });
+      }
+}
+
 
       const result = await ExtendedRegistrationService.registerWithStripeConnect(
         req.body, 
@@ -285,6 +301,16 @@ private static async createAndValidateStripeConnect(data: any, userIp: string): 
   let fieldErrors: any = {};
   
   const errorText = error.message || '';
+  if (error.name === 'SequelizeUniqueConstraintError' && error.fields?.phone) {
+    fieldErrors.phone = 'Numéro déjà utilisé';
+    errorMessage = 'Ce numéro de téléphone est déjà associé à un compte';
+    
+    return res.status(409).json({
+      success: false,
+      error: errorMessage,
+      fieldErrors: fieldErrors
+    });
+  }
   
   if (errorText.includes('postal') || errorText.includes('Code postal')) {
     fieldErrors.postalCode = 'Code postal invalide ou inexistant';

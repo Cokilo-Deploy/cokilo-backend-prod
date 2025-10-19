@@ -210,6 +210,10 @@ User.init({
   phone: {
     type: DataTypes.STRING,
     allowNull: true,
+    unique: {
+    name: 'unique_phone',
+    msg: 'Ce numéro de téléphone est déjà utilisé'
+  },
     validate: {
       len: [10, 20],
     },
@@ -444,6 +448,15 @@ User.init({
     },
     {
       fields: ['verificationStatus'],
+    },
+    {
+      fields: ['phone'],
+      unique: true,
+      where: {
+        phone: {
+       [Op.ne]: null,
+        },
+      },
     },
   ],
 });
