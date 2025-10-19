@@ -5,6 +5,7 @@ import { getUserAccessInfo } from '../utils/userAccess';
 import { UserVerificationStatus } from '../types/user';
 import { StripeConnectService } from '../services/StripeConnectService'; // AJOUT
 import { ErrorCode } from '../utils/errorCodes';
+import { Op } from 'sequelize';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
@@ -579,6 +580,29 @@ if (verificationSession.last_verification_report) {
         error: 'Tous les champs sont requis'
       });
     }
+    // VÉRIFICATION UNICITÉ TÉLÉPHONE
+    // ==========================================
+    console.log('📞 Vérification unicité du téléphone...');
+    const existingPhone = await User.findOne({ 
+      where: { 
+        phone: phone.trim(),
+        id: { [Op.ne]: user.id } // Exclure l'utilisateur actuel
+      } 
+    });
+    
+    if (existingPhone) {
+      console.log('❌ Téléphone déjà utilisé par utilisateur:', existingPhone.id);
+      return res.status(409).json({
+        success: false,
+        errorCode: 'PHONE_ALREADY_USED',
+        error: 'Ce numéro de téléphone est déjà associé à un autre compte',
+        fieldErrors: {
+          phone: 'Numéro déjà utilisé'
+        }
+      });
+    }
+    console.log('✅ Téléphone disponible');
+
 
     // ==========================================
     // ÉTAPE 2 : DÉTERMINER SI UTILISATEUR EU
