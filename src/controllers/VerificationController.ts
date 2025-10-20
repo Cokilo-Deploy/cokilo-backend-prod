@@ -6,6 +6,7 @@ import { UserVerificationStatus } from '../types/user';
 import { StripeConnectService } from '../services/StripeConnectService'; // AJOUT
 import { ErrorCode } from '../utils/errorCodes';
 import { Op } from 'sequelize';
+import { normalizePhoneNumber } from '../utils/phoneUtils';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-08-27.basil',
@@ -580,12 +581,16 @@ if (verificationSession.last_verification_report) {
         error: 'Tous les champs sont requis'
       });
     }
+    // ✅ NORMALISATION DU TÉLÉPHONE
+   const normalizedPhone = normalizePhoneNumber(phone);
+   console.log('📞 Téléphone original:', phone);
+   console.log('📞 Téléphone normalisé:', normalizedPhone);
     // VÉRIFICATION UNICITÉ TÉLÉPHONE
     // ==========================================
     console.log('📞 Vérification unicité du téléphone...');
     const existingPhone = await User.findOne({ 
       where: { 
-        phone: phone.trim(),
+        phone: normalizedPhone,
         id: { [Op.ne]: user.id } // Exclure l'utilisateur actuel
       } 
     });
@@ -727,7 +732,7 @@ if (verificationSession.last_verification_report) {
       addressCity,
       addressPostalCode,
       state,
-      phone,
+      phone: normalizedPhone,
       stripeTermsAccepted: acceptStripeTerms,
       stripeTermsAcceptedAt: new Date()
     });
