@@ -3,6 +3,7 @@ import { User, UserVerificationStatus } from '../models/User';
 import { StripeConnectService } from './StripeConnectService';
 import jwt from 'jsonwebtoken';
 import { AuthController } from '../controllers/AuthController';
+import { normalizePhoneNumber } from '../utils/phoneUtils';
 
 export class ExtendedRegistrationService {
   
@@ -46,9 +47,12 @@ export class ExtendedRegistrationService {
 
     // VÉRIFICATION: Téléphone unique
     if (phone) {
+      const normalizedPhone = normalizePhoneNumber(phone);
       console.log('📞 Vérification unicité du téléphone...');
+      console.log('📞 Original:', phone, '→ Normalisé:', normalizedPhone);
+
       const existingPhone = await User.findOne({ 
-        where: { phone: phone.trim() } 
+        where: { phone: normalizedPhone } 
       });
       
       if (existingPhone) {
@@ -65,7 +69,7 @@ export class ExtendedRegistrationService {
       lastName,
       email,
       password,
-      phone,
+      phone: phone ? normalizePhoneNumber(phone) : undefined,
       currency: currency || 'EUR',
       country: country,
       paymentMethod: country === 'DZ' ? 'manual' : 'stripe_connect',
