@@ -703,7 +703,8 @@ if (verificationSession.last_verification_report) {
           user.country === 'FR' ? '75001' :
           user.country === 'DE' ? '10115' :
           user.country === 'IT' ? '00118' :
-          'format valide';
+          user.country === 'DZ' ? '34000' :
+          '00000';
 
         return res.status(400).json({
   success: false,
