@@ -223,5 +223,11 @@ export interface AppTranslations {
   'home.packages_sent': TranslationKey;
   'home.loading': TranslationKey;
 
+  //wallet
+  'msg.withdrawal_success_stripe': TranslationKey;
+  'msg.error_withdrawal': TranslationKey;
+  'msg.bank_details_required': TranslationKey;
+  'msg.estimated_arrival_1_2_days': TranslationKey;
+
 }
 

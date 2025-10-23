@@ -3,6 +3,7 @@ import { Review } from '../models/Review';
 import { Transaction } from '../models/Transaction';
 import { User } from '../models/User';
 import { TransactionStatus } from '../types/transaction';
+import { sendLocalizedResponse } from '../utils/responseHelpers';
 
 interface AuthRequest extends Request {
   user?: User;
@@ -66,7 +67,13 @@ export class ReviewController {
 
     } catch (error: any) {
       console.error('Erreur création avis:', error);
-      res.status(500).json({ success: false, error: 'Erreur serveur' });
+      return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
     }
   }
 
@@ -131,7 +138,13 @@ export class ReviewController {
 
   } catch (error: any) {
     console.error('Erreur récupération avis:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 }
 
@@ -172,7 +185,13 @@ export class ReviewController {
 
     } catch (error: any) {
       console.error('Erreur récupération avis transaction:', error);
-      res.status(500).json({ success: false, error: 'Erreur serveur' });
+      return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
     }
   }
 

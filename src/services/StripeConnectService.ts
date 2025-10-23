@@ -294,14 +294,15 @@ static async addExternalAccount(userId: number, bankDetails: any): Promise<void>
     console.log(`✅ Compte bancaire ajouté: ${externalAccount.id}`);
 
   } catch (error: any) {
-    console.error('❌ Erreur détaillée ajout compte bancaire:', {
-      message: error.message,
-      type: error.type,
-      code: error.code,
-      param: error.param
-    });
-    throw new Error('Impossible d\'ajouter le compte bancaire: ' + error.message);
-  }
+  console.error('❌ Erreur détaillée ajout compte bancaire:', {
+    message: error.message,
+    type: error.type,
+    code: error.code,
+    param: error.param
+  });
+  
+  // Lancer une erreur avec la clé de traduction
+  throw new Error('msg.error_adding_bank_account');
 }
 
 /**

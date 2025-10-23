@@ -55,7 +55,13 @@ export class AdminAuthController {
       });
     } catch (error) {
       console.error('Erreur login admin:', error);
-      res.status(500).json({ success: false, error: 'Erreur serveur' });
+      return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
     }
   }
 
@@ -74,7 +80,13 @@ export class AdminAuthController {
       });
     } catch (error) {
       console.error('Erreur profil admin:', error);
-      res.status(500).json({ success: false, error: 'Erreur serveur' });
+      return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
     }
   }
   static async createAdmin(req: Request, res: Response) {
@@ -114,7 +126,13 @@ export class AdminAuthController {
     });
   } catch (error) {
     console.error('Erreur création admin:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 }
 }
