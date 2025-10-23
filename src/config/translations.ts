@@ -1205,7 +1205,7 @@ export const translations: AppTranslations = {
     de: '...',
     es: '...',
     it: '...'
-  }
+  },
   // wallet
   'msg.withdrawal_success_stripe': {
   fr: 'Retrait effectué avec succès. L\'argent arrivera dans 1-2 jours ouvrés.',
