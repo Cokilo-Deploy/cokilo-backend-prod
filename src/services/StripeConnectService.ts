@@ -303,6 +303,7 @@ static async addExternalAccount(userId: number, bankDetails: any): Promise<void>
   
   // Lancer une erreur avec la clé de traduction
   throw new Error('msg.error_adding_bank_account');
+  }
 }
 
 /**
