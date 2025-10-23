@@ -10,6 +10,7 @@ import { WalletService } from '../services/walletService';
 import { Wallet } from '../models/Wallet';
 import { ChatConversation, ChatMessage } from '../models';
 import { Stripe } from 'stripe';
+import { sendLocalizedResponse } from '../utils/responseHelpers';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-08-27.basil',
@@ -77,7 +78,13 @@ export class AdminController {
     });
   } catch (error) {
     console.error('Erreur dashboard admin:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 }
 
@@ -121,7 +128,13 @@ export class AdminController {
       });
     } catch (error) {
       console.error('Erreur getUsers:', error);
-      res.status(500).json({ success: false, error: 'Erreur serveur' });
+      return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
     }
   }
 
@@ -152,7 +165,13 @@ export class AdminController {
       res.json({ success: true, message: 'Statut utilisateur mis à jour' });
     } catch (error) {
       console.error('Erreur updateUserStatus:', error);
-      res.status(500).json({ success: false, error: 'Erreur serveur' });
+      return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
     }
   }
   // Dans AdminController.ts, ajoutez ces méthodes :
@@ -192,7 +211,13 @@ static async getTrips(req: Request, res: Response) {
     });
   } catch (error) {
     console.error('Erreur getTrips:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 }
 
@@ -210,7 +235,13 @@ static async updateTripStatus(req: Request, res: Response) {
     res.json({ success: true, message: 'Statut voyage mis à jour' });
   } catch (error) {
     console.error('Erreur updateTripStatus:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 }
 
@@ -262,7 +293,13 @@ static async getTransactions(req: Request, res: Response) {
     });
   } catch (error) {
     console.error('Erreur getTransactions:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 }
 
@@ -291,7 +328,13 @@ static async resolveTransaction(req: Request, res: Response) {
     res.json({ success: true, message: 'Transaction résolue' });
   } catch (error) {
     console.error('Erreur resolveTransaction:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 }
 
@@ -305,7 +348,13 @@ static async getSupportMessages(req: Request, res: Response) {
     });
   } catch (error) {
     console.error('Erreur getSupportMessages:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 }
 
@@ -318,7 +367,13 @@ static async replySupportMessage(req: Request, res: Response) {
     res.json({ success: true, message: 'Réponse envoyée' });
   } catch (error) {
     console.error('Erreur replySupportMessage:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 }
 
@@ -409,7 +464,13 @@ static async getWalletStats(req: Request, res: Response) {
     });
   } catch (error) {
     console.error('Erreur wallet stats:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 }
 
@@ -866,7 +927,13 @@ static async getStats(req: Request, res: Response) {
 
   } catch (error) {
     console.error('Erreur getStats:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 }
 }

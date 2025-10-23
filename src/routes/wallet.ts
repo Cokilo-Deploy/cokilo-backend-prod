@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { WalletService } from '../services/walletService';
 import { WithdrawalService } from '../services/withdrawalService';
+import { sendLocalizedResponse } from '../utils/responseHelpers';
+import { translationService } from '../services/TranslationService';
 
 const router = Router();
 
@@ -20,7 +22,13 @@ router.get('/balance', authMiddleware, async (req, res) => {
     });
   } catch (error) {
     console.error('Erreur récupération solde:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 });
 
@@ -59,7 +67,13 @@ router.get('/history', authMiddleware, async (req, res) => {
     
   } catch (error) {
     console.error('Erreur récupération historique:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 });
 
@@ -90,6 +104,7 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
       }
 
       const { StripeConnectService } = require('../services/StripeConnectService');
+      try {
       
       // Ajouter les coordonnées bancaires au compte Connect s'il n'en a pas
       await StripeConnectService.addExternalAccount(userId, bankDetails);
@@ -97,26 +112,47 @@ router.post('/withdraw', authMiddleware, async (req, res) => {
       // Effectuer le payout instantané
       const payoutId = await StripeConnectService.createPayout(userId, amount);
       
-      res.json({
-        success: true,
-        message: 'Retrait effectué avec succès. L\'argent arrivera dans 1-2 jours ouvrés.',
-        data: { 
-          payoutId,
-          type: 'instant',
-          estimatedArrival: '1-2 jours ouvrés'
-        }
-      });
+       return sendLocalizedResponse(
+    res,
+    'msg.withdrawal_success_stripe',
+    { 
+      payoutId,
+      type: 'instant',
+      estimatedArrival: translationService.t('msg.estimated_arrival_1_2_days', user)
+    },
+    200,
+    user
+  );
+
+} catch (error: any) {
+  console.error('❌ Erreur retrait Stripe:', error);
+  
+  const errorKey = error.message?.startsWith('msg.') 
+    ? error.message 
+    : 'msg.error_withdrawal';
+  
+  return sendLocalizedResponse(
+    res,
+    errorKey,
+    null,
+    500,
+    user
+  );
+}
 
     } else {
       // UTILISATEUR DZ - Système manuel existant
       console.log(`🇩🇿 Retrait manuel DZ pour user ${userId}: ${amount}€`);
       
       if (!bankDetails) {
-        return res.status(400).json({
-          success: false,
-          error: 'Coordonnées bancaires requises'
-        });
-      }
+    return sendLocalizedResponse(
+      res,
+      'msg.bank_details_required',
+      null,
+      400,
+      user
+    );
+  }
       
       const withdrawal = await WithdrawalService.requestWithdrawal(userId, amount, bankDetails);
       
@@ -178,7 +214,13 @@ router.get('/withdrawals', authMiddleware, async (req, res) => {
     
   } catch (error) {
     console.error('Erreur historique retraits:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 });
 

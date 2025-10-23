@@ -5,6 +5,7 @@ import { getUserAccessInfo } from '../utils/userAccess';
 import { Op } from 'sequelize';
 import { Review } from '../models/Review';
 import { Transaction, Trip } from '../models';
+import { sendLocalizedResponse } from '../utils/responseHelpers';
 
 interface AuthRequest extends Request {
   user?: User;
@@ -195,7 +196,13 @@ static async getUserInfo(req: Request, res: Response) {
     
   } catch (error: any) {
     console.error('Erreur récupération infos utilisateur:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 }
 // Upload avatar utilisateur
@@ -237,7 +244,13 @@ static async uploadAvatar(req: AuthRequest, res: Response) {
 
   } catch (error: any) {
      console.error('Erreur upload avatar:', error);
-    res.status(500).json({ success: false, error: 'Erreur serveur' });
+    return sendLocalizedResponse(
+    res,
+    'msg.server_error',
+    null,
+    500,
+    (req as any).user
+  );
   }
 }
 // Dans controllers/UserController.ts, ajoutez cette méthode

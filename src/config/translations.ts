@@ -1206,4 +1206,37 @@ export const translations: AppTranslations = {
     es: '...',
     it: '...'
   }
+  // wallet
+  'msg.withdrawal_success_stripe': {
+  fr: 'Retrait effectué avec succès. L\'argent arrivera dans 1-2 jours ouvrés.',
+  en: 'Withdrawal successful. Money will arrive in 1-2 business days.',
+  de: 'Auszahlung erfolgreich. Geld wird in 1-2 Werktagen ankommen.',
+  es: 'Retiro exitoso. El dinero llegará en 1-2 días hábiles.',
+  it: 'Prelievo effettuato con successo. Il denaro arriverà in 1-2 giorni lavorativi.'
+},
+
+'msg.error_withdrawal': {
+  fr: 'Erreur lors du retrait. Veuillez réessayer.',
+  en: 'Withdrawal error. Please try again.',
+  de: 'Auszahlungsfehler. Bitte versuchen Sie es erneut.',
+  es: 'Error de retiro. Intente nuevamente.',
+  it: 'Errore di prelievo. Riprova.'
+},
+
+'msg.bank_details_required': {
+  fr: 'Coordonnées bancaires requises',
+  en: 'Bank details required',
+  de: 'Bankdaten erforderlich',
+  es: 'Detalles bancarios requeridos',
+  it: 'Dettagli bancari richiesti'
+},
+
+// Bonus : traduire "estimatedArrival" si affiché au frontend
+'msg.estimated_arrival_1_2_days': {
+  fr: '1-2 jours ouvrés',
+  en: '1-2 business days',
+  de: '1-2 Werktage',
+  es: '1-2 días hábiles',
+  it: '1-2 giorni lavorativi'
+},
 };
