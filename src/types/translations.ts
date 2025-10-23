@@ -228,6 +228,7 @@ export interface AppTranslations {
   'msg.error_withdrawal': TranslationKey;
   'msg.bank_details_required': TranslationKey;
   'msg.estimated_arrival_1_2_days': TranslationKey;
+  
 
 }
 
