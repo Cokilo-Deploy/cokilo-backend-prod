@@ -32,6 +32,7 @@ export class PaymentService {
         // Configuration pour mobile
         payment_method_types: ['card'],
       });
+      //
 
       return {
         paymentIntentId: paymentIntent.id,
