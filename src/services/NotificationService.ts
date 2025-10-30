@@ -2,16 +2,17 @@
 import { Transaction } from '../models/Transaction';
 import { Notification } from '../models/Notification';
 import { User } from '../models/User';
+import ExpoPushService from './ExpoPushService';
 
 export class NotificationService {
   
   /**
    * Envoyer une notification complète (Socket + DB + Push future)
    */
-  static async sendNotification(userId: number, type: string, title: string, body: string, data?: any) {
+  static async  sendNotification(userId: number, type: string, title: string, body: string, data?: any) {
     try {
       // 1. Sauvegarder en DB
-      await Notification.create({
+      const notification = await Notification.create({
         userId,
         type,
         title,
@@ -31,6 +32,18 @@ export class NotificationService {
           timestamp: new Date()
         });
       }
+
+      // 3. 🆕 Envoyer Push Notification
+      await ExpoPushService.sendPushNotification(
+        userId,
+        title,
+        body,
+        {
+          notificationId: notification.id,
+          type,
+          ...data
+        }
+      );
       
       console.log('🔔 Notification envoyée à user:', userId, '- Type:', type);
       

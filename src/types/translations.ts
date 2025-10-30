@@ -162,6 +162,7 @@ export interface AppTranslations {
   'proposeYourBaggageSpace': TranslationKey;
   'verificationRequired': TranslationKey;
   'verificationRequiredMessage': TranslationKey;
+  'msg.phone_already_used': TranslationKey;
   'verifyNow': TranslationKey;
   'back': TranslationKey;
   'checkingStatus': TranslationKey;

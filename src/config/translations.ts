@@ -816,6 +816,13 @@ export const translations: AppTranslations = {
     es: 'Debes verificar tu identidad para crear viajes.',
     it: 'Devi verificare la tua identità per creare viaggi.'
   },
+  'msg.phone_already_used': {
+  fr: 'Ce numéro de téléphone est déjà associé à un autre compte',
+  en: 'This phone number is already associated with another account',
+  de: 'Diese Telefonnummer ist bereits mit einem anderen Konto verknüpft',
+  es: 'Este número de teléfono ya está asociado a otra cuenta',
+  it: 'Questo numero di telefono è già associato a un altro account'
+},
   'verifyNow': {
     fr: 'Vérifier maintenant',
     en: 'Verify now',
