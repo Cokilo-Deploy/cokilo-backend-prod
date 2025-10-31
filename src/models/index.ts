@@ -5,6 +5,8 @@ import { Transaction } from './Transaction';
 import { ChatConversation } from './ChatConversation';
 import { ChatMessage } from './ChatMessage';
 import { Review } from './Review';
+import { Country } from './Country';
+import { Location } from './Location';
 
 // ======= RELATIONS EXISTANTES =======
 
@@ -187,5 +189,7 @@ export {
   Transaction,
   ChatConversation,
   ChatMessage,
-  Review
+  Review,
+  Country,
+  Location
 };

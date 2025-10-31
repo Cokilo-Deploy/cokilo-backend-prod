@@ -22,6 +22,7 @@ import NotificationRoutes from './routes/notification';
 import { userLanguageRouter } from './routes/userLanguage';
 import supportRoutes from './routes/support';
 import { adminRouter } from './routes/admin';
+import { locationRouter } from './routes/locations';
 import cors from 'cors';
 
 dotenv.config();
@@ -74,6 +75,7 @@ app.use((req, res, next) => {
 // Routes API
 app.use('/api/auth', authRouter);
 app.use('/api/trips', tripRouter);
+app.use('/api/locations', locationRouter);
 app.use('/api/transactions', authMiddleware, transactionRouter);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/chat', chatRouter);

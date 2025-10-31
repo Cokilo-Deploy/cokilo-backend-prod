@@ -229,6 +229,12 @@ export interface AppTranslations {
   'msg.error_withdrawal': TranslationKey;
   'msg.bank_details_required': TranslationKey;
   'msg.estimated_arrival_1_2_days': TranslationKey;
+
+  //LocationController
+  'msg.countries_loaded': TranslationKey;
+  'msg.locations_loaded': TranslationKey;
+  'msg.error_loading_data': TranslationKey;
+
   
 
 }
