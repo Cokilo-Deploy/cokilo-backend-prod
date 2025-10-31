@@ -128,6 +128,8 @@ Country.init({
   sequelize,
   modelName: 'Country',
   tableName: 'countries',
+  timestamps: true,
+  underscored: true,  // ← AJOUTER CETTE LIGNE
   indexes: [
     { fields: ['code'], unique: true },
     { fields: ['value'], unique: true },
