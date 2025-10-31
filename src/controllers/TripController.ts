@@ -6,71 +6,11 @@ import { TripStatus, TripType } from '../types/trip';
 import { User } from '../models/User';
 import { getUserAccessInfo } from '../utils/userAccess';
 import { TripCapacityService } from '../services/TripCapacityService';
-import { CurrencyService } from '../services/CurrencyService';
 import { translationService } from '../services/TranslationService';
 import { sendLocalizedResponse } from '../utils/responseHelpers';
 import { ErrorCode, errorResponse } from '../utils/errorCodes';
 
 export class TripController {
-
-  // Fonction existante - conservée intacte
-  static async convertTripsForUser(trips: any[], userCurrency: string) {
-    try {
-      console.log('=== CONVERSION TRIPS ===');
-      console.log('User currency:', userCurrency);
-      console.log('Nombre de trips à convertir:', trips.length);
-      
-      if (trips.length === 0) return [];
-      
-      console.log('Premier trip avant conversion:', {
-        id: trips[0].id,
-        pricePerKg: trips[0].pricePerKg,
-        title: trips[0].title
-      });
-
-      const rates = await CurrencyService.getExchangeRates();
-      console.log('Taux de change récupérés:', Object.keys(rates).length + ' devises');
-      
-      const convertedTrips = trips.map(trip => {
-        const originalPrice = parseFloat(trip.pricePerKg) || 0;
-        
-        let convertedPrice;
-        if (userCurrency === 'EUR') {
-          convertedPrice = originalPrice;
-          console.log(`Trip ${trip.id}: EUR - pas de conversion (${originalPrice})`);
-        } else {
-          convertedPrice = CurrencyService.convertPrice(originalPrice, 'EUR', userCurrency, rates);
-          console.log(`Trip ${trip.id}: ${originalPrice} EUR -> ${convertedPrice} ${userCurrency}`);
-        }
-        
-        return {
-          ...trip,
-          originalPricePerKg: originalPrice,
-          pricePerKg: convertedPrice,
-          displayCurrency: userCurrency,
-          currencySymbol: CurrencyService.getCurrencySymbol(userCurrency)
-        };
-      });
-
-      if (convertedTrips.length > 0) {
-        console.log('Premier trip après conversion:', {
-          pricePerKg: convertedTrips[0].pricePerKg,
-          displayCurrency: convertedTrips[0].displayCurrency,
-          currencySymbol: convertedTrips[0].currencySymbol
-        });
-      }
-
-      return convertedTrips;
-    } catch (error) {
-      console.error('Erreur conversion trips:', error);
-      return trips.map(trip => ({
-        ...trip,
-        originalPricePerKg: trip.pricePerKg,
-        displayCurrency: 'EUR',
-        currencySymbol: '€'
-      }));
-    }
-  }
 
   static async getAvailableTrips(req: Request, res: Response) {
     try {
@@ -111,12 +51,16 @@ export class TripController {
       );
 
       const availableTrips = tripsWithCapacity.filter(trip => trip.availableWeight > 0);
-      const convertedTrips = await TripController.convertTripsForUser(availableTrips, user.currency);
+      const tripsWithCurrency = availableTrips.map(trip => ({
+     ...trip,
+     displayCurrency: 'EUR',
+     currencySymbol: '€'
+   }));
 
       return sendLocalizedResponse(
         res,
         'msg.trips_loaded',
-        { trips: convertedTrips },
+        { trips: tripsWithCurrency },
         200,
         user
       );
@@ -195,14 +139,18 @@ console.log('=== DEBUT getAllTrips ===');
       //log
       console.log(`Total trips: ${plainTrips.length}, Disponibles: ${availableTrips.length}`);
             
-      const convertedTrips = await TripController.convertTripsForUser(availableTrips, userCurrency);
+      const tripsWithCurrency = availableTrips.map(trip => ({
+     ...trip,
+     displayCurrency: 'EUR',
+     currencySymbol: '€'
+          }));
       const totalTrips = await Trip.count({ where: whereClause });
 
       return sendLocalizedResponse(
         res,
         'msg.trips_loaded',
         {
-          trips: convertedTrips,
+          trips: tripsWithCurrency,
           pagination: {
             currentPage: page,
             totalPages: Math.ceil(totalTrips / limit),
@@ -290,12 +238,16 @@ console.log('=== DEBUT getAllTrips ===');
         );
       }
 
-      const convertedTrips = await TripController.convertTripsForUser(availableTrips.slice(0, 50), user.currency);
+      const tripsWithCurrency = availableTrips.slice(0, 50).map(trip => ({
+     ...trip,
+     displayCurrency: 'EUR',
+     currencySymbol: '€'
+        }));
 
       return sendLocalizedResponse(
         res,
         'msg.trips_loaded',
-        { trips: convertedTrips },
+        { trips: tripsWithCurrency },
         200,
         user
       );
@@ -433,12 +385,16 @@ console.log('=== DEBUT getAllTrips ===');
       };
 
       const formattedTrip = translationService.formatTripForAPI(tripWithCapacity, user);
-      const convertedTrips = await TripController.convertTripsForUser([formattedTrip], user.currency);
+      const tripWithCurrency = {
+      ...formattedTrip,
+      displayCurrency: 'EUR',
+      currencySymbol: '€'
+       };
 
       return sendLocalizedResponse(
         res,
         'msg.trip_loaded',
-        { trip: convertedTrips[0] },
+        { trip: tripWithCurrency },
         200,
         user
       );

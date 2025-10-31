@@ -26,65 +26,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
 
 export class AuthController {
   
-  // Fonction helper pour détecter la devise par IP
-  private static async detectCurrencyFromIP(req: Request): Promise<string> {
-    try {
-      // Priorité aux headers de proxy (DigitalOcean utilise des proxies)
-      const clientIP = req.headers['x-forwarded-for'] as string ||
-                      req.headers['x-real-ip'] as string ||
-                      req.headers['cf-connecting-ip'] as string || // Cloudflare
-                      req.connection?.remoteAddress ||
-                      req.socket?.remoteAddress ||
-                      req.ip ||
-                      '127.0.0.1';
-
-      // Prendre seulement la première IP si liste séparée par virgules
-      const realIP = clientIP.split(',')[0].trim();
-      
-      console.log('=== DETECTION IP ===');
-      console.log('Header x-forwarded-for:', req.headers['x-forwarded-for']);
-      console.log('Header x-real-ip:', req.headers['x-real-ip']);
-      console.log('IP finale utilisée:', realIP);
-
-      // Exclure les IPs privées/locales
-      if (realIP === '127.0.0.1' || 
-          realIP === '::1' || 
-          realIP.startsWith('10.') ||      // Réseaux privés
-          realIP.startsWith('172.') ||     // Réseaux privés  
-          realIP.startsWith('192.168.') || // Réseaux privés
-          realIP.includes('localhost')) {
-        console.log('IP PRIVEE DETECTEE - retour EUR');
-        return 'EUR';
-      }
-
-      const response = await axios.get(`http://ip-api.com/json/${realIP}?fields=countryCode,country,query`, {
-        timeout: 3000
-      });
-      
-      console.log('API Response complète:', response.data);
-      
-      const countryCode = (response.data as any).countryCode;
-      if (!countryCode) {
-        console.log('Pas de pays détecté - retour EUR');
-        return 'EUR';
-      }
-      
-      const countryToCurrency: { [key: string]: string } = {
-        'DZ': 'DZD', 'MA': 'MAD', 'TN': 'TND', 'EG': 'EGP',
-        'SA': 'SAR', 'AE': 'AED', 'US': 'USD', 'CA': 'CAD',
-        'GB': 'GBP', 'CH': 'CHF'
-      };
-      
-      const finalCurrency = countryToCurrency[countryCode] || 'EUR';
-      console.log('PAYS:', countryCode, '-> DEVISE:', finalCurrency);
-      
-      return finalCurrency;
-    } catch (error) {
-      console.log('ERREUR DETECTION:', error);
-      return 'EUR';
-    }
-  }
-
+  
   // Fonction helper pour détecter le pays par IP
   private static async detectCountryFromIP(req: Request): Promise<string> {
     try {
@@ -240,9 +182,8 @@ private static async createAndValidateStripeConnect(data: any, userIp: string): 
                      req.connection.remoteAddress || 
                      '127.0.0.1';
 
-      // Ajouter détection automatique de devise et pays si manquante
-      const detectedCurrency = await AuthController.detectCurrencyFromIP(req);
-      req.body.currency = req.body.currency || detectedCurrency;
+      // Ajouter détection automatique de  pays si manquante
+      req.body.currency = 'EUR'; // Toujours EUR
 
       const detectedCountry = await AuthController.detectCountryFromIP(req);
       req.body.country = req.body.country || detectedCountry;
@@ -281,11 +222,11 @@ private static async createAndValidateStripeConnect(data: any, userIp: string): 
             firstName: result.user.firstName,
             lastName: result.user.lastName,
             verificationStatus: result.user.verificationStatus,
-            currency: result.user.currency,
+            currency: 'EUR',
             country: result.user.country,
             paymentMethod: result.user.paymentMethod
           },
-          detectedCurrency: req.body.currency,
+          detectedCurrency: 'EUR',
           detectedCountry: req.body.country,
           stripeAccountCreated: result.stripeAccountCreated
         },
@@ -367,7 +308,7 @@ static async registerSimple(req: Request, res: Response) {
     }
 
     console.log('🌍 Détection IP en cours...');
-    const detectedCurrency = await AuthController.detectCurrencyFromIP(req);
+    const detectedCurrency = 'EUR';
         
     const detectedCountry = await AuthController.detectCountryFromIP(req);
     console.log('✅ IP détectée - devise:', detectedCurrency, detectedCountry);
@@ -385,7 +326,7 @@ static async registerSimple(req: Request, res: Response) {
       lastName,
       email,
       password, // Le hook beforeCreate va hasher
-      currency: detectedCurrency,
+      currency: 'EUR',
       country: detectedCountry,
       emailVerifiedAt: undefined,
       verificationCode,
@@ -432,7 +373,7 @@ static async registerSimple(req: Request, res: Response) {
           email: user.email,
         },
         requiresVerification: true,
-        detectedCurrency,
+        detectedCurrency: 'EUR',
         detectedCountry
       },
       message: 'Compte créé. Vérifiez votre email pour l\'activer.'
@@ -514,7 +455,7 @@ static async verifyEmail(req: Request, res: Response) {
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email,
-          currency: user.currency
+          currency: 'EUR'
         }
       },
       message: 'Email vérifié avec succès'
@@ -623,7 +564,7 @@ static async resendVerification(req: Request, res: Response) {
             firstName: user.firstName,
             lastName: user.lastName,
             verificationStatus: user.verificationStatus,
-            currency: user.currency,
+            currency: 'EUR',
             country: user.country,
             paymentMethod: user.paymentMethod
           }
@@ -659,7 +600,7 @@ static async resendVerification(req: Request, res: Response) {
             rating: user.rating,
             totalTrips: user.totalTrips,
             totalDeliveries: user.totalDeliveries,
-            currency: user.currency,
+            currency: 'EUR',
             country: user.country,
             paymentMethod: user.paymentMethod,
             stripeConnectedAccountId: user.stripeconnectedaccountid
