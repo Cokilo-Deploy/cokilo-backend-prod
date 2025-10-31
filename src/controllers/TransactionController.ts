@@ -8,7 +8,6 @@ import { User } from '../models/User';
 import { PaymentService } from '../services/paymentService';
 import Stripe from 'stripe';
 import { TripCapacityService } from '../services/TripCapacityService';
-import { CurrencyService } from '../services/CurrencyService';
 import { StripeConnectService } from '../services/StripeConnectService';
 import { WalletService } from '../services/walletService';
 import { NotificationService } from '../services/NotificationService';
@@ -580,15 +579,9 @@ const formattedTransaction = translationService.formatTransactionForAPI(
       console.log('🔍 DEBUT getMyTransactions');
       const user = (req as any).user;
       
-      const forcedCurrency = req.headers['x-force-currency'] as string;
-      const userCurrency = forcedCurrency || user.currency || 'DZD';
       
-      console.log('DEVISE UTILISÉE:', {
-        userCurrencyFromDB: user.currency,
-        forcedCurrency: forcedCurrency,
-        finalCurrency: userCurrency
-      });
-
+      
+      
       const senderTransactions = await Transaction.findAll({
         where: { senderId: user.id },
         order: [['createdAt', 'DESC']],
@@ -609,25 +602,21 @@ const formattedTransaction = translationService.formatTransactionForAPI(
       );
 
       let convertedTransactions;
-if (userCurrency !== 'EUR') {
-  convertedTransactions = await CurrencyService.convertTransactions(uniqueTransactions, userCurrency);
-} else {
-  convertedTransactions = uniqueTransactions.map(transaction => ({
-    ...transaction.toJSON(),
-    displayCurrency: 'EUR',
-    currencySymbol: '€'
-  }));
-}
 
 // PUIS appliquez les traductions APRÈS la conversion :
-const formattedTransactions = convertedTransactions.map(transaction => {
-  return translationService.formatTransactionForAPI(transaction, user);
-});
+const formattedTransactions = uniqueTransactions.map(transaction => {
+     const txData = transaction.toJSON();
+     return {
+       ...translationService.formatTransactionForAPI(txData, user),
+       displayCurrency: 'EUR',
+       currencySymbol: '€'
+     };
+   });
 
       return sendLocalizedResponse(
         res,
         'msg.transactions_loaded',
-        { transactions: convertedTransactions },
+        { transactions: formattedTransactions },
         200,
         user
       );
@@ -678,27 +667,17 @@ const formattedTransactions = convertedTransactions.map(transaction => {
       }
 
       
-let formattedTransaction = translationService.formatTransactionForAPI(transaction.toJSON(), user);
-
-      const forcedCurrency = req.headers['x-force-currency'] as string;
-      const userCurrency = forcedCurrency || user.currency || 'DZD';
-      
-      let convertedTransaction;
-      if (userCurrency !== 'EUR') {
-        const converted = await CurrencyService.convertTransactions([formattedTransaction], userCurrency);
-        convertedTransaction = converted[0];
-      } else {
-        convertedTransaction = {
-          ...formattedTransaction,
-          displayCurrency: 'EUR',
-          currencySymbol: '€'
-        };
-      }
+   const formattedTransaction = translationService.formatTransactionForAPI(transaction.toJSON(), user);
+   const transactionWithCurrency = {
+     ...formattedTransaction,
+     displayCurrency: 'EUR',
+     currencySymbol: '€'
+   };
 
       return sendLocalizedResponse(
         res,
         'msg.transaction_loaded',
-        { transaction: convertedTransaction },
+        { transaction: transactionWithCurrency },
         200,
         user
       );
