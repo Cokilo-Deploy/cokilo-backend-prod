@@ -1246,4 +1246,28 @@ export const translations: AppTranslations = {
   es: '1-2 días hábiles',
   it: '1-2 giorni lavorativi'
 },
+
+// LocationController - Nouvelles clés
+  'msg.countries_loaded': {
+    fr: 'Pays chargés avec succès',
+    en: 'Countries loaded successfully',
+    de: 'Länder erfolgreich geladen',
+    es: 'Países cargados exitosamente',
+    it: 'Paesi caricati con successo'
+  },
+  'msg.locations_loaded': {
+    fr: 'Localisations chargées avec succès',
+    en: 'Locations loaded successfully',
+    de: 'Standorte erfolgreich geladen',
+    es: 'Ubicaciones cargadas exitosamente',
+    it: 'Località caricate con successo'
+  },
+  'msg.error_loading_data': {
+    fr: 'Erreur lors du chargement des données',
+    en: 'Error loading data',
+    de: 'Fehler beim Laden der Daten',
+    es: 'Error al cargar los datos',
+    it: 'Errore nel caricamento dei dati'
+  },
+
 };

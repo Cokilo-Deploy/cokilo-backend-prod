@@ -21,6 +21,8 @@ interface TripAttributes {
   arrivalAddress: string;
   arrivalLat: number;
   arrivalLng: number;
+  departureLocation?: string;
+  arrivalLocation?: string;
   
   departureDate: Date;
   arrivalDate: Date;
@@ -69,6 +71,8 @@ class Trip extends Model<TripAttributes, TripCreationAttributes> implements Trip
   public arrivalAddress!: string;
   public arrivalLat!: number;
   public arrivalLng!: number;
+  public departureLocation?: string;
+  public arrivalLocation?: string;
   
   public departureDate!: Date;
   public arrivalDate!: Date;
@@ -203,6 +207,16 @@ Trip.init({
       min: -180,
       max: 180,
     },
+  },
+  departureLocation: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'departure_location',
+  },
+  arrivalLocation: {
+    type: DataTypes.STRING(100),
+    allowNull: true,
+    field: 'arrival_location',
   },
   departureDate: {
     type: DataTypes.DATE,
