@@ -132,6 +132,8 @@ Location.init({
   sequelize,
   modelName: 'Location',
   tableName: 'locations',
+  timestamps: true,
+  underscored: true,  // ← AJOUTER CETTE LIGNE
   indexes: [
     { fields: ['country_code'] },
     { fields: ['type'] },
