@@ -1,3 +1,4 @@
+//src/socket/chatSoket.ts
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HTTPServer } from 'http';
 import jwt from 'jsonwebtoken';
@@ -6,7 +7,7 @@ import { Op } from 'sequelize';
 import { User } from '../models/User';
 
 export class ChatSocketServer {
-  private io: SocketIOServer;
+  public io: SocketIOServer;
   private connectedUsers: Map<number, Set<string>> = new Map();
 
   constructor(httpServer: HTTPServer) {

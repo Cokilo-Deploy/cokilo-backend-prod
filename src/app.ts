@@ -14,6 +14,7 @@ import webhookRoutes from './routes/webhooks';
 import chatRouter from './routes/chat';
 import http from 'http';
 import { ChatSocketServer } from './socket/chatSocket';
+import { setIO } from './socket/socketInstance'; 
 import userRoutes from './routes/user';
 import { verificationRouter } from './routes/verification';
 import stripeConnectRoutes from './routes/stripeConnect';
@@ -30,6 +31,7 @@ dotenv.config();
 const app = express();
 const server = http.createServer(app);
 const PORT = parseInt(process.env.PORT || '8080', 10);
+
 
 // Configuration CORS
 const corsOptions = {
@@ -127,6 +129,15 @@ const startServer = async () => {
 
     console.log('8. Initialisation Socket.IO...');
     chatSocketServer = new ChatSocketServer(server);
+
+    // 🆕 AJOUT : Enregistrer l'instance io pour NotificationService
+    // Accéder à l'instance io du ChatSocketServer
+    const io = (chatSocketServer as any).io;
+    if (io) {
+      setIO(io);
+      console.log('8b. Instance Socket.IO enregistrée pour les notifications');
+    }
+    
     console.log('9. Socket.IO Chat Server initialisé');
     
     console.log('10. Démarrage du serveur HTTP...');
