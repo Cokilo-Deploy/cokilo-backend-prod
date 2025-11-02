@@ -12,58 +12,56 @@ class ExpoPushService {
   /**
    * Envoyer une notification push à un utilisateur
    */
-  async sendPushNotification(
-    userId: number,
-    title: string,
-    body: string,
-    data?: any
-  ): Promise<boolean> {
-    try {
-      const user = await User.findByPk(userId);
-      
-      if (!user || !user.pushToken) {
-        console.log(`📱 Pas de push token pour user ${userId}`);
-        return false;
-      }
-
-      // Vérifier que le token est valide Expo Push Token
-      if (!Expo.isExpoPushToken(user.pushToken)) {
-        console.error(`❌ Token Expo invalide pour user ${userId}: ${user.pushToken}`);
-        return false;
-      }
-
-      const message: ExpoPushMessage = {
-        to: user.pushToken,
-        sound: 'default',
-        title,
-        body,
-        data: data || {},
-        priority: 'high',
-      };
-
-      // Envoyer la notification
-      const chunks = this.expo.chunkPushNotifications([message]);
-      
-      for (const chunk of chunks) {
-        try {
-          const ticketChunk = await this.expo.sendPushNotificationsAsync(chunk);
-          console.log('✅ Push notification envoyée:', ticketChunk);
-          
-          // Gérer les erreurs
-          this.handleTickets(ticketChunk, userId);
-          return true;
-        } catch (error) {
-          console.error('❌ Erreur envoi push notification:', error);
-          return false;
-        }
-      }
-
-      return true;
-    } catch (error) {
-      console.error('❌ Erreur sendPushNotification:', error);
+  
+async sendPushNotification(
+  userId: number,
+  title: string,
+  body: string,
+  data?: any
+): Promise<boolean> {
+  try {
+    const user = await User.findByPk(userId);
+    
+    if (!user || !user.pushToken) {
+      console.log(`📱 Pas de push token pour user ${userId}`);
       return false;
     }
+
+    if (!Expo.isExpoPushToken(user.pushToken)) {
+      console.error(`❌ Token Expo invalide pour user ${userId}`);
+      return false;
+    }
+
+    const message: ExpoPushMessage = {
+      to: user.pushToken,
+      sound: 'default', // 🔊 Son
+      title,
+      body,
+      data: data || {},
+      priority: 'high', // 🔥 Priorité haute
+      channelId: data?.type === 'new_message' ? 'messages' : 'default', // 🆕 Canal spécifique
+    };
+
+    const chunks = this.expo.chunkPushNotifications([message]);
+    
+    for (const chunk of chunks) {
+      try {
+        const ticketChunk = await this.expo.sendPushNotificationsAsync(chunk);
+        console.log('✅ Push notification envoyée:', ticketChunk);
+        this.handleTickets(ticketChunk, userId);
+        return true;
+      } catch (error) {
+        console.error('❌ Erreur envoi push notification:', error);
+        return false;
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error('❌ Erreur sendPushNotification:', error);
+    return false;
   }
+}
 
   /**
    * Envoyer des notifications à plusieurs utilisateurs
