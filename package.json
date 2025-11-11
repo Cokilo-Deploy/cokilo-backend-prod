@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node dist/app.js",
     "dev": "nodemon src/app.ts",
-    "build": "npx tsc",
+    "build": "tsc",
+    "prebuild": "npm install -g typescript",
     "test": "jest",
     "test:models": "ts-node src/scripts/testModels.ts",
     "test:watch": "jest --watch",
