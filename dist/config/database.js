@@ -8,6 +8,11 @@ const sequelize_1 = require("sequelize");
 const pg_1 = require("pg");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
+console.log('🔍 Configuration DB utilisée:');
+console.log('DB_HOST:', process.env.DB_HOST);
+console.log('DB_NAME:', process.env.DB_NAME);
+console.log('DB_USER:', process.env.DB_USER);
+console.log('DB_PORT:', process.env.DB_PORT);
 // Pool avec timeout augmenté
 exports.db = new pg_1.Pool({
     host: process.env.DB_HOST || 'localhost',
@@ -19,7 +24,6 @@ exports.db = new pg_1.Pool({
     idleTimeoutMillis: 60000, // Augmenté à 60s
     connectionTimeoutMillis: 60000, // Augmenté à 60s
 });
-// Sequelize simplifié
 const sequelize = new sequelize_1.Sequelize({
     dialect: 'postgres',
     host: process.env.DB_HOST || 'localhost',
@@ -28,6 +32,12 @@ const sequelize = new sequelize_1.Sequelize({
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME || 'baggage_sharing',
     logging: false,
+    dialectOptions: {
+        ssl: {
+            require: true,
+            rejectUnauthorized: false
+        }
+    },
     pool: {
         max: 3,
         min: 0,
@@ -36,13 +46,16 @@ const sequelize = new sequelize_1.Sequelize({
     }
 });
 exports.sequelize = sequelize;
-// Supprimez le test de connexion Pool qui cause le timeout
-// db.connect() - SUPPRIMÉ
 // Gardez seulement le test Sequelize
+// Dans config/database.ts
 const connectDB = async () => {
     try {
-        await sequelize.authenticate();
-        console.log('Base de données connectée');
+        console.log('Tentative d\'authentification DB...');
+        // Ajouter un timeout de 30 secondes
+        const authPromise = sequelize.authenticate();
+        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout connexion DB (30s)')), 30000));
+        await Promise.race([authPromise, timeoutPromise]);
+        console.log('Authentification DB réussie');
     }
     catch (error) {
         console.error('Erreur connexion DB:', error);

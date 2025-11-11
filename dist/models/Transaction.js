@@ -115,7 +115,6 @@ Transaction.init({
         allowNull: false,
         validate: {
             min: 0.1,
-            max: 50,
         },
     },
     packageValue: {
@@ -237,7 +236,7 @@ Transaction.init({
                 transaction.pickupCode = generateCode();
             }
             if (!transaction.serviceFee) {
-                transaction.serviceFee = parseFloat((transaction.amount * 0.10).toFixed(2));
+                transaction.serviceFee = parseFloat((transaction.amount * 0.30).toFixed(2));
             }
             if (!transaction.travelerAmount) {
                 transaction.travelerAmount = parseFloat((transaction.amount - transaction.serviceFee).toFixed(2));
@@ -259,6 +258,11 @@ Transaction.init({
                         transaction.paymentReleasedAt = now;
                         break;
                 }
+                // AJOUT : Notification automatique
+                setTimeout(() => {
+                    const { NotificationService } = require('../services/NotificationService');
+                    NotificationService.notifyTransactionUpdate(transaction);
+                }, 100);
             }
         },
     },

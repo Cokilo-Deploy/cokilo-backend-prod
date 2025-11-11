@@ -15,3 +15,5 @@ router.post('/start', VerificationController_1.VerificationController.startVerif
 router.get('/status', VerificationController_1.VerificationController.checkStatus);
 // Webhook Stripe (pas d'auth requise - on retire le middleware pour cette route)
 router.post('/webhook', express_1.default.raw({ type: 'application/json' }), VerificationController_1.VerificationController.stripeWebhook);
+console.log('Routes de vérification chargées');
+router.post('/stripe-data', auth_1.authMiddleware, VerificationController_1.VerificationController.submitStripeData);

@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -82,14 +115,6 @@ class ChatSocketServer {
                 this.connectedUsers.set(userId, new Set());
             }
             this.connectedUsers.get(userId).add(socket.id);
-            // Enregistrer en base
-            await models_1.UserPresence.create({
-                userId,
-                socketId: socket.id,
-                isOnline: true,
-                lastSeen: new Date(),
-                deviceInfo: socket.handshake.headers['user-agent']?.substring(0, 100)
-            });
             // Notifier les autres utilisateurs
             socket.broadcast.emit('user_online', { userId });
         }
@@ -121,8 +146,6 @@ class ChatSocketServer {
                     });
                 }
             });
-            // Mettre à jour en base
-            await models_1.UserPresence.update({ isOnline: false, lastSeen: new Date() }, { where: { userId, socketId: socket.id } });
             console.log(`❌ Utilisateur ${socket.userInfo?.firstName} (${userId}) déconnecté (socket ${socket.id})`);
         }
         catch (error) {
@@ -190,6 +213,18 @@ class ChatSocketServer {
                     ]
                 }
             });
+            try {
+                const receiverId = conversation.user1Id === socket.userId
+                    ? conversation.user2Id
+                    : conversation.user1Id;
+                const senderName = `${socket.userInfo.firstName} ${socket.userInfo.lastName}`;
+                // Import nécessaire en haut du fichier
+                const { NotificationService } = await Promise.resolve().then(() => __importStar(require('../services/NotificationService')));
+                await NotificationService.notifyNewMessage(socket.userId, receiverId, conversationId, content?.trim() || 'Pièce jointe', senderName);
+            }
+            catch (notificationError) {
+                console.error('Erreur notification message:', notificationError);
+            }
             if (!conversation) {
                 socket.emit('error', { message: 'Conversation non trouvée', code: 'CONVERSATION_NOT_FOUND' });
                 return;
@@ -200,10 +235,7 @@ class ChatSocketServer {
                 senderId: socket.userId,
                 content: content?.trim() || '',
                 messageType,
-                attachmentUrl,
-                attachmentType,
-                replyToId,
-                status: chat_1.ChatMessageStatus.SENT
+                attachmentUrl
             });
             // Charger le message complet avec les relations
             const fullMessage = await models_1.ChatMessage.findByPk(message.id, {
@@ -227,7 +259,6 @@ class ChatSocketServer {
             });
             // Mettre à jour la conversation
             await conversation.update({
-                lastMessageId: message.id,
                 lastMessageAt: new Date()
             });
             // Envoyer à tous les participants
@@ -239,7 +270,7 @@ class ChatSocketServer {
             });
             // Marquer comme livré
             setTimeout(async () => {
-                await message.update({ status: chat_1.ChatMessageStatus.DELIVERED });
+                //await message.update({ status: ChatMessageStatus.DELIVERED });
                 this.io.to(`conversation_${conversationId}`).emit('message_delivered', {
                     messageId: message.id,
                     conversationId

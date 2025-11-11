@@ -4,6 +4,29 @@ exports.ChatConversation = void 0;
 const sequelize_1 = require("sequelize");
 const database_1 = require("../config/database");
 class ChatConversation extends sequelize_1.Model {
+    // NOUVELLE MÉTHODE: Pour définir les associations
+    static associate(models) {
+        // Association avec User pour user1
+        ChatConversation.belongsTo(models.User, {
+            foreignKey: 'user1Id',
+            as: 'user1'
+        });
+        // Association avec User pour user2
+        ChatConversation.belongsTo(models.User, {
+            foreignKey: 'user2Id',
+            as: 'user2'
+        });
+        // Association avec Transaction
+        ChatConversation.belongsTo(models.Transaction, {
+            foreignKey: 'transactionId',
+            as: 'transaction'
+        });
+        // Association avec ChatMessage pour les messages
+        ChatConversation.hasMany(models.ChatMessage, {
+            foreignKey: 'conversationId',
+            as: 'messages'
+        });
+    }
 }
 exports.ChatConversation = ChatConversation;
 ChatConversation.init({
@@ -43,14 +66,6 @@ ChatConversation.init({
     status: {
         type: sequelize_1.DataTypes.STRING,
         defaultValue: 'active',
-    },
-    lastMessageId: {
-        type: sequelize_1.DataTypes.INTEGER,
-        allowNull: true,
-        references: {
-            model: 'chat_messages',
-            key: 'id',
-        },
     },
     isArchived: {
         type: sequelize_1.DataTypes.BOOLEAN,

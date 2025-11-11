@@ -7,6 +7,9 @@ const trip_1 = require("../types/trip");
 const User_1 = require("../models/User");
 const userAccess_1 = require("../utils/userAccess");
 const TripCapacityService_1 = require("../services/TripCapacityService");
+const TranslationService_1 = require("../services/TranslationService");
+const responseHelpers_1 = require("../utils/responseHelpers");
+const errorCodes_1 = require("../utils/errorCodes");
 class TripController {
     static async getAvailableTrips(req, res) {
         try {
@@ -29,87 +32,94 @@ class TripController {
             const tripsWithCapacity = await Promise.all(trips.map(async (trip) => {
                 const reservedWeight = await TripCapacityService_1.TripCapacityService.calculateReservedWeight(trip.id);
                 const availableWeight = trip.capacityKg - reservedWeight;
-                return {
+                const tripData = {
                     ...trip.toJSON(),
                     reservedWeight,
                     availableWeight,
                     capacityPercentage: Math.round((reservedWeight / trip.capacityKg) * 100),
                     isOwnTrip: false
                 };
+                // Ajouter les traductions
+                return TranslationService_1.translationService.formatTripForAPI(tripData, user);
             }));
-            // Filtrer après calcul pour ne garder que les voyages avec capacité disponible
             const availableTrips = tripsWithCapacity.filter(trip => trip.availableWeight > 0);
-            res.json({
-                success: true,
-                data: { trips: availableTrips }
-            });
+            const tripsWithCurrency = availableTrips.map(trip => ({
+                ...trip,
+                displayCurrency: 'EUR',
+                currencySymbol: '€'
+            }));
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.trips_loaded', { trips: tripsWithCurrency }, 200, user);
         }
         catch (error) {
             console.error('Erreur récupération voyages:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Erreur récupération voyages'
-            });
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.error_loading_trips', null, 500, req.user);
         }
     }
     static async getAllTrips(req, res) {
+        console.log('=== DEBUT getAllTrips ===');
         try {
-            console.log('BACKEND - getAllTrips appelé');
             const user = req.user;
+            const forcedCurrency = req.headers['x-force-currency'];
+            const userCurrency = forcedCurrency || user.currency;
+            console.log('DEVISE UTILISÉE:', {
+                userCurrencyFromDB: user.currency,
+                forcedCurrency,
+                finalCurrency: userCurrency
+            });
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 10;
             const offset = (page - 1) * limit;
             const whereClause = {
                 status: trip_1.TripStatus.PUBLISHED,
-                travelerId: { [sequelize_1.Op.ne]: user.id }
             };
-            const trips = await Trip_1.Trip.findAndCountAll({
+            const paginatedTrips = await Trip_1.Trip.findAll({
                 where: whereClause,
-                include: [
-                    {
+                include: [{
                         model: User_1.User,
                         as: 'traveler',
-                        attributes: ['id', 'firstName', 'lastName', 'profileName']
-                    },
-                ],
-                order: [['departureDate', 'ASC']],
-                limit: limit * 2, // Augmenter pour compenser le filtrage
-                offset,
+                        attributes: ['id', 'firstName', 'lastName', 'profileName', 'rating', 'avatar']
+                    }],
+                order: [['createdAt', 'DESC']],
+                limit,
+                offset
             });
-            const tripsWithCapacity = await Promise.all(trips.rows.map(async (trip) => {
+            console.log('Trips récupérés avant conversion:', paginatedTrips.length);
+            const plainTrips = await Promise.all(paginatedTrips.map(async (trip) => {
                 const reservedWeight = await TripCapacityService_1.TripCapacityService.calculateReservedWeight(trip.id);
                 const availableWeight = trip.capacityKg - reservedWeight;
-                return {
+                //log
+                console.log(`Voyage ${trip.id}: capacityKg=${trip.capacityKg}, reserved=${reservedWeight}, available=${availableWeight}`);
+                const tripData = {
                     ...trip.toJSON(),
                     reservedWeight,
                     availableWeight,
                     capacityPercentage: Math.round((reservedWeight / trip.capacityKg) * 100),
-                    isOwnTrip: false
+                    isOwnTrip: trip.travelerId === user.id
                 };
+                return TranslationService_1.translationService.formatTripForAPI(tripData, user);
             }));
-            // Filtrer les voyages avec capacité disponible après calcul
-            const availableTrips = tripsWithCapacity.filter(trip => trip.availableWeight > 0);
-            // Limiter au nombre demandé après filtrage
-            const paginatedTrips = availableTrips.slice(0, limit);
-            res.json({
-                success: true,
-                data: {
-                    trips: paginatedTrips,
-                    pagination: {
-                        currentPage: page,
-                        totalPages: Math.ceil(availableTrips.length / limit),
-                        totalItems: availableTrips.length,
-                        itemsPerPage: limit,
-                    },
-                },
-            });
+            const availableTrips = plainTrips.filter(trip => trip.availableWeight > 0);
+            //log
+            console.log(`Total trips: ${plainTrips.length}, Disponibles: ${availableTrips.length}`);
+            const tripsWithCurrency = availableTrips.map(trip => ({
+                ...trip,
+                displayCurrency: 'EUR',
+                currencySymbol: '€'
+            }));
+            const totalTrips = await Trip_1.Trip.count({ where: whereClause });
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.trips_loaded', {
+                trips: tripsWithCurrency,
+                pagination: {
+                    currentPage: page,
+                    totalPages: Math.ceil(totalTrips / limit),
+                    totalTrips,
+                    limit
+                }
+            }, 200, user, req);
         }
         catch (error) {
             console.error('Erreur récupération voyages:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Erreur lors de la récupération des voyages',
-            });
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.error_loading_trips', null, 500, req.user);
         }
     }
     static async searchTrips(req, res) {
@@ -118,7 +128,6 @@ class TripController {
             const { from, to, date, maxWeight, maxPrice } = req.query;
             const whereConditions = {
                 status: trip_1.TripStatus.PUBLISHED,
-                travelerId: { [sequelize_1.Op.ne]: user.id }
             };
             if (from) {
                 whereConditions.departureCity = { [sequelize_1.Op.iLike]: `%${from}%` };
@@ -141,44 +150,46 @@ class TripController {
                     {
                         model: User_1.User,
                         as: 'traveler',
-                        attributes: ['id', 'firstName', 'lastName', 'profileName'],
+                        attributes: ['id', 'firstName', 'lastName', 'profileName', 'avatar'],
                     },
                 ],
                 order: [['departureDate', 'ASC']],
-                limit: 100, // Augmenter pour compenser le filtrage
+                limit: 100,
             });
             const tripsWithCapacity = await Promise.all(trips.map(async (trip) => {
                 const reservedWeight = await TripCapacityService_1.TripCapacityService.calculateReservedWeight(trip.id);
                 const availableWeight = trip.capacityKg - reservedWeight;
-                return {
+                const tripData = {
                     ...trip.toJSON(),
                     reservedWeight,
                     availableWeight,
                     capacityPercentage: Math.round((reservedWeight / trip.capacityKg) * 100),
-                    isOwnTrip: false
+                    isOwnTrip: trip.travelerId === user.id
                 };
+                return TranslationService_1.translationService.formatTripForAPI(tripData, user);
             }));
-            // Filtrer après calcul et appliquer le filtre de poids si spécifié
             let availableTrips = tripsWithCapacity.filter(trip => trip.availableWeight > 0);
             if (maxWeight) {
                 availableTrips = availableTrips.filter(trip => trip.availableWeight >= parseFloat(maxWeight));
             }
-            res.json({
-                success: true,
-                data: { trips: availableTrips.slice(0, 50) },
-            });
+            const tripsWithCurrency = availableTrips.slice(0, 50).map(trip => ({
+                ...trip,
+                displayCurrency: 'EUR',
+                currencySymbol: '€'
+            }));
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.trips_loaded', { trips: tripsWithCurrency }, 200, user);
         }
         catch (error) {
             console.error('Erreur recherche voyages:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Erreur lors de la recherche',
-            });
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.error_loading_trips', null, 500, req.user);
         }
     }
     static async createTrip(req, res) {
         try {
             const user = req.user;
+            if (!user.canCreateTrip()) {
+                return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.identity_verification_required', null, 403, user);
+            }
             const { title, description, departureCity, departureCountry, departureDate, departureAddress, departureLat, departureLng, arrivalCity, arrivalCountry, arrivalDate, arrivalAddress, arrivalLat, arrivalLng, capacityKg, pricePerKg, maxItemSize, transportMode, } = req.body;
             const trip = await Trip_1.Trip.create({
                 travelerId: user.id,
@@ -208,19 +219,15 @@ class TripController {
                 forbiddenItems: ['liquides', 'substances dangereuses'],
             });
             await user.increment('totalTrips');
-            res.status(201).json({
-                success: true,
-                data: { trip },
-                userAccess: (0, userAccess_1.getUserAccessInfo)(user),
-                message: 'Voyage créé avec succès',
-            });
+            const formattedTrip = TranslationService_1.translationService.formatTripForAPI(trip.toJSON(), user);
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.trip_created', {
+                trip: formattedTrip,
+                userAccess: (0, userAccess_1.getUserAccessInfo)(user)
+            }, 201, user);
         }
         catch (error) {
             console.error('Erreur création voyage:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Erreur création voyage',
-            });
+            return res.status(500).json((0, errorCodes_1.errorResponse)(errorCodes_1.ErrorCode.TRIP_CREATION_FAILED));
         }
     }
     static async getTripDetails(req, res) {
@@ -237,10 +244,7 @@ class TripController {
                 ],
             });
             if (!trip) {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Voyage non trouvé',
-                });
+                return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.trip_not_found', null, 404, user);
             }
             const reservedWeight = await TripCapacityService_1.TripCapacityService.calculateReservedWeight(trip.id);
             const availableWeight = trip.capacityKg - reservedWeight;
@@ -251,17 +255,17 @@ class TripController {
                 capacityPercentage: Math.round((reservedWeight / trip.capacityKg) * 100),
                 isOwnTrip: trip.travelerId === user.id
             };
-            res.json({
-                success: true,
-                data: { trip: tripWithCapacity },
-            });
+            const formattedTrip = TranslationService_1.translationService.formatTripForAPI(tripWithCapacity, user);
+            const tripWithCurrency = {
+                ...formattedTrip,
+                displayCurrency: 'EUR',
+                currencySymbol: '€'
+            };
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.trip_loaded', { trip: tripWithCurrency }, 200, user);
         }
         catch (error) {
             console.error('Erreur récupération voyage:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Erreur récupération voyage',
-            });
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.error_loading_trip', null, 500, req.user);
         }
     }
     static async updateTrip(req, res) {
@@ -272,27 +276,24 @@ class TripController {
                 where: { id, travelerId: user.id },
             });
             if (!trip) {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Voyage non trouvé ou non autorisé',
-                });
+                return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.trip_not_found', null, 404, user);
             }
             await trip.update(req.body);
             if (req.body.capacityKg) {
                 await TripCapacityService_1.TripCapacityService.updateTripVisibility();
             }
-            res.json({
+            const formattedTrip = TranslationService_1.translationService.formatTripForAPI(trip.toJSON(), user);
+            return res.status(200).json({
                 success: true,
-                data: { trip },
-                message: 'Voyage mis à jour',
+                message: TranslationService_1.translationService.t('msg.trip_updated', user, 'Voyage mis à jour'),
+                data: { trip: formattedTrip },
+                locale: user?.language || 'fr',
+                currency: user.currency
             });
         }
         catch (error) {
             console.error('Erreur mise à jour voyage:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Erreur mise à jour voyage',
-            });
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.error_loading_trip', null, 500, req.user);
         }
     }
     static async deleteTrip(req, res) {
@@ -303,23 +304,19 @@ class TripController {
                 where: { id, travelerId: user.id },
             });
             if (!trip) {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Voyage non trouvé ou non autorisé',
-                });
+                return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.trip_not_found', null, 404, user);
             }
             await trip.update({ status: trip_1.TripStatus.CANCELLED });
-            res.json({
+            return res.status(200).json({
                 success: true,
-                message: 'Voyage supprimé',
+                message: TranslationService_1.translationService.t('msg.trip_deleted', user, 'Voyage supprimé'),
+                locale: user?.language || 'fr',
+                currency: user.currency
             });
         }
         catch (error) {
             console.error('Erreur suppression voyage:', error);
-            res.status(500).json({
-                success: false,
-                error: 'Erreur suppression voyage',
-            });
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.error_loading_trip', null, 500, req.user);
         }
     }
 }

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UserPresence = exports.ChatMessage = exports.ChatConversation = exports.Transaction = exports.Trip = exports.User = exports.syncModels = void 0;
+exports.Location = exports.Country = exports.Review = exports.ChatMessage = exports.ChatConversation = exports.Transaction = exports.Trip = exports.User = exports.syncModels = void 0;
 //src/models/index.ts
 const User_1 = require("./User");
 Object.defineProperty(exports, "User", { enumerable: true, get: function () { return User_1.User; } });
@@ -13,8 +13,11 @@ Object.defineProperty(exports, "ChatConversation", { enumerable: true, get: func
 const ChatMessage_1 = require("./ChatMessage");
 Object.defineProperty(exports, "ChatMessage", { enumerable: true, get: function () { return ChatMessage_1.ChatMessage; } });
 const Review_1 = require("./Review");
-const UserPresence_1 = require("./UserPresence");
-Object.defineProperty(exports, "UserPresence", { enumerable: true, get: function () { return UserPresence_1.UserPresence; } });
+Object.defineProperty(exports, "Review", { enumerable: true, get: function () { return Review_1.Review; } });
+const Country_1 = require("./Country");
+Object.defineProperty(exports, "Country", { enumerable: true, get: function () { return Country_1.Country; } });
+const Location_1 = require("./Location");
+Object.defineProperty(exports, "Location", { enumerable: true, get: function () { return Location_1.Location; } });
 // ======= RELATIONS EXISTANTES =======
 // Relations User -> Trip
 User_1.User.hasMany(Trip_1.Trip, {
@@ -121,41 +124,49 @@ Review_1.Review.belongsTo(User_1.User, {
     foreignKey: 'revieweeId',
     as: 'reviewee'
 });
-// User -> UserPresence
-User_1.User.hasMany(UserPresence_1.UserPresence, {
-    foreignKey: 'userId',
-    as: 'presences'
-});
-UserPresence_1.UserPresence.belongsTo(User_1.User, {
-    foreignKey: 'userId',
-    as: 'user'
-});
 // ======= SYNCHRONISATION DES MODÈLES =======
 const syncModels = async () => {
     try {
         console.log('Modèles chat importés:', ChatConversation_1.ChatConversation.name, ChatMessage_1.ChatMessage.name);
-        if (process.env.NODE_ENV === 'development') {
-            // Synchroniser les modèles existants
-            await User_1.User.sync({ alter: true });
-            await Trip_1.Trip.sync({ alter: true });
-            await Transaction_1.Transaction.sync({ alter: true });
-            // Synchroniser les nouveaux modèles chat
-            await ChatConversation_1.ChatConversation.sync({ alter: true });
-            await ChatMessage_1.ChatMessage.sync({ alter: true });
-            await UserPresence_1.UserPresence.sync({ alter: true }); // AJOUTEZ CETTE LIGNE
-            //Synchroniser les modeles Review
-            await Review_1.Review.sync({ alter: true });
-            console.log('✅ Modèles synchronisés (incluant le chat)');
+        // CORRECTION: Tester les associations
+        try {
+            const testQuery = await ChatConversation_1.ChatConversation.findOne({
+                include: [
+                    {
+                        model: User_1.User,
+                        as: 'user1',
+                        attributes: ['id', 'firstName', 'lastName'],
+                        required: false
+                    },
+                    {
+                        model: User_1.User,
+                        as: 'user2',
+                        attributes: ['id', 'firstName', 'lastName'],
+                        required: false
+                    },
+                    {
+                        model: Transaction_1.Transaction,
+                        as: 'transaction',
+                        attributes: ['id', 'packageDescription'],
+                        required: false
+                    }
+                ],
+                limit: 1
+            });
+            console.log('✅ Test associations chat réussi');
+            if (testQuery) {
+                console.log('📋 Exemple conversation trouvée avec utilisateurs:', {
+                    id: testQuery.id,
+                    user1: testQuery.user1 ? `${testQuery.user1.firstName} ${testQuery.user1.lastName}` : 'N/A',
+                    user2: testQuery.user2 ? `${testQuery.user2.firstName} ${testQuery.user2.lastName}` : 'N/A'
+                });
+            }
         }
-        else {
-            // En production
-            await User_1.User.sync();
-            await Trip_1.Trip.sync();
-            await Transaction_1.Transaction.sync();
-            await ChatConversation_1.ChatConversation.sync();
-            await ChatMessage_1.ChatMessage.sync();
-            console.log('✅ Modèles synchronisés (production, incluant le chat)');
+        catch (associationError) {
+            console.warn('⚠️ Erreur test associations:', associationError.message);
         }
+        // Mode production - utilisation des tables existantes sans synchronisation
+        console.log('✅ Mode production - utilisation des tables existantes');
     }
     catch (error) {
         console.error('❌ Erreur synchronisation modèles:', error);

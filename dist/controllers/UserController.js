@@ -5,6 +5,8 @@ const User_1 = require("../models/User");
 const userAccess_1 = require("../utils/userAccess");
 const sequelize_1 = require("sequelize");
 const Review_1 = require("../models/Review");
+const models_1 = require("../models");
+const responseHelpers_1 = require("../utils/responseHelpers");
 class UserController {
     // GET /api/users/profile - Profil utilisateur
     static async getProfile(req, res) {
@@ -26,7 +28,6 @@ class UserController {
                         lastName: req.user.lastName,
                         phone: req.user.phone,
                         avatar: req.user.avatar,
-                        bio: req.user.bio,
                         rating: req.user.rating,
                         totalTrips: req.user.totalTrips,
                         totalDeliveries: req.user.totalDeliveries,
@@ -173,7 +174,7 @@ class UserController {
         }
         catch (error) {
             console.error('Erreur récupération infos utilisateur:', error);
-            res.status(500).json({ success: false, error: 'Erreur serveur' });
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.server_error', null, 500, req.user);
         }
     }
     // Upload avatar utilisateur
@@ -210,7 +211,43 @@ class UserController {
         }
         catch (error) {
             console.error('Erreur upload avatar:', error);
-            res.status(500).json({ success: false, error: 'Erreur serveur' });
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.server_error', null, 500, req.user);
+        }
+    }
+    // Dans controllers/UserController.ts, ajoutez cette méthode
+    static async getUserStats(req, res) {
+        try {
+            const userId = req.user.id;
+            console.log('DEBUG - User ID reçu:', userId);
+            // Test 1: Vérifier si l'utilisateur a des données
+            console.log('DEBUG - Test de requête...');
+            // Remplacez par le vrai nom de votre table de voyages
+            const voyagesCreated = await models_1.Trip.count({
+                where: { travelerId: userId } // ou createdBy, ownerId, etc.
+            });
+            console.log('DEBUG - Voyages trouvés:', voyagesCreated);
+            // Remplacez par le vrai nom de votre table de transactions  
+            const colisEnvoyes = await models_1.Transaction.count({
+                where: { senderId: userId } // ou userId, createdBy, etc.
+            });
+            console.log('DEBUG - Colis trouvés:', colisEnvoyes);
+            // Test 2: Compter toutes les entrées pour voir si les tables ont des données
+            const totalVoyages = await models_1.Trip.count();
+            const totalColis = await models_1.Transaction.count();
+            console.log('DEBUG - Total voyages dans la DB:', totalVoyages);
+            console.log('DEBUG - Total colis dans la DB:', totalColis);
+            res.json({
+                success: true,
+                voyagesCreated,
+                colisEnvoyes
+            });
+        }
+        catch (error) {
+            console.error('Erreur complète:', error);
+            res.status(500).json({
+                success: false,
+                error: 'Erreur lors de la récupération des statistiques'
+            });
         }
     }
 }

@@ -9,7 +9,7 @@ const sequelize_1 = require("sequelize");
 const database_1 = require("../config/database");
 const user_1 = require("../types/user");
 Object.defineProperty(exports, "UserVerificationStatus", { enumerable: true, get: function () { return user_1.UserVerificationStatus; } });
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
+const bcrypt_1 = __importDefault(require("bcrypt"));
 class User extends sequelize_1.Model {
     canViewTrips() {
         return this.isActive && this.verificationStatus !== user_1.UserVerificationStatus.SUSPENDED;
@@ -22,6 +22,15 @@ class User extends sequelize_1.Model {
     }
     canChat() {
         return this.verificationStatus === user_1.UserVerificationStatus.VERIFIED;
+    }
+    canUseStripeConnect() {
+        return this.paymentMethod === 'stripe_connect' &&
+            this.stripeConnectedAccountId !== null &&
+            ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT'].includes(this.country || '');
+    }
+    getRecommendedPaymentMethod() {
+        const euCountries = ['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'LU', 'FI', 'IE', 'GR'];
+        return euCountries.includes(this.country || '') ? 'stripe_connect' : 'manual';
     }
     getFullName() {
         return `${this.firstName} ${this.lastName}`;
@@ -40,7 +49,7 @@ class User extends sequelize_1.Model {
         };
     }
     async validatePassword(password) {
-        return bcryptjs_1.default.compare(password, this.password);
+        return bcrypt_1.default.compare(password, this.password);
     }
 }
 exports.User = User;
@@ -82,7 +91,11 @@ User.init({
     },
     phone: {
         type: sequelize_1.DataTypes.STRING,
-        allowNull: false,
+        allowNull: true,
+        unique: {
+            name: 'unique_phone',
+            msg: 'Ce numéro de téléphone est déjà utilisé'
+        },
         validate: {
             len: [10, 20],
         },
@@ -107,6 +120,25 @@ User.init({
         type: sequelize_1.DataTypes.STRING,
         allowNull: true,
         unique: true,
+    },
+    stripeConnectedAccountId: {
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: true,
+        unique: true,
+        field: 'stripeconnectedaccountid' // AJOUTER cette ligne
+    },
+    country: {
+        type: sequelize_1.DataTypes.STRING(3),
+        allowNull: true,
+        validate: {
+            isIn: [['FR', 'DE', 'ES', 'IT', 'NL', 'BE', 'AT', 'PT', 'DZ', 'MA', 'TN', 'US', 'GB', 'CA']],
+        },
+    },
+    paymentMethod: {
+        type: sequelize_1.DataTypes.ENUM('manual', 'stripe_connect'),
+        allowNull: false,
+        defaultValue: 'manual',
+        field: 'paymentmethod' // AJOUTER cette ligne
     },
     role: {
         type: sequelize_1.DataTypes.ENUM('user', 'admin'),
@@ -157,7 +189,7 @@ User.init({
         type: sequelize_1.DataTypes.STRING(3),
         defaultValue: 'EUR',
         validate: {
-            isIn: [['EUR', 'USD', 'GBP', 'CAD', 'CHF']],
+            isIn: [['EUR', 'USD', 'GBP', 'CAD', 'CHF', 'DZD', 'MAD', 'TND', 'EGP', 'SAR', 'AED']],
         },
     },
     timezone: {
@@ -192,6 +224,63 @@ User.init({
             len: [2, 50],
         },
     },
+    addressLine1: {
+        type: sequelize_1.DataTypes.STRING(255),
+        allowNull: true,
+        field: 'address_line1'
+    },
+    addressCity: {
+        type: sequelize_1.DataTypes.STRING(100),
+        allowNull: true,
+        field: 'address_city'
+    },
+    addressPostalCode: {
+        type: sequelize_1.DataTypes.STRING(20),
+        allowNull: true,
+        field: 'address_postal_code'
+    },
+    dateOfBirth: {
+        type: sequelize_1.DataTypes.DATEONLY,
+        allowNull: true,
+        field: 'date_of_birth'
+    },
+    stripeTermsAccepted: {
+        type: sequelize_1.DataTypes.BOOLEAN,
+        defaultValue: false,
+        field: 'stripe_terms_accepted'
+    },
+    stripeTermsAcceptedAt: {
+        type: sequelize_1.DataTypes.DATE,
+        allowNull: true,
+        field: 'stripe_terms_accepted_at'
+    },
+    pushToken: {
+        type: sequelize_1.DataTypes.TEXT,
+        allowNull: true,
+    },
+    deviceType: {
+        type: sequelize_1.DataTypes.STRING(20),
+        allowNull: true,
+        defaultValue: 'unknown'
+    },
+    verificationCode: {
+        type: sequelize_1.DataTypes.STRING(6),
+        allowNull: true,
+        field: 'verificationcode'
+    },
+    verificationCodeExpires: {
+        type: sequelize_1.DataTypes.DATE,
+        allowNull: true,
+        field: 'verificationcodeexpires'
+    },
+    resetPasswordToken: {
+        type: sequelize_1.DataTypes.STRING,
+        allowNull: true,
+    },
+    resetPasswordExpiry: {
+        type: sequelize_1.DataTypes.DATE,
+        allowNull: true,
+    },
 }, {
     sequelize: database_1.sequelize,
     modelName: 'User',
@@ -199,12 +288,12 @@ User.init({
     hooks: {
         beforeCreate: async (user) => {
             if (user.password) {
-                user.password = await bcryptjs_1.default.hash(user.password, 12);
+                user.password = await bcrypt_1.default.hash(user.password, 12);
             }
         },
         beforeUpdate: async (user) => {
             if (user.changed('password')) {
-                user.password = await bcryptjs_1.default.hash(user.password, 12);
+                user.password = await bcrypt_1.default.hash(user.password, 12);
             }
         },
     },
@@ -223,7 +312,31 @@ User.init({
             },
         },
         {
+            fields: ['stripeConnectedAccountId'],
+            unique: true,
+            where: {
+                stripeConnectedAccountId: {
+                    [sequelize_1.Op.ne]: null,
+                },
+            },
+        },
+        {
+            fields: ['country'],
+        },
+        {
+            fields: ['paymentMethod'],
+        },
+        {
             fields: ['verificationStatus'],
+        },
+        {
+            fields: ['phone'],
+            unique: true,
+            where: {
+                phone: {
+                    [sequelize_1.Op.ne]: null,
+                },
+            },
         },
     ],
 });

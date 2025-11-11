@@ -63,9 +63,6 @@ class ChatController {
                         isRead: false
                     }
                 });
-                const presence = await models_1.UserPresence.findOne({
-                    where: { userId: otherUser.id, isOnline: true }
-                });
                 return {
                     id: conv.id,
                     transactionId: conv.transactionId,
@@ -75,8 +72,8 @@ class ChatController {
                         lastName: otherUser.lastName,
                         avatar: otherUser.avatar,
                         verificationStatus: otherUser.verificationStatus,
-                        isOnline: !!presence,
-                        lastSeen: presence?.lastSeen
+                        isOnline: false,
+                        lastSeen: null,
                     },
                     lastMessage: conv.lastMessage ? {
                         id: conv.lastMessage.id,
@@ -272,24 +269,6 @@ class ChatController {
         }
     }
     // GET /api/chat/online-users
-    async getOnlineUsers(req, res) {
-        try {
-            const onlineUsers = await models_1.UserPresence.findAll({
-                where: { isOnline: true },
-                include: [{
-                        model: User_1.User,
-                        as: 'user',
-                        attributes: ['id', 'firstName', 'lastName', 'avatar', 'verificationStatus']
-                    }],
-                attributes: ['userId', 'lastSeen']
-            });
-            res.json({ onlineUsers });
-        }
-        catch (error) {
-            console.error('❌ Erreur récupération utilisateurs en ligne:', error);
-            res.status(500).json({ error: 'Erreur serveur' });
-        }
-    }
     // PATCH /api/chat/conversations/:id/archive
     async archiveConversation(req, res) {
         try {

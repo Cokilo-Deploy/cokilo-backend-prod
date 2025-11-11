@@ -10,7 +10,7 @@ const Transaction_1 = require("../models/Transaction");
 const transaction_1 = require("../types/transaction");
 const deliveryService_1 = require("../services/deliveryService");
 const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2025-07-30.basil',
+    apiVersion: '2025-08-27.basil',
 });
 class WebhookController {
     static async handleStripeWebhook(req, res) {

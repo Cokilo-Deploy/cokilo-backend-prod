@@ -4,10 +4,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.StripeIdentityService = void 0;
+//src/services/StripeIdentityService.ts
 const stripe_1 = __importDefault(require("stripe"));
 const User_1 = require("../models/User");
 const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2025-07-30.basil',
+    apiVersion: '2025-08-27.basil',
 });
 class StripeIdentityService {
     // Créer une session de vérification d'identité

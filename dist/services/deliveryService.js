@@ -11,7 +11,7 @@ const User_1 = require("../models/User");
 const crypto_1 = __importDefault(require("crypto"));
 const stripe_1 = __importDefault(require("stripe"));
 const stripe = new stripe_1.default(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: '2025-07-30.basil',
+    apiVersion: '2025-08-27.basil',
 });
 class DeliveryService {
     static generateDeliveryCode() {

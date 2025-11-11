@@ -112,6 +112,16 @@ Trip.init({
             max: 180,
         },
     },
+    departureLocation: {
+        type: sequelize_1.DataTypes.STRING(100),
+        allowNull: true,
+        field: 'departure_location',
+    },
+    arrivalLocation: {
+        type: sequelize_1.DataTypes.STRING(100),
+        allowNull: true,
+        field: 'arrival_location',
+    },
     departureDate: {
         type: sequelize_1.DataTypes.DATE,
         allowNull: false,

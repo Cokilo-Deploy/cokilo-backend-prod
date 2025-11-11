@@ -5,6 +5,7 @@ const Review_1 = require("../models/Review");
 const Transaction_1 = require("../models/Transaction");
 const User_1 = require("../models/User");
 const transaction_1 = require("../types/transaction");
+const responseHelpers_1 = require("../utils/responseHelpers");
 class ReviewController {
     static async createReview(req, res) {
         try {
@@ -53,7 +54,7 @@ class ReviewController {
         }
         catch (error) {
             console.error('Erreur création avis:', error);
-            res.status(500).json({ success: false, error: 'Erreur serveur' });
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.server_error', null, 500, req.user);
         }
     }
     static async getUserReviews(req, res) {
@@ -114,7 +115,7 @@ class ReviewController {
         }
         catch (error) {
             console.error('Erreur récupération avis:', error);
-            res.status(500).json({ success: false, error: 'Erreur serveur' });
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.server_error', null, 500, req.user);
         }
     }
     static async getTransactionReviews(req, res) {
@@ -150,7 +151,7 @@ class ReviewController {
         }
         catch (error) {
             console.error('Erreur récupération avis transaction:', error);
-            res.status(500).json({ success: false, error: 'Erreur serveur' });
+            return (0, responseHelpers_1.sendLocalizedResponse)(res, 'msg.server_error', null, 500, req.user);
         }
     }
     static async updateUserRating(userId) {

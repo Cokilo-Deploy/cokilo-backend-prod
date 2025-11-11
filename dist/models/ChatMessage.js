@@ -41,19 +41,6 @@ ChatMessage.init({
         type: sequelize_1.DataTypes.STRING,
         allowNull: true,
     },
-    attachmentType: {
-        type: sequelize_1.DataTypes.STRING,
-        allowNull: true,
-    },
-    attachmentSize: {
-        type: sequelize_1.DataTypes.INTEGER,
-        allowNull: true,
-    },
-    status: {
-        type: sequelize_1.DataTypes.STRING,
-        allowNull: true,
-        defaultValue: 'sent',
-    },
     isRead: {
         type: sequelize_1.DataTypes.BOOLEAN,
         defaultValue: false,
@@ -61,18 +48,6 @@ ChatMessage.init({
     readAt: {
         type: sequelize_1.DataTypes.DATE,
         allowNull: true,
-    },
-    editedAt: {
-        type: sequelize_1.DataTypes.DATE,
-        allowNull: true,
-    },
-    replyToId: {
-        type: sequelize_1.DataTypes.INTEGER,
-        allowNull: true,
-        references: {
-            model: 'chat_messages',
-            key: 'id',
-        },
     },
 }, {
     sequelize: database_1.sequelize,
