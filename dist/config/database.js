@@ -15,22 +15,22 @@ console.log('DB_USER:', process.env.DB_USER);
 console.log('DB_PORT:', process.env.DB_PORT);
 // Pool avec timeout augmenté
 exports.db = new pg_1.Pool({
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST || 'postgres.railway.internal',
     port: parseInt(process.env.DB_PORT || '5432'),
     user: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME || 'baggage_sharing',
+    database: process.env.DB_NAME || 'railway',
     max: 3, // Réduit
     idleTimeoutMillis: 60000, // Augmenté à 60s
     connectionTimeoutMillis: 60000, // Augmenté à 60s
 });
 const sequelize = new sequelize_1.Sequelize({
     dialect: 'postgres',
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST || 'postgres.railway.internal',
     port: parseInt(process.env.DB_PORT || '5432'),
     username: process.env.DB_USER || 'postgres',
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME || 'baggage_sharing',
+    database: process.env.DB_NAME || 'railway',
     logging: false,
     dialectOptions: {
         ssl: {
